@@ -26,7 +26,7 @@ import {
   type RouterConfig,
 } from "./types.ts";
 import { CTParams } from "./parsers.ts";
-import { walk, dynamicImport } from "./utils.node.ts";
+import { walk, dynamicImport } from "./utils.deno.ts";
 
 const EMPTY_PARAMS = Object.freeze({});
 const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
