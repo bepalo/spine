@@ -258,15 +258,14 @@ export type BaseContext = {
   params: Record<string, string>;
   pathname: string;
   $pathname: string[];
-  error?: Error | HttpError;
 };
 
 export type Context<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = BaseContext & ExtendContext;
 
-export type CTXError = { error: Error | HttpError };
-export type CTXResponse = { response: Response };
+export type CTError = { error: Error | HttpError };
+export type CTResponse = { response: Response };
 
 export type RespondContext<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
@@ -279,8 +278,8 @@ export type RouterConfig<
   enable?: Partial<Record<HandlerType, boolean>>;
   defaultFilter?: Handler<Context<ExtendContext>>;
   defaultFallback?: Handler<Context<ExtendContext>>;
-  defaultCatcher?: Handler<Context<CTXError & ExtendContext>>;
-  defaultAfter?: Handler<Context<CTXResponse & ExtendContext>>;
+  defaultCatcher?: Handler<Context<CTError & ExtendContext>>;
+  defaultAfter?: Handler<Context<CTResponse & ExtendContext>>;
 };
 
 export interface RouteEntry<

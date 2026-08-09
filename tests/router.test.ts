@@ -8,8 +8,8 @@ import {
   HttpError,
   RouterError,
 } from "../src/types.ts";
-import type { Context, CTXError, CTXResponse } from "../src/types.ts";
-import { parseQuery, type CTXQuery } from "../src/parsers.ts";
+import type { Context, CTError, CTResponse } from "../src/types.ts";
+import { parseQuery, type CTQuery } from "../src/parsers.ts";
 
 // Test helpers
 const createRequest = (
@@ -735,7 +735,7 @@ describe("Router", () => {
 
     it("should use defaultCatcher if configured", async () => {
       const router = new Router({
-        defaultCatcher: (ctx: Context<CTXError>) => {
+        defaultCatcher: (ctx: Context<CTError>) => {
           return text(`Error caught: ${ctx.error?.message}`, { status: 500 });
         },
       });
@@ -757,7 +757,7 @@ describe("Router", () => {
 
       router.get("/test", () => text("OK"));
 
-      router.afterGet("/test", (ctx: Context<CTXResponse>) => {
+      router.afterGet("/test", (ctx: Context<CTResponse>) => {
         afterCalled = true;
         ctx.response.headers.set("X-Custom", "after");
       });
@@ -930,12 +930,12 @@ describe("Router", () => {
     });
 
     it("should provide query parameters", async () => {
-      const router = new Router<CTXQuery>();
+      const router = new Router<CTQuery>();
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTXQuery>) => {
+        (ctx: Context<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1536,12 +1536,12 @@ describe("Router - Additional Tests", () => {
 
   describe("Query Parameter Parsing", () => {
     it("should parse multiple query parameters", async () => {
-      const router = new Router<CTXQuery>();
+      const router = new Router<CTQuery>();
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTXQuery>) => {
+        (ctx: Context<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1554,12 +1554,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle query parameters with special characters", async () => {
-      const router = new Router<CTXQuery>();
+      const router = new Router<CTQuery>();
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTXQuery>) => {
+        (ctx: Context<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1573,12 +1573,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle duplicate query parameters (last one wins)", async () => {
-      const router = new Router<CTXQuery>();
+      const router = new Router<CTQuery>();
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTXQuery>) => {
+        (ctx: Context<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1589,12 +1589,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle empty query parameters", async () => {
-      const router = new Router<CTXQuery>();
+      const router = new Router<CTQuery>();
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTXQuery>) => {
+        (ctx: Context<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1647,7 +1647,7 @@ describe("Router - Additional Tests", () => {
 
     it("should handle errors in default handlers", async () => {
       const router = new Router({
-        defaultCatcher: (ctx: Context<CTXError>) => {
+        defaultCatcher: (ctx: Context<CTError>) => {
           return text(`Default: ${ctx.error?.message}`, { status: 500 });
         },
       });

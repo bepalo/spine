@@ -8,7 +8,7 @@ import {
   HttpError,
   RouterError,
 } from "../src/types.ts";
-import type { Context, CTXError, CTXResponse } from "../src/types.ts";
+import type { Context, CTError, CTResponse } from "../src/types.ts";
 
 // Test helpers
 const createRequest = (
@@ -411,7 +411,7 @@ describe("Router Handler Methods", () => {
 
       router.get("/test", () => text("OK"));
 
-      router.after("Get /test", (ctx: Context<CTXResponse>) => {
+      router.after("Get /test", (ctx: Context<CTResponse>) => {
         spy();
         ctx.response.headers.set("X-After", "true");
       });
@@ -427,7 +427,7 @@ describe("Router Handler Methods", () => {
 
       router.get("/test", () => text("OK"));
 
-      router.afterGet("/test", (ctx: Context<CTXResponse>) => {
+      router.afterGet("/test", (ctx: Context<CTResponse>) => {
         spy();
         ctx.response.headers.set("X-After", "true");
       });
@@ -443,7 +443,7 @@ describe("Router Handler Methods", () => {
 
       router.all("/test", () => text("OK"));
 
-      router.afterAll("/test", (ctx: Context<CTXResponse>) => {
+      router.afterAll("/test", (ctx: Context<CTResponse>) => {
         spy();
         ctx.response.headers.set("X-After", "true");
       });
@@ -462,7 +462,7 @@ describe("Router Handler Methods", () => {
 
       router.crud("/test", () => text("OK"));
 
-      router.afterCrud("/test", (ctx: Context<CTXResponse>) => {
+      router.afterCrud("/test", (ctx: Context<CTResponse>) => {
         spy();
         ctx.response.headers.set("X-After", "true");
       });
@@ -813,7 +813,7 @@ describe("Router Handler Methods", () => {
         return text("OK");
       });
 
-      router.afterGet("/test", (ctx: Context<CTXResponse>) => {
+      router.afterGet("/test", (ctx: Context<CTResponse>) => {
         order.push("after");
         ctx.response.headers.set("X-Order", "filter->handler->after");
       });
@@ -939,7 +939,7 @@ describe("Router Handler Methods", () => {
       });
 
       // After
-      router.afterGet("/users/:id", (ctx: Context<CTXResponse>) => {
+      router.afterGet("/users/:id", (ctx: Context<CTResponse>) => {
         expect(ctx.params.id).toBe("123");
       });
 
@@ -1074,7 +1074,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultCatcher", async () => {
       const spy = createSpy();
       const router = new Router({
-        defaultCatcher: (ctx: Context<CTXError>) => {
+        defaultCatcher: (ctx: Context<CTError>) => {
           spy();
           return text(`Default catch: ${ctx.error?.message}`, { status: 500 });
         },
@@ -1092,7 +1092,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultAfter", async () => {
       const spy = createSpy();
       const router = new Router({
-        defaultAfter: (ctx: Context<CTXResponse>) => {
+        defaultAfter: (ctx: Context<CTResponse>) => {
           spy();
           ctx.response.headers.set("X-Default-After", "true");
         },

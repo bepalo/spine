@@ -34,10 +34,10 @@ export type Params<
 /**
  * Context object containing parsed params.
  *
- * @type {Object} CTXParams
+ * @type {Object} CTParams
  * @property {Record<string, string>} params - Parsed params
  */
-export type CTXParams<
+export type CTParams<
   Keys extends string = string,
   ExtendParams extends Record<Keys, string> | Record<string, string | unknown> =
     {},
@@ -62,10 +62,10 @@ export type Query<
  * @template {string} Keys - Keys to extend context Query. "q"|"search"
  * @template {Record<string, unknown>} ExtendQuery - Extend context Query
  *
- * @type {Object} CTXQuery
+ * @type {Object} CTQuery
  * @property {Record<string, string>} query - Parsed query
  */
-export type CTXQuery<
+export type CTQuery<
   Keys extends string = string,
   ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> =
     {},
@@ -87,8 +87,8 @@ export const parseQuery = <
   ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> =
     {},
   ExtendContext extends Record<string, unknown> = EmptyRecord,
->(): Handler<ExtendContext & CTXQuery<Keys, ExtendQuery>> => {
-  return (ctx: Context<CTXQuery<Keys, ExtendQuery> & ExtendContext>) => {
+>(): Handler<ExtendContext & CTQuery<Keys, ExtendQuery>> => {
+  return (ctx: Context<CTQuery<Keys, ExtendQuery> & ExtendContext>) => {
     if (ctx.query == null) {
       ctx.query = {} as Query<Keys, ExtendQuery>;
     }
@@ -152,10 +152,10 @@ export type Cookies<
 /**
  * Context object containing parsed cookie.
  *
- * @type {Object} CTXCookie
+ * @type {Object} CTCookie
  * @property {Record<string, string|unknown>} cookie - Parsed cookie
  */
-export type CTXCookie<
+export type CTCookie<
   Keys extends string = string,
   ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> =
     {},
@@ -177,8 +177,8 @@ export const parseCookie = <
   ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> =
     {},
   ExtendContext extends Record<string, unknown> = EmptyRecord,
->(): Handler<ExtendContext & CTXCookie<Keys, ExtendCookie>> => {
-  return (ctx: Context<CTXCookie<Keys, ExtendCookie> & ExtendContext>) => {
+>(): Handler<ExtendContext & CTCookie<Keys, ExtendCookie>> => {
+  return (ctx: Context<CTCookie<Keys, ExtendCookie> & ExtendContext>) => {
     if (ctx.cookie == null) {
       ctx.cookie = {} as Cookies<Keys, ExtendCookie>;
     }
@@ -202,11 +202,11 @@ export type ParsedBody =
 /**
  * Context object containing parsed request body.
  *
- * @type {Object} CTXBody
+ * @type {Object} CTBody
  * @template {any | ParsedBody} BodyType - Define body type
  * @property {ParsedBody} body - Parsed request body data
  */
-export type CTXBody<BodyType = ParsedBody> = {
+export type CTBody<BodyType = ParsedBody> = {
   body: BodyType;
 };
 
@@ -261,7 +261,7 @@ export const parseBody = <
   maxSize?: number; // in bytes
   once?: boolean;
   clone?: boolean;
-}): Handler<ExtendContext & CTXBody> => {
+}): Handler<ExtendContext & CTBody> => {
   const accept = new Set(
     options?.accept
       ? Array.isArray(options.accept)
@@ -272,7 +272,7 @@ export const parseBody = <
   const maxSize = options?.maxSize ?? 1024 * 1024; // Default 1MB
   const once = options?.once;
   const clone = options?.clone;
-  return async (ctx: Context<ExtendContext & CTXBody>) => {
+  return async (ctx: Context<ExtendContext & CTBody>) => {
     if (once && ctx.body) return;
     const { request } = ctx;
     const contentType = request.headers.get("content-type")?.split(";", 2)[0];
@@ -589,10 +589,9 @@ export type ParsedFormDataFile<
   type: MimeType;
   size: number;
   totalSize?: number;
-  $: Record<string, any>;
 } & ExtendParsedFormDataFile;
 
-export type CTXFormData<
+export type CTFormData<
   ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord,
 > = {
   files: Map<string, ParsedFormDataFile<ExtendParsedFormDataFile>>;
@@ -633,44 +632,47 @@ export const parseMultipart = <
     filename?: string;
   }) => string;
   onStart?: (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
   ) => ParseMultipartCallbacksReturnType;
   onEnd?: (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
     info: {
       success: boolean;
       error?: Error | HttpError;
     },
   ) => ParseMultipartCallbacksReturnType;
   onHeader?: (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
     info: {
       headers: Headers;
       id: string;
       name: string;
       filename?: string;
+      file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     },
   ) => ParseMultipartCallbacksReturnType;
   onData: (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
     info: {
       chunk: Uint8Array;
       headers: Headers;
       id: string;
       name: string;
       filename?: string;
+      file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     },
   ) => ParseMultipartCallbacksReturnType;
   onDataCompletion: (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
     info: {
       headers: Headers;
       id: string;
       name: string;
       filename?: string;
+      file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     },
   ) => ParseMultipartCallbacksReturnType;
-}): Handler<CTXFormData<ExtendParsedFormDataFile> & ExtendContext> => {
+}): Handler<CTFormData<ExtendParsedFormDataFile> & ExtendContext> => {
   const prefix = new TextEncoder().encode("--");
   const crlfPrefix = new TextEncoder().encode("\r\n--");
   const endSuffix = new TextEncoder().encode("--");
@@ -678,7 +680,7 @@ export const parseMultipart = <
   const crlf2 = new Uint8Array(new TextEncoder().encode("\r\n\r\n"));
 
   return async (
-    ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>,
+    ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
   ) => {
     const { request } = ctx;
     const headers = request.headers;
@@ -932,6 +934,7 @@ export const parseMultipart = <
                 id: activeId,
                 name: activeName,
                 filename: activeFilename,
+                file: fileInfo,
               });
               if (response != null) {
                 break away;
@@ -944,6 +947,7 @@ export const parseMultipart = <
                   id: activeId,
                   name: activeName,
                   filename: activeFilename,
+                  file: fileInfo,
                 });
                 if (response != null) {
                   break away;
@@ -978,6 +982,7 @@ export const parseMultipart = <
                   id: activeId,
                   name: activeName,
                   filename: activeFilename,
+                  file: fileInfo,
                 });
                 if (response != null) {
                   break away;
@@ -1026,6 +1031,7 @@ export const parseMultipart = <
                   id: activeId,
                   name: activeName,
                   filename: activeFilename,
+                  file: fileInfo,
                 });
                 if (response != null) {
                   break away;
@@ -1201,9 +1207,8 @@ export const parseMultipart = <
                 size,
                 totalSize,
                 type,
-                $: {},
               } as ParsedFormDataFile<ExtendParsedFormDataFile>;
-              ctx.files.set(activeName, fileInfo);
+              ctx.files.set(activeId, fileInfo);
             } else {
               ctx.fields.set(activeName, null);
             }
@@ -1214,6 +1219,7 @@ export const parseMultipart = <
                 id: activeId,
                 name: activeName,
                 filename: activeFilename,
+                file: fileInfo,
               });
               if (response != null) {
                 break away;
@@ -1243,6 +1249,7 @@ export const parseMultipart = <
                 id: activeId,
                 name: activeName,
                 filename: activeFilename,
+                file: fileInfo,
               });
               if (response != null) {
                 break away;
@@ -1253,6 +1260,7 @@ export const parseMultipart = <
                   id: activeId,
                   name: activeName,
                   filename: activeFilename,
+                  file: fileInfo,
                 });
                 if (response != null) {
                   break away;

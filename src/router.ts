@@ -6,8 +6,8 @@ import {
   HttpError,
   RouterError,
   type Context,
-  type CTXError,
-  type CTXResponse,
+  type CTError,
+  type CTResponse,
   type EmptyRecord,
   type Handler,
   type HandlerRegisterPiplineOptions,
@@ -25,7 +25,7 @@ import {
   type RouteEntry,
   type RouterConfig,
 } from "./types.ts";
-import { CTXParams } from "./parsers.ts";
+import { CTParams } from "./parsers.ts";
 import { walk, dynamicImport } from "@bepalo/spine/src/utils.ts";
 
 const EMPTY_PARAMS = Object.freeze({});
@@ -318,7 +318,7 @@ export class Router<
     } catch (_error) {
       const error =
         _error instanceof Error ? _error : (Error(String(_error)) as Error);
-      ctx.error = error;
+      (ctx as Context<CTError & ExtendContext>).error = error;
       // catchers
       if (this.#config.enable?.catcher) {
         const catcherRoutes = this.#getRouteEntries(
@@ -350,8 +350,8 @@ export class Router<
       }
       // default cathcer
       if (!(response instanceof Response) && this.#config.defaultCatcher) {
-        const errorCtx = ctx as Context<CTXError & ExtendContext>;
-        ctx.error = error;
+        const errorCtx = ctx as Context<CTError & ExtendContext>;
+        (ctx as Context<CTError & ExtendContext>).error = error;
         const resp = await this.#config.defaultCatcher(errorCtx);
         if (resp instanceof Response) {
           response = resp;
@@ -376,7 +376,7 @@ export class Router<
         headers: ctx.headers,
       });
     }
-    (ctx as Context<CTXResponse & ExtendContext>).response = response;
+    (ctx as Context<CTResponse & ExtendContext>).response = response;
     // afters
     if (this.#config.enable?.after) {
       const afterRoutes = this.#getRouteEntries(
@@ -391,7 +391,7 @@ export class Router<
           // parse params
           const params = routeEntry.parseParams(pathname, parts);
           ctx.params = params ?? EMPTY_PARAMS;
-          (ctx as Context<CTXResponse & ExtendContext>).response = response;
+          (ctx as Context<CTResponse & ExtendContext>).response = response;
           // call request handlers
           for (const handler of routeEntry.pipeline) {
             const resp = await handler(ctx);
@@ -413,7 +413,7 @@ export class Router<
     // default after
     if (this.#config.defaultAfter) {
       const resp = await this.#config.defaultAfter(
-        ctx as Context<CTXResponse & ExtendContext>,
+        ctx as Context<CTResponse & ExtendContext>,
       );
       if (resp instanceof Response) {
         response = resp;
@@ -443,7 +443,9 @@ export class Router<
         }
         let handlersImp;
         try {
-          handlersImp = (await dynamicImport(node.fullPath)) as any;
+          handlersImp = (await dynamicImport(
+            node.fullPath,
+          )) as unknown as Record<string, unknown>;
           const processedName = decodeURIComponent(processName(node.name));
           const pathname = !node.parent
             ? `/${processedName}`
@@ -479,8 +481,8 @@ export class Router<
               Array.isArray(_definition) || typeof _definition === "function"
                 ? { pipeline: _definition }
                 : {
-                    pipeline: (_definition as any).pipeline,
-                    openApi: (_definition as any).openApi,
+                    pipeline: (_definition as Record<string, unknown>).pipeline,
+                    openApi: (_definition as Record<string, unknown>).openApi,
                   };
             const pipeline = definition.pipeline;
             const openApi = definition.openApi;
@@ -527,11 +529,11 @@ export class Router<
   generateOpenAPI(info?: { title?: string; version?: string }): Promise<{
     openapi: "3.0.0";
     info: { title: string; version: string };
-    paths: Record<string, any>;
+    paths: Record<string, unknown>;
   }> {
     return new Promise((resolve) => {
       const { title = "API", version = "1.0.0" } = info ?? {};
-      const paths: Record<string, any> = {};
+      const paths: Record<string, unknown> = {};
       const handlers = this.#routes.handler;
       for (const method of Object.keys(handlers)) {
         const methodHandlers = handlers[method as HttpMethodUpper];
@@ -576,7 +578,9 @@ export class Router<
                     },
                   },
                 };
-                paths[pathname][methodLower] = {
+                (paths as Record<string, Record<string, unknown>>)[pathname][
+                  methodLower
+                ] = {
                   ...openApi,
                   parameters,
                   responses,
@@ -599,9 +603,9 @@ export class Router<
   >(
     paths: P | Array<P>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -626,9 +630,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -653,9 +657,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -677,9 +681,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -701,9 +705,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -725,9 +729,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -749,9 +753,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -773,9 +777,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -797,9 +801,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -821,9 +825,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -845,9 +849,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -869,9 +873,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -896,9 +900,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -923,9 +927,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -947,9 +951,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -971,9 +975,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -995,9 +999,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1019,9 +1023,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1043,9 +1047,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1067,9 +1071,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1091,9 +1095,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1115,9 +1119,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1139,9 +1143,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1166,9 +1170,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1193,9 +1197,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1217,9 +1221,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1241,9 +1245,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1265,9 +1269,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1289,9 +1293,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1313,9 +1317,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1337,9 +1341,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1361,9 +1365,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1385,9 +1389,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1409,9 +1413,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1436,9 +1440,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1463,9 +1467,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1487,9 +1491,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1511,9 +1515,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1535,9 +1539,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1559,9 +1563,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1583,9 +1587,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1607,9 +1611,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1631,9 +1635,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1655,9 +1659,9 @@ export class Router<
   >(
     paths: Path | Array<Path>,
     pipeline:
-      | Handler<CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
+      | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipeline<
-          CTXParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
+          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
@@ -1680,14 +1684,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1715,14 +1719,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1750,14 +1754,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1782,14 +1786,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1814,14 +1818,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1846,14 +1850,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1878,14 +1882,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1910,14 +1914,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1942,14 +1946,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -1974,14 +1978,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2006,14 +2010,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXResponse &
+          CTParams<ExtractParams<P>> &
+            CTResponse &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2038,14 +2042,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2073,14 +2077,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2108,14 +2112,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2140,14 +2144,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2172,14 +2176,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2204,14 +2208,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2236,14 +2240,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2268,14 +2272,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2300,14 +2304,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2332,14 +2336,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2364,14 +2368,14 @@ export class Router<
     paths: Path | Array<Path>,
     pipeline:
       | Handler<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >
       | Pipeline<
-          CTXParams<ExtractParams<P>> &
-            CTXError &
+          CTParams<ExtractParams<P>> &
+            CTError &
             ExtendContext &
             ExtendContextMore
         >,
@@ -2763,7 +2767,6 @@ export class Router<
     if (routes == null) return [];
     const routeEntries: RouteEntry<ExtendContext>[] = [];
     const parts_len_1 = parts.length - 1;
-    let longestSuperGlobEntry: RouteEntry<ExtendContext> | undefined;
     // match exact
     {
       const routeEntry = routes.entries[parts.length]?.get(pathname);

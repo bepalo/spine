@@ -1268,7 +1268,6 @@ _Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_instance
         return [];
     const routeEntries = [];
     const parts_len_1 = parts.length - 1;
-    let longestSuperGlobEntry;
     // match exact
     {
         const routeEntry = (_a = routes.entries[parts.length]) === null || _a === void 0 ? void 0 : _a.get(pathname);

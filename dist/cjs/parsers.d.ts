@@ -8,10 +8,10 @@ export type Params<Keys extends string = string, ExtendParams extends Record<Key
 /**
  * Context object containing parsed params.
  *
- * @type {Object} CTXParams
+ * @type {Object} CTParams
  * @property {Record<string, string>} params - Parsed params
  */
-export type CTXParams<Keys extends string = string, ExtendParams extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
+export type CTParams<Keys extends string = string, ExtendParams extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
     params: Params<Keys, ExtendParams>;
 };
 /**
@@ -26,10 +26,10 @@ export type Query<Keys extends string = string, ExtendQuery extends Record<Keys,
  * @template {string} Keys - Keys to extend context Query. "q"|"search"
  * @template {Record<string, unknown>} ExtendQuery - Extend context Query
  *
- * @type {Object} CTXQuery
+ * @type {Object} CTQuery
  * @property {Record<string, string>} query - Parsed query
  */
-export type CTXQuery<Keys extends string = string, ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
+export type CTQuery<Keys extends string = string, ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
     query: Query<Keys, ExtendQuery>;
 };
 /**
@@ -41,7 +41,7 @@ export type CTXQuery<Keys extends string = string, ExtendQuery extends Record<Ke
  *
  * @returns {Function} A middleware function that adds parsed queries to context.query
  */
-export declare const parseQuery: <Keys extends string = string, ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> = {}, ExtendContext extends Record<string, unknown> = EmptyRecord>() => Handler<ExtendContext & CTXQuery<Keys, ExtendQuery>>;
+export declare const parseQuery: <Keys extends string = string, ExtendQuery extends Record<Keys, string> | Record<string, string | unknown> = {}, ExtendContext extends Record<string, unknown> = EmptyRecord>() => Handler<ExtendContext & CTQuery<Keys, ExtendQuery>>;
 /**
  * Parses cookies from a Request object's Cookie header.
  * @template {Record<string, string>} Expected
@@ -63,10 +63,10 @@ export type Cookies<Keys extends string = string, ExtendCookie extends Record<Ke
 /**
  * Context object containing parsed cookie.
  *
- * @type {Object} CTXCookie
+ * @type {Object} CTCookie
  * @property {Record<string, string|unknown>} cookie - Parsed cookie
  */
-export type CTXCookie<Keys extends string = string, ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
+export type CTCookie<Keys extends string = string, ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> = {}> = {
     cookie: Cookies<Keys, ExtendCookie>;
 };
 /**
@@ -78,7 +78,7 @@ export type CTXCookie<Keys extends string = string, ExtendCookie extends Record<
  *
  * @returns {Function} A middleware function that adds parsed cookies to context.cookie
  */
-export declare const parseCookie: <Keys extends string = string, ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> = {}, ExtendContext extends Record<string, unknown> = EmptyRecord>() => Handler<ExtendContext & CTXCookie<Keys, ExtendCookie>>;
+export declare const parseCookie: <Keys extends string = string, ExtendCookie extends Record<Keys, string> | Record<string, string | unknown> = {}, ExtendContext extends Record<string, unknown> = EmptyRecord>() => Handler<ExtendContext & CTCookie<Keys, ExtendCookie>>;
 /**
  * Parsed body object types.
  * @type {Object|Array<unknown>|string|null|undefined} ParsedBody
@@ -87,11 +87,11 @@ export type ParsedBody = Record<string, unknown> | Array<unknown> | string | num
 /**
  * Context object containing parsed request body.
  *
- * @type {Object} CTXBody
+ * @type {Object} CTBody
  * @template {any | ParsedBody} BodyType - Define body type
  * @property {ParsedBody} body - Parsed request body data
  */
-export type CTXBody<BodyType = ParsedBody> = {
+export type CTBody<BodyType = ParsedBody> = {
     body: BodyType;
 };
 /**
@@ -127,16 +127,15 @@ export declare const parseBody: <ExtendContext extends Record<string, unknown> =
     maxSize?: number;
     once?: boolean;
     clone?: boolean;
-}) => Handler<ExtendContext & CTXBody>;
+}) => Handler<ExtendContext & CTBody>;
 export declare const parseHeaders: (rawHeaders: Uint8Array, contentDisposition?: object) => Headers;
 export type ParsedFormDataFile<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
     name: string;
     type: MimeType;
     size: number;
     totalSize?: number;
-    $: Record<string, any>;
 } & ExtendParsedFormDataFile;
-export type CTXFormData<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
+export type CTFormData<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
     files: Map<string, ParsedFormDataFile<ExtendParsedFormDataFile>>;
     fields: Map<string, string | any>;
 };
@@ -147,29 +146,32 @@ export declare const parseMultipart: <ExtendContext extends Record<string, unkno
         name: string;
         filename?: string;
     }) => string;
-    onStart?: (ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>) => ParseMultipartCallbacksReturnType;
-    onEnd?: (ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
+    onStart?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>) => ParseMultipartCallbacksReturnType;
+    onEnd?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
         success: boolean;
         error?: Error | HttpError;
     }) => ParseMultipartCallbacksReturnType;
-    onHeader?: (ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
+    onHeader?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
         headers: Headers;
         id: string;
         name: string;
         filename?: string;
+        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     }) => ParseMultipartCallbacksReturnType;
-    onData: (ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
+    onData: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
         chunk: Uint8Array;
         headers: Headers;
         id: string;
         name: string;
         filename?: string;
+        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     }) => ParseMultipartCallbacksReturnType;
-    onDataCompletion: (ctx: Context<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
+    onDataCompletion: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
         headers: Headers;
         id: string;
         name: string;
         filename?: string;
+        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
     }) => ParseMultipartCallbacksReturnType;
-}) => Handler<CTXFormData<ExtendParsedFormDataFile> & ExtendContext>;
+}) => Handler<CTFormData<ExtendParsedFormDataFile> & ExtendContext>;
 //# sourceMappingURL=parsers.d.ts.map

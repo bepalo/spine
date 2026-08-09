@@ -23,7 +23,7 @@ export type Auth<
  *
  * @template {Record<string, unknown>} ExtendAuth - Extend Auth Context
  */
-export type CTXAuth<
+export type CTAuth<
   ExtendAuth extends Record<string, unknown> = Record<string, never>,
 > = {
   /** Authenticated user details */
@@ -40,7 +40,7 @@ export type ParseAuthFn<
   ExtendAuth extends Record<string, unknown> = Record<string, never>,
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = (
-  ctx: Context<CTXAuth<ExtendAuth> & ExtendContext>,
+  ctx: Context<CTAuth<ExtendAuth> & ExtendContext>,
 ) =>
   | Promise<Auth<ExtendAuth> | Response | null | undefined>
   | Auth<ExtendAuth>
@@ -59,7 +59,7 @@ export type ParseAuthFn<
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
  *
- * @returns {Handler<CTXAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
+ * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
 export const authenticate = <
@@ -73,7 +73,7 @@ export const authenticate = <
   parseAuth: ParseAuthFn<ExtendAuth, ExtendContext>;
   breakPipeline?: boolean;
   checkOnly?: boolean;
-}): Handler<CTXAuth<ExtendAuth> & ExtendContext> => {
+}): Handler<CTAuth<ExtendAuth> & ExtendContext> => {
   return async function (ctx) {
     const auth = await parseAuth(ctx);
     if (auth == null) {
@@ -107,7 +107,7 @@ export const authenticate = <
  *   Required if `permissions` is provided.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  *
- * @returns {Handler<CTXAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
+ * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.
  *   Throws an error if `permissions` is set without `hasPermission`.
  *
@@ -130,7 +130,7 @@ export const authorize = <
     role: string,
   ) => boolean | null | undefined;
   breakPipeline?: boolean;
-}): Handler<CTXAuth<ExtendAuth> & ExtendContext> => {
+}): Handler<CTAuth<ExtendAuth> & ExtendContext> => {
   if (permissions && !hasPermission) {
     throw new RouterError(
       "authorize middleware 'permissions' require 'hasPermission'",
@@ -188,7 +188,7 @@ export const authorize = <
  *       realm: "Dashboard",
  *     }),
  *   })
- * router.filterGet<CTXAuth<{ username: string }>>("/dashboard/.**", [
+ * router.filterGet<CTAuth<{ username: string }>>("/dashboard/.**", [
  *   authProtection,
  * ]);
  */
@@ -217,7 +217,7 @@ export const basicAuthParser = <
   realm?: string;
   defaultRole?: string;
 }): ParseAuthFn<ExtendAuth, ExtendContext> => {
-  return async (ctx: Context<CTXAuth<ExtendAuth> & ExtendContext>) => {
+  return async (ctx: Context<CTAuth<ExtendAuth> & ExtendContext>) => {
     const { request } = ctx;
     const authorization = request.headers.get("authorization");
     ctx.headers.set(

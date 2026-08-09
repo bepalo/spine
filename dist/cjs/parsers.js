@@ -690,6 +690,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                 id: activeId,
                                 name: activeName,
                                 filename: activeFilename,
+                                file: fileInfo,
                             });
                             if (response != null) {
                                 break away;
@@ -703,6 +704,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                     id: activeId,
                                     name: activeName,
                                     filename: activeFilename,
+                                    file: fileInfo,
                                 });
                                 if (response != null) {
                                     break away;
@@ -735,6 +737,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                     id: activeId,
                                     name: activeName,
                                     filename: activeFilename,
+                                    file: fileInfo,
                                 });
                                 if (response != null) {
                                     break away;
@@ -774,6 +777,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                     id: activeId,
                                     name: activeName,
                                     filename: activeFilename,
+                                    file: fileInfo,
                                 });
                                 if (response != null) {
                                     break away;
@@ -930,9 +934,8 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                 size,
                                 totalSize,
                                 type,
-                                $: {},
                             };
-                            ctx.files.set(activeName, fileInfo);
+                            ctx.files.set(activeId, fileInfo);
                         }
                         else {
                             ctx.fields.set(activeName, null);
@@ -944,6 +947,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                 id: activeId,
                                 name: activeName,
                                 filename: activeFilename,
+                                file: fileInfo,
                             });
                             if (response != null) {
                                 break away;
@@ -970,6 +974,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                 id: activeId,
                                 name: activeName,
                                 filename: activeFilename,
+                                file: fileInfo,
                             });
                             if (response != null) {
                                 break away;
@@ -980,6 +985,7 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                     id: activeId,
                                     name: activeName,
                                     filename: activeFilename,
+                                    file: fileInfo,
                                 });
                                 if (response != null) {
                                     break away;

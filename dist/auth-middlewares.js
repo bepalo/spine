@@ -23,7 +23,7 @@ const types_ts_1 = require("./types.js");
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
  *
- * @returns {Handler<CTXAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
+ * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
 const authenticate = ({ parseAuth, breakPipeline = false, checkOnly = false, }) => {
@@ -63,7 +63,7 @@ exports.authenticate = authenticate;
  *   Required if `permissions` is provided.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  *
- * @returns {Handler<CTXAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
+ * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.
  *   Throws an error if `permissions` is set without `hasPermission`.
  *
@@ -123,7 +123,7 @@ exports.authorize = authorize;
  *       realm: "Dashboard",
  *     }),
  *   })
- * router.filterGet<CTXAuth<{ username: string }>>("/dashboard/.**", [
+ * router.filterGet<CTAuth<{ username: string }>>("/dashboard/.**", [
  *   authProtection,
  * ]);
  */

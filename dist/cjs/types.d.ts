@@ -40,13 +40,12 @@ export type BaseContext = {
     params: Record<string, string>;
     pathname: string;
     $pathname: string[];
-    error?: Error | HttpError;
 };
 export type Context<ExtendContext extends Record<string, unknown> = Record<string, never>> = BaseContext & ExtendContext;
-export type CTXError = {
+export type CTError = {
     error: Error | HttpError;
 };
-export type CTXResponse = {
+export type CTResponse = {
     response: Response;
 };
 export type RespondContext<ExtendContext extends Record<string, unknown> = Record<string, never>> = Partial<Pick<BaseContext, "headers">> & ExtendContext;
@@ -55,8 +54,8 @@ export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<
     enable?: Partial<Record<HandlerType, boolean>>;
     defaultFilter?: Handler<Context<ExtendContext>>;
     defaultFallback?: Handler<Context<ExtendContext>>;
-    defaultCatcher?: Handler<Context<CTXError & ExtendContext>>;
-    defaultAfter?: Handler<Context<CTXResponse & ExtendContext>>;
+    defaultCatcher?: Handler<Context<CTError & ExtendContext>>;
+    defaultAfter?: Handler<Context<CTResponse & ExtendContext>>;
 };
 export interface RouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     parseParams: (pathname: string, parts: string[]) => Record<string, string> | undefined;

@@ -13,7 +13,7 @@ export type Auth<ExtendAuth extends Record<string, unknown> = Record<string, nev
  *
  * @template {Record<string, unknown>} ExtendAuth - Extend Auth Context
  */
-export type CTXAuth<ExtendAuth extends Record<string, unknown> = Record<string, never>> = {
+export type CTAuth<ExtendAuth extends Record<string, unknown> = Record<string, never>> = {
     /** Authenticated user details */
     auth?: Auth<ExtendAuth>;
 };
@@ -23,7 +23,7 @@ export type CTXAuth<ExtendAuth extends Record<string, unknown> = Record<string, 
  * @template {Record<string, unknown>} ExtendAuth - Extend Auth Context
  * @template {Record<string, unknown>} ExtendContext - Extend Router Context
  */
-export type ParseAuthFn<ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTXAuth<ExtendAuth> & ExtendContext>) => Promise<Auth<ExtendAuth> | Response | null | undefined> | Auth<ExtendAuth> | Response | null | undefined;
+export type ParseAuthFn<ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTAuth<ExtendAuth> & ExtendContext>) => Promise<Auth<ExtendAuth> | Response | null | undefined> | Auth<ExtendAuth> | Response | null | undefined;
 /**
  * Middleware to authenticate a request.
  *
@@ -35,14 +35,14 @@ export type ParseAuthFn<ExtendAuth extends Record<string, unknown> = Record<stri
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
  *
- * @returns {Handler<CTXAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
+ * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
 export declare const authenticate: <ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>>({ parseAuth, breakPipeline, checkOnly, }: {
     parseAuth: ParseAuthFn<ExtendAuth, ExtendContext>;
     breakPipeline?: boolean;
     checkOnly?: boolean;
-}) => Handler<CTXAuth<ExtendAuth> & ExtendContext>;
+}) => Handler<CTAuth<ExtendAuth> & ExtendContext>;
 /**
  * Middleware to authorize a request based on role or permissions.
  *
@@ -56,7 +56,7 @@ export declare const authenticate: <ExtendAuth extends Record<string, unknown> =
  *   Required if `permissions` is provided.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
  *
- * @returns {Handler<CTXAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
+ * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.
  *   Throws an error if `permissions` is set without `hasPermission`.
  *
@@ -67,7 +67,7 @@ export declare const authorize: <ExtendAuth extends Record<string, unknown> = Re
     permissions?: string[];
     hasPermission?: (permission: string, role: string) => boolean | null | undefined;
     breakPipeline?: boolean;
-}) => Handler<CTXAuth<ExtendAuth> & ExtendContext>;
+}) => Handler<CTAuth<ExtendAuth> & ExtendContext>;
 /**
  * Returns a Basic Authenticator for authenticate middleware.
  * Supports RFC 7617 Basic Authentication scheme.
@@ -98,7 +98,7 @@ export declare const authorize: <ExtendAuth extends Record<string, unknown> = Re
  *       realm: "Dashboard",
  *     }),
  *   })
- * router.filterGet<CTXAuth<{ username: string }>>("/dashboard/.**", [
+ * router.filterGet<CTAuth<{ username: string }>>("/dashboard/.**", [
  *   authProtection,
  * ]);
  */
