@@ -1,0 +1,67 @@
+{
+  "name": "@bepalo/spine",
+  "version": "1.0.1",
+  "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
+  "author": "Natnael Eshetu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bepalo/spine.git"
+  },
+  "homepage": "https://github.com/bepalo/spine#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./src/utils.ts": {
+      "deno": "./src/utils.deno.ts",
+      "node": "./src/utils.node.ts",
+      "import": "./src/utils.node.ts",
+      "default": "./src/utils.node.ts"
+    },
+    "./src": {
+      "import": "./src/index.ts"
+    }
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build:esm": "tsc --project tsconfig.esm.json",
+    "build:cjs": "tsc --project tsconfig.cjs.json",
+    "build": "concurrently \"pnpm run build:esm\" \"pnpm run build:cjs\"",
+    "build:watch": "concurrently \"tsc --watch --project tsconfig.esm.json\" \"tsc --watch --project tsconfig.cjs.json\"",
+    "prepublishOnly": "pnpm run build",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^24.0.13",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "router",
+    "rest",
+    "http",
+    "https",
+    "middleware",
+    "backend",
+    "fast",
+    "efficient",
+    "modern",
+    "feature-rich"
+  ],
+  "dependencies": {
+    "@bepalo/rjson": "^2.2.12"
+  }
+}
