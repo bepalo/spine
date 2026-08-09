@@ -1,6 +1,6 @@
 {
   "name": "@bepalo/spine",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
   "author": "Natnael Eshetu",
   "license": "MIT",
@@ -14,15 +14,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/cjs/index.js"
-    },
-    "./src/utils.ts": {
-      "deno": "./src/utils.deno.ts",
-      "node": "./src/utils.node.ts",
-      "import": "./src/utils.node.ts",
-      "default": "./src/utils.node.ts"
-    },
-    "./src": {
-      "import": "./src/index.ts"
     }
   },
   "main": "./dist/cjs/index.js",

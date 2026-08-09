@@ -16,45 +16,30 @@
 Spine is a low-level routing layer built around the Web `Request`/`Response` APIs. It gives you fast, predictable route matching, typed contexts, composable handler pipelines, and the freedom to run it on top of any HTTP server.
 
 ```text
-                    ( @Bepalo/spine )
+                       ( @Bepalo/spine )
 
-                    { Any HTTP Server }
-                           │
-                        Request
-                           ▼
-                     ┌───────────┐
-                     │   Spine   │
-                     │   Router  │
-                     └─────┬─────┘
-                           │
-                        Response
-                           ▼
-                    { Any HTTP Server }
+                      ( The Router Pipeline )
 
-----------------------------------------------------------------------
-
-                   ( The Router Pipeline )
-
-                         ┌───────────────────────┐
-                         ▼                       │
-                  ┌──────┴───────┐               │
-        ┌─────────│   Filters    │─────────┐ <request>
-        │         └──────┬───────┘         │     │
-        │      <no match nor response>     │     │
-        │                ▼                 │     │
-        │         ┌──────┴───────┐         │  ┌──┴────────┐
-        ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐
-        │         └──────┬───────┘         │  └──┬─────┬──┘    │
-        │      <no match nor response>     │     ▲     │   <request>
-     <error>             ▼                 │     │ <response>  │
-        │         ┌──────┴───────┐         │     │     ▼       │
-        ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐
-        ▼         └──────┬───────┘         │     │   │   Client  │
-  ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘
-  │  Catchers  │         ▼   ▼                   │
-  └─────┬──────┘  ┌──────┴───┴───┐               │
-        └────────►│   Afters     │───────────────┘
- <error-response> └──────────────┘  <final-response>
+                          ┌───────────────────────┐                     ┌──────────────┐
+                          ▼                       │                     │    Server    │
+                   ┌──────┴───────┐               │                     └──────┬───────┘
+         ┌─────────│   Filters    │─────────┐ <request>                        │
+         │         └──────┬───────┘         │     │                         Request
+         │      <no match nor response>     │     │                            │
+         │                ▼                 │     │                            ▼
+         │         ┌──────┴───────┐         │  ┌──┴────────┐            ┌──────────────┐
+         ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐       │    Spine     │
+         │         └──────┬───────┘         │  └──┬─────┬──┘    │       │    Router    │
+         │      <no match nor response>     │     ▲     │   <request>   └──────┬───────┘
+      <error>             ▼                 │     │ <response>  │              │
+         │         ┌──────┴───────┐         │     │     ▼       │           Response
+         ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐            │
+         ▼         └──────┬───────┘         │     │   │   Client  │            ▼
+   ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘     ┌──────────────┐
+   │  Catchers  │         ▼   ▼                   │                     │    Server    │
+   └─────┬──────┘  ┌──────┴───┴───┐               │                     └──────────────┘
+         └────────►│   Afters     │───────────────┘
+  <error-response> └──────────────┘  <final-response>
 ```
 
 ```text
@@ -115,7 +100,6 @@ Average       10.05k         8.13k         7.65k ops/s
 
 - [OpenAPI](#openapi)
 - [Error Handling](#error-handling)
-- [Runtime Agnostic](#runtime-agnostic)
 - [Performance](#performance)
 - [License](#-license)
 - [Thanks and Enjoy](#️-thanks-and-enjoy)
@@ -328,22 +312,22 @@ maps to:
 
 ---
 
-| ROUTER PATH                       | FILE PATH                         | MATCHES `highlighted` | { ` ` -> \<empty\> }      |                               |                         | Parameters |
-| --------------------------------- | --------------------------------- | --------------------- | ------------------------- | ----------------------------- | ----------------------- | ---------- |
-| `/exact/path`                     | `/exact/path`                     | /exact/path           |                           |                               |                         |            |
-| `/slash/matters/`                 | `/slash/matters/`                 | /slash/matters/       |                           |                               |                         |            |
-| `/wild/glob/*`                    | `/wild/glob/[#]`                  | /wild/glob/` `        | /wild/glob/`y`            | /wild/glob/`n`                |                         |            |
-| `/wild/glob/match/base/*!`        | `/wild/glob/match/base/[[#]]`     | /wild/glob/match/base | /wild/glob/match/base/` ` | /wild/glob/match/base/`y`     |                         |            |
-| `/globs/*/cool/*`                 | `/globs/[#]/cool/[#]`             | /globs/` `/cool/      | /globs/`are`/cool/        | /globs/`are`/cool/`breath`    |                         |            |
-| `/globs/*/cool/*!`                | `/globs/[#]/cool/[[#]]`           | /globs/` `/cool       | /globs/`are`/cool/` `     | /globs/` `/cool/breath        | /globs/`are`/cool/`y`   |            |
-| `/named/:glob/here`               | `/named/[glob]/here`              | /named/` `/here       | /named/`pet`/here/        |                               |                         | `glob`     |
-| `/named/optional/:glob!`          | `/named/optional/[[glob]]`        | /named/optional       | /named/optional/` `       | /named/optional/`pet`         |                         | `glob`     |
-| `/super/globs/**`                 | `/super/globs/[##]`               | /super/globs/` `      | /super/globs/`here`       | /super/globs/`here/and/there` |                         |            |
-| `/super/globs/**!`                | `/super/globs/[[##]]`             | /super/globs          | /super/globs/` `          | /super/globs/`here`           | /super/globs/`1/2/3/4`  |            |
-| `/named/super/::slug`             | `/named/super/[## slug]`          | /named/super/` `      | /named/super/`pet`        | /named/super/`man/town`       |                         | `slug`     |
-| `/named/super/::slug!`            | `/named/super/[[## slug]]`        | /named/super          | /named/super/` `          | /named/super/`pet`            | /named/super/`man/town` | `slug`     |
-| `/certain/a\|b\|c\|:options/y\|n` | `/certain/[[,a,b,c] options ]/y`  | /certain/`a`/n        | /certain/`b`/y            | /certain/`c`/n                | /certain/` `/y          | `options`  |
-| `/certain/a\|b\|c:options!/y\|n`  | `/certain/[[a,b,c] [options] ]/n` | /certain/`a`/y        | /certain/`b`/n            | /certain/`c`/y                |                         | `options`  |
+| ROUTER PATH                       | FILE PATH                         | MATCHES `highlighted`                                                                      |
+| --------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `/exact/path`                     | `/exact/path`                     | "/exact/path"                                                                              |
+| `/slash/matters/`                 | `/slash/matters/`                 | "/slash/matters/"                                                                          |
+| `/wild/glob/*`                    | `/wild/glob/[#]`                  | "/wild/glob/` `" "/wild/glob/`y`" "/wild/glob/`n`"                                         |
+| `/wild/glob/match/base/*!`        | `/wild/glob/match/base/[[#]]`     | "/wild/glob/match/base" "/wild/glob/match/base/` `" "/wild/glob/match/base/`y`"            |
+| `/globs/*/cool/*`                 | `/globs/[#]/cool/[#]`             | "/globs/` `/cool/" "/globs/`are`/cool/" "/globs/`are`/cool/`breath`"                       |
+| `/globs/*/cool/*!`                | `/globs/[#]/cool/[[#]]`           | "/globs/` `/cool" "/globs/`are`/cool/` `" "/globs/` `/cool/breath" "/globs/`are`/cool/`y`" |
+| `/named/:glob/here`               | `/named/[glob]/here`              | "/named/` `/here" "/named/`pet`/here/"                                                     |
+| `/named/optional/:glob!`          | `/named/optional/[[glob]]`        | "/named/optional" "/named/optional/` `" "/named/optional/`pet`"                            |
+| `/super/globs/**`                 | `/super/globs/[##]`               | "/super/globs/` `" "/super/globs/`here`" "/super/globs/`here/and/there`"                   |
+| `/super/globs/**!`                | `/super/globs/[[##]]`             | "/super/globs" "/super/globs/` `" "/super/globs/`here`" "/super/globs/`1/2/3/4`"           |
+| `/named/super/::slug`             | `/named/super/[## slug]`          | "/named/super/` `" "/named/super/`pet`" "/named/super/`man/town`"                          |
+| `/named/super/::slug!`            | `/named/super/[[## slug]]`        | "/named/super" "/named/super/` `" "/named/super/`pet`" "/named/super/`man/town`"           |
+| `/certain/a\|b\|c\|:options/y\|n` | `/certain/[[,a,b,c] options ]/y`  | "/certain/`a`/n" "/certain/`b`/y" "/certain/`c`/n" "/certain/` `/y"                        |
+| `/certain/a\|b\|c:options!/y\|n`  | `/certain/[[a,b,c] [options] ]/n` | "/certain/`a`/y" "/certain/`b`/n" "/certain/`c`/y"                                         |
 
 ## Handler Pipeline
 
@@ -709,47 +693,6 @@ spine.catchGet("/users/**", ({ error }) =>
   json({ error: error?.message }, { status: 500 }),
 );
 ```
-
-## Runtime Agnostic
-
-Spine is deliberately not a server framework.
-
-```text
-                 ┌──────────────┐
-                 │    Server    │
-                 └──────┬───────┘
-                        │
-                     Request
-                        │
-                        ▼
-                 ┌──────────────┐
-                 │    Spine     │
-                 │    Router    │
-                 └──────┬───────┘
-                        │
-                     Response
-                        │
-                        ▼
-                 ┌──────────────┐
-                 │    Server    │
-                 └──────────────┘
-```
-
-Use it with Bun:
-
-```ts
-Bun.serve({
-  fetch: (request) => spine.respond(request),
-});
-```
-
-Deno:
-
-```ts
-Deno.serve((request) => spine.respond(request));
-```
-
-Or Node's HTTP server, a worker runtime, or your own server implementation.
 
 ## Multipart Parser Demo
 

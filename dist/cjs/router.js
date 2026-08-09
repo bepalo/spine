@@ -31,7 +31,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Router = exports.HANDLER_TYPES = exports.HTTP_METHODS_UPPER = exports.CRUD_METHODS = exports.HTTP_METHODS = void 0;
 const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
-const utils_ts_1 = require("@bepalo/spine/src/utils.ts");
+const utils_node_ts_1 = require("./utils.node.js");
 const EMPTY_PARAMS = Object.freeze({});
 const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
 const PATH_PART_REGEX = new RegExp(`^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`, "u");
@@ -360,7 +360,7 @@ class Router {
         return __awaiter(this, arguments, void 0, function* ({ routesPath, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), }) {
             var _b, e_1, _c, _d;
             try {
-                for (var _e = true, _f = __asyncValues((0, utils_ts_1.walk)(routesPath)), _g; _g = yield _f.next(), _b = _g.done, !_b; _e = true) {
+                for (var _e = true, _f = __asyncValues((0, utils_node_ts_1.walk)(routesPath)), _g; _g = yield _f.next(), _b = _g.done, !_b; _e = true) {
                     _d = _g.value;
                     _e = false;
                     const node = _d;
@@ -373,7 +373,7 @@ class Router {
                         }
                         let handlersImp;
                         try {
-                            handlersImp = (yield (0, utils_ts_1.dynamicImport)(node.fullPath));
+                            handlersImp = (yield (0, utils_node_ts_1.dynamicImport)(node.fullPath));
                             const processedName = decodeURIComponent(processName(node.name));
                             const pathname = !node.parent
                                 ? `/${processedName}`
