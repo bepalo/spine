@@ -1,6 +1,6 @@
 # 🏆 @bepalo/spine
 
-![hero](./assets/hero.png)
+![hero](./assets/spine-hero.png)
 
 [![npm version](https://img.shields.io/npm/v/@bepalo/spine.svg)](https://www.npmjs.com/package/@bepalo/spine)
 [![CI](https://img.shields.io/github/actions/workflow/status/bepalo/spine/ci.yaml?label=ci)](https://github.com/bepalo/spine/actions/workflows/ci.yaml)
