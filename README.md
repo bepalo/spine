@@ -20,24 +20,24 @@ Spine is a low-level routing layer built around the Web `Request`/`Response` API
 
                       ( The Router Pipeline )
 
-                          ┌───────────────────────┐                     ┌──────────────┐
-                          ▼                       │                     │    Server    │
-                   ┌──────┴───────┐               │                     └──────┬───────┘
-         ┌─────────│   Filters    │─────────┐ <request>                        │
-         │         └──────┬───────┘         │     │                         Request
-         │      <no match nor response>     │     │                            │
-         │                ▼                 │     │                            ▼
-         │         ┌──────┴───────┐         │  ┌──┴────────┐            ┌──────────────┐
-         ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐       │    Spine     │
-         │         └──────┬───────┘         │  └──┬─────┬──┘    │       │    Router    │
-         │      <no match nor response>     │     ▲     │   <request>   └──────┬───────┘
-      <error>             ▼                 │     │ <response>  │              │
-         │         ┌──────┴───────┐         │     │     ▼       │           Response
-         ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐            │
-         ▼         └──────┬───────┘         │     │   │   Client  │            ▼
-   ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘     ┌──────────────┐
-   │  Catchers  │         ▼   ▼                   │                     │    Server    │
-   └─────┬──────┘  ┌──────┴───┴───┐               │                     └──────────────┘
+                          ┌───────────────────────┐
+                          ▼                       │
+                   ┌──────┴───────┐               │
+         ┌─────────│   Filters    │─────────┐ <request>
+         │         └──────┬───────┘         │     │
+         │      <no match nor response>     │     │
+         │                ▼                 │     │
+         │         ┌──────┴───────┐         │  ┌──┴────────┐
+         ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐
+         │         └──────┬───────┘         │  └──┬─────┬──┘    │
+         │      <no match nor response>     │     ▲     │   <request>
+      <error>             ▼                 │     │ <response>  │
+         │         ┌──────┴───────┐         │     │     ▼       │
+         ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐
+         ▼         └──────┬───────┘         │     │   │   Client  │
+   ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘
+   │  Catchers  │         ▼   ▼                   │
+   └─────┬──────┘  ┌──────┴───┴───┐               │
          └────────►│   Afters     │───────────────┘
   <error-response> └──────────────┘  <final-response>
 ```
@@ -46,22 +46,23 @@ Spine is a low-level routing layer built around the Web `Request`/`Response` API
 Benchmark Bun.serve baseline: @bepalo/spine vs Hono
 Bun runtime · localhost · 20,000 sequential requests per route
 
-              Bun          Spine          Hono
-────────────────────────────────────────────────
-/             9.91k         8.64k         8.19k
-exact        10.33k         8.42k         8.19k
-long exact   10.34k         8.28k         7.99k
-one param     9.99k         8.16k         7.86k
-two params   10.17k         8.04k         7.66k
-three params  9.99k         7.68k         6.76k
-six params    9.88k         7.91k         7.51k
-ten params    9.78k         7.90k         7.12k
-
-Average       10.05k         8.13k         7.65k ops/s
-
-              ████████████████████████████████████████ Bun
-              █████████████████████████████████ Spine
-              ████████████████████████████████ Hono
+              Bun          Spine          Hono     ┌──────────────┐
+───────────────────────────────────────────────    │    Server    │
+/             9.91k         8.64k         8.19k    └──────┬───────┘
+exact        10.33k         8.42k         8.19k        Request
+long exact   10.34k         8.28k         7.99k           ▼
+one param     9.99k         8.16k         7.86k    ┌──────────────┐
+two params   10.17k         8.04k         7.66k    │    Spine     │
+three params  9.99k         7.68k         6.76k    │    Router    │
+six params    9.88k         7.91k         7.51k    └──────┬───────┘
+ten params    9.78k         7.90k         7.12k        Response
+                                                          ▼
+Average       10.05k        8.13k         7.65k    ┌──────────────┐
+                                          ops/s    │    Server    │
+                                                   └──────────────┘
+    ████████████████████████████████████████ Bun
+    █████████████████████████████████ Spine
+    ████████████████████████████████ Hono
 ```
 
 ## Why Spine?
