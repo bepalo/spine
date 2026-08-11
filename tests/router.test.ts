@@ -163,7 +163,7 @@ describe("Router", () => {
       it("should parse single parameter", async () => {
         const router = new Router();
 
-        router.get("/users/:id", (ctx: Context) => {
+        router.get("/users/:id", (ctx) => {
           return json({ id: ctx.params.id! });
         });
 
@@ -174,7 +174,7 @@ describe("Router", () => {
       it("should parse multiple parameters", async () => {
         const router = new Router();
 
-        router.get("/users/:userId/posts/:postId", (ctx: Context) => {
+        router.get("/users/:userId/posts/:postId", (ctx) => {
           return json({
             userId: ctx.params.userId!,
             postId: ctx.params.postId!,
@@ -190,7 +190,7 @@ describe("Router", () => {
       it("should parse parameter with pipe (specified values)", async () => {
         const router = new Router();
 
-        router.get("/|home|about:page", (ctx: Context) => {
+        router.get("/|home|about:page", (ctx) => {
           return json({ page: ctx.params.page! });
         });
 
@@ -209,7 +209,7 @@ describe("Router", () => {
 
         router.get(
           "/dashboard/admin|vendor|client:role/settings/profile|payment:tab",
-          (ctx: Context) => {
+          (ctx) => {
             return json({ role: ctx.params.role!, tab: ctx.params.tab! });
           },
         );
@@ -242,7 +242,7 @@ describe("Router", () => {
         const router = new Router();
         let called = false;
 
-        router.get("/api/*", (ctx: Context) => {
+        router.get("/api/*", (ctx) => {
           called = true;
           return json({ wildcard: ctx.params["!0"] });
         });
@@ -707,8 +707,8 @@ describe("Router", () => {
     it("should use custom error catcher", async () => {
       const router = new Router();
 
-      router.catchGet("/error", (ctx: Context) => {
-        return text(`Error: ${ctx.error?.message || "Unknown"}`, {
+      router.catchGet("/error", (ctx) => {
+        return text(`Error: ${ctx.error.message || "Unknown"}`, {
           status: 400,
         });
       });
@@ -735,8 +735,8 @@ describe("Router", () => {
 
     it("should use defaultCatcher if configured", async () => {
       const router = new Router({
-        defaultCatcher: (ctx: Context<CTError>) => {
-          return text(`Error caught: ${ctx.error?.message}`, { status: 500 });
+        defaultCatcher: (ctx) => {
+          return text(`Error caught: ${ctx.error.message}`, { status: 500 });
         },
       });
 
@@ -757,7 +757,7 @@ describe("Router", () => {
 
       router.get("/test", () => text("OK"));
 
-      router.afterGet("/test", (ctx: Context<CTResponse>) => {
+      router.afterGet("/test", (ctx<CTResponse>) => {
         afterCalled = true;
         ctx.response.headers.set("X-Custom", "after");
       });
@@ -893,7 +893,7 @@ describe("Router", () => {
       const router = new Router();
       let capturedRequest: Request | undefined;
 
-      router.get("/test", (ctx: Context) => {
+      router.get("/test", (ctx) => {
         capturedRequest = ctx.request;
         return text("OK");
       });
@@ -907,7 +907,7 @@ describe("Router", () => {
     it("should allow setting response headers", async () => {
       const router = new Router();
 
-      router.get("/test", (ctx: Context) => {
+      router.get("/test", (ctx) => {
         ctx.headers.set("X-Custom-Response", "header-value");
         return text("OK");
       });
@@ -935,7 +935,7 @@ describe("Router", () => {
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTQuery>) => {
+        (ctx<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1112,7 +1112,7 @@ describe("Router", () => {
       const users = new Map<string, unknown>();
 
       // Auth middleware
-      const auth = (ctx: Context): Response | void => {
+      const auth = (ctx): Response | void => {
         const authHeader = ctx.request.headers.get("Authorization");
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
           return status(401);
@@ -1128,20 +1128,20 @@ describe("Router", () => {
       // Routes
       router.get("/api/users", () => json([...users.values()]));
 
-      router.post("/api/users", async (ctx: Context) => {
+      router.post("/api/users", async (ctx) => {
         const body = await ctx.request.json();
         const id = crypto.randomUUID();
         users.set(id, { ...body!, id });
         return json(users.get(id), { status: 201 });
       });
 
-      router.get("/api/users/:id", (ctx: Context) => {
+      router.get("/api/users/:id", (ctx) => {
         const user = users.get(ctx.params.id!);
         if (!user) return status(404);
         return json(user);
       });
 
-      router.put("/api/users/:id", async (ctx: Context) => {
+      router.put("/api/users/:id", async (ctx) => {
         const user = users.get(ctx.params.id!);
         if (!user) return status(404);
         const body = await ctx.request.json();
@@ -1149,7 +1149,7 @@ describe("Router", () => {
         return json(users.get(ctx.params.id!));
       });
 
-      router.delete("/api/users/:id", (ctx: Context) => {
+      router.delete("/api/users/:id", (ctx) => {
         if (!users.has(ctx.params.id!)) return status(404);
         users.delete(ctx.params.id!);
         return status(204);
@@ -1488,7 +1488,7 @@ describe("Router - Additional Tests", () => {
     it("should handle parameters with special characters", async () => {
       const router = new Router();
 
-      router.get("/users/:id", (ctx: Context) => {
+      router.get("/users/:id", (ctx) => {
         return json({ id: ctx.params.id });
       });
 
@@ -1501,7 +1501,7 @@ describe("Router - Additional Tests", () => {
     it("should handle multiple parameters with same name (overwrite)", async () => {
       const router = new Router();
 
-      router.get("/:id/:id", (ctx: Context) => {
+      router.get("/:id/:id", (ctx) => {
         return json({ id: ctx.params.id });
       });
 
@@ -1512,7 +1512,7 @@ describe("Router - Additional Tests", () => {
     it("should handle parameters with Unicode characters", async () => {
       const router = new Router();
 
-      router.get("/users/:name", (ctx: Context) => {
+      router.get("/users/:name", (ctx) => {
         return json({ name: ctx.params.name });
       });
 
@@ -1523,7 +1523,7 @@ describe("Router - Additional Tests", () => {
     it("should handle empty parameter values", async () => {
       const router = new Router();
 
-      router.get("/users/:id", (ctx: Context) => {
+      router.get("/users/:id", (ctx) => {
         return json({ id: ctx.params.id });
       });
 
@@ -1541,7 +1541,7 @@ describe("Router - Additional Tests", () => {
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTQuery>) => {
+        (ctx<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1559,7 +1559,7 @@ describe("Router - Additional Tests", () => {
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTQuery>) => {
+        (ctx<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1578,7 +1578,7 @@ describe("Router - Additional Tests", () => {
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTQuery>) => {
+        (ctx<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1594,7 +1594,7 @@ describe("Router - Additional Tests", () => {
 
       router.get("/search", [
         parseQuery(),
-        (ctx: Context<CTQuery>) => {
+        (ctx<CTQuery>) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1609,19 +1609,25 @@ describe("Router - Additional Tests", () => {
   describe("Error Propagation", () => {
     it("should propagate errors from filters to catchers", async () => {
       const router = new Router();
+      const spy = createSpy();
       let caught = false;
 
       router.filterGet("/test", () => {
         throw new Error("Filter error");
       });
 
-      router.catchGet("/test", (ctx: Context) => {
+      router.fallbackGet("/**", () => {
+        spy();
+      });
+
+      router.catchGet("/test", (ctx) => {
         caught = true;
-        return text(`Caught: ${ctx.error?.message}`, { status: 500 });
+        return text(`Caught: ${ctx.error.message}`, { status: 500 });
       });
 
       const response = await router.respond(createRequest("/test"));
       expect(caught).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(0);
       expect(await response.text()).toBe("Caught: Filter error");
     });
 
@@ -1635,9 +1641,9 @@ describe("Router - Additional Tests", () => {
         throw new Error("After error");
       });
 
-      router.catchGet("/test", (ctx: Context) => {
+      router.catchGet("/test", (ctx) => {
         caught = true;
-        return text(`Caught: ${ctx.error?.message}`, { status: 500 });
+        return text(`Caught: ${ctx.errormessage}`, { status: 500 });
       });
       expect(async () => {
         await router.respond(createRequest("/test"));
@@ -1647,8 +1653,8 @@ describe("Router - Additional Tests", () => {
 
     it("should handle errors in default handlers", async () => {
       const router = new Router({
-        defaultCatcher: (ctx: Context<CTError>) => {
-          return text(`Default: ${ctx.error?.message}`, { status: 500 });
+        defaultCatcher: (ctx) => {
+          return text(`Default: ${ctx.error.message}`, { status: 500 });
         },
       });
 
@@ -1770,8 +1776,8 @@ describe("Router - Additional Tests", () => {
         throw new HttpError(400, "Bad Request");
       });
 
-      router.catchGet("/error", (ctx: Context) => {
-        return text(ctx.error?.message || "Error", {
+      router.catchGet("/error", (ctx) => {
+        return text(ctx.error.message || "Error", {
           status: ctx.error instanceof HttpError ? ctx.error.status : 500,
         });
       });
@@ -1788,8 +1794,8 @@ describe("Router - Additional Tests", () => {
         throw "String error"; // Non-Error thrown
       });
 
-      router.catchGet("/error", (ctx: Context) => {
-        return text(`Caught: ${ctx.error?.message}`, {
+      router.catchGet("/error", (ctx) => {
+        return text(`Caught: ${ctx.error.message}`, {
           status: 500,
         });
       });
@@ -1800,17 +1806,6 @@ describe("Router - Additional Tests", () => {
   });
 
   describe("Configuration Options", () => {
-    it("should disable handlers when configured", async () => {
-      const router = new Router({
-        enable: { handler: false },
-      });
-
-      router.get("/test", () => text("Should not run"));
-
-      const response = await router.respond(createRequest("/test"));
-      expect(response.status).toBe(404);
-    });
-
     it("should disable filters when configured", async () => {
       const router = new Router({
         enable: { filter: false },
@@ -1850,7 +1845,7 @@ describe("Router - Additional Tests", () => {
     it("should handle concurrent requests without interference", async () => {
       const router = new Router();
 
-      router.get("/test/:id", (ctx: Context) => {
+      router.get("/test/:id", (ctx) => {
         return text(`ID: ${ctx.params.id}`);
       });
 
@@ -1934,7 +1929,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let body: unknown;
 
-      router.post("/test", async (ctx: Context) => {
+      router.post("/test", async (ctx) => {
         body = await ctx.request.json();
         return json({ received: body });
       });
@@ -1955,7 +1950,7 @@ describe("Router - Additional Tests", () => {
     it("should handle FormData body", async () => {
       const router = new Router();
 
-      router.post("/upload", async (ctx: Context) => {
+      router.post("/upload", async (ctx) => {
         const formData = await ctx.request.formData();
         const name = formData.get("name");
         return json({ name });
@@ -1977,7 +1972,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let body: unknown = "not set";
 
-      router.post("/test", async (ctx: Context) => {
+      router.post("/test", async (ctx) => {
         try {
           body = await ctx.request.json();
         } catch {
@@ -2023,7 +2018,7 @@ describe("Router - Additional Tests", () => {
 
       router.get("/api/v1.2/users", () => text("v1.2"));
       router.get("/api/v2-3/users", () => text("v2-3"));
-      router.get("/api/:version/users", (ctx: Context) => {
+      router.get("/api/:version/users", (ctx) => {
         return text(ctx.params.version!);
       });
 
@@ -2059,7 +2054,7 @@ describe("Router - Additional Tests", () => {
 
       // Register many parameterized routes
       for (let i = 0; i < 100; i++) {
-        router.get(`/api/v${i}/users/:id`, (ctx: Context) => {
+        router.get(`/api/v${i}/users/:id`, (ctx) => {
           return text(`v${i}:${ctx.params.id}`);
         });
       }
@@ -2093,7 +2088,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let capturedPath = "";
 
-      router.get("/users/:id", (ctx: Context) => {
+      router.get("/users/:id", (ctx) => {
         capturedPath = ctx.params.id!;
         return text("OK");
       });
@@ -2106,7 +2101,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let capturedPath = "";
 
-      router.get("/files/:name", (ctx: Context) => {
+      router.get("/files/:name", (ctx) => {
         capturedPath = ctx.params.name!;
         return text("OK");
       });
@@ -2119,7 +2114,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let capturedPath = "";
 
-      router.get("/users/:name", (ctx: Context) => {
+      router.get("/users/:name", (ctx) => {
         capturedPath = ctx.params.name!;
         return text("OK");
       });
@@ -2132,7 +2127,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let capturedPath = "";
 
-      router.get("/emoji/:emoji", (ctx: Context) => {
+      router.get("/emoji/:emoji", (ctx) => {
         capturedPath = ctx.params.emoji!;
         return text("OK");
       });
@@ -2197,7 +2192,7 @@ describe("Router - Additional Tests", () => {
       const router = new Router();
       let capturedPath = "";
 
-      router.get("/search/:q", (ctx: Context) => {
+      router.get("/search/:q", (ctx) => {
         capturedPath = ctx.params.q!;
         return text("OK");
       });
@@ -2380,8 +2375,8 @@ describe("Router - Additional Tests", () => {
         throw new Error("Async error");
       });
 
-      router.catchGet("/async-error", (ctx: Context) => {
-        return text(`Caught: ${ctx.error?.message}`, { status: 500 });
+      router.catchGet("/async-error", (ctx) => {
+        return text(`Caught: ${ctx.error.message}`, { status: 500 });
       });
 
       const response = await router.respond(createRequest("/async-error"));
@@ -2397,8 +2392,8 @@ describe("Router - Additional Tests", () => {
         throw new Error("Async filter error");
       });
 
-      router.catchGet("/test", (ctx: Context) => {
-        return text(`Caught: ${ctx.error?.message}`, { status: 500 });
+      router.catchGet("/test", (ctx) => {
+        return text(`Caught: ${ctx.error.message}`, { status: 500 });
       });
 
       router.get("/test", () => text("OK"));
@@ -2417,8 +2412,8 @@ describe("Router - Additional Tests", () => {
         throw new Error("Async after error");
       });
 
-      router.catchGet("/test", (ctx: Context) => {
-        return text(`Caught: ${ctx.error?.message}`, { status: 500 });
+      router.catchGet("/test", (ctx) => {
+        return text(`Caught: ${ctx.error.message}`, { status: 500 });
       });
 
       expect(async () => {

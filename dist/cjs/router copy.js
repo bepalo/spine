@@ -1391,4 +1391,4 @@ const parseParams = (superGlobIndex, params, pathname, parts) => {
     return paramsRec;
 };
 exports.default = Router;
-//# sourceMappingURL=router.js.map
+//# sourceMappingURL=router%20copy.js.map

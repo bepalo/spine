@@ -101,10 +101,11 @@ class Router {
     respond(request, ctxInit) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d, _e, _f;
-            let response = undefined;
+            const requestTimestamp = performance.now();
             const method = request.method;
             const url = new URL(request.url);
             let pathname;
+            let response = undefined;
             try {
                 pathname = decodeURIComponent(url.pathname);
             }
@@ -115,8 +116,8 @@ class Router {
                 });
             }
             const parts = [];
-            const ctx = Object.assign({ router: this, url,
-                request, headers: (_a = ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.headers) !== null && _a !== void 0 ? _a : new Headers(), params: EMPTY_PARAMS, pathname, $pathname: parts }, ctxInit);
+            const ctx = Object.assign(Object.assign({ router: this, url,
+                request, headers: (_a = ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.headers) !== null && _a !== void 0 ? _a : new Headers(), params: EMPTY_PARAMS, pathname, $pathname: parts }, ctxInit), { timestamps: Object.assign({ request: requestTimestamp, response: requestTimestamp }, ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.timestamps) });
             {
                 const count = this.splitPath(pathname, parts, __classPrivateFieldGet(this, _Router_config, "f").maxPath);
                 if (count < 0) {
@@ -141,47 +142,62 @@ class Router {
                 catcher: 0,
             };
             try {
-                // filters
-                if ((_b = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _b === void 0 ? void 0 : _b.filter) {
-                    const filterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").filter[method], false);
-                    found.filter = filterRoutes.length;
-                    if (filterRoutes.length > 0) {
-                        away: for (const routeEntry of filterRoutes) {
-                            // parse params
-                            const params = routeEntry.parseParams(pathname, parts);
-                            ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
-                            // call request handlers
-                            for (const handler of routeEntry.pipeline) {
-                                const resp = yield handler.apply(this, [ctx]);
-                                if (resp instanceof Response) {
-                                    response = resp;
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipe) {
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipeline) {
-                                    break away;
-                                }
-                            }
-                            if (response instanceof Response) {
-                                break;
-                            }
-                        }
-                    }
-                    // default filter
-                    if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFilter) {
-                        const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFilter(ctx);
-                        if (resp instanceof Response) {
-                            response = resp;
-                        }
-                    }
+                // get handlers first to check if any exist before filtering
+                const handlerRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").handler[method], true);
+                found.handler = handlerRoutes.length;
+                // for optmization, load fallbacks here only if necesasry
+                //   i.e. no handlers have been found or defaultFallback not set.
+                // if fallback routes have not been loaded now then they will be lazy
+                //   loaded later.
+                let handlerOrFallbackFound = __classPrivateFieldGet(this, _Router_config, "f").defaultFallback != null || found.handler > 0;
+                let fallbacksLoaded = false;
+                // get fallbacks if handlers have not been found
+                let fallbackRoutes = [];
+                if (!handlerOrFallbackFound && ((_b = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _b === void 0 ? void 0 : _b.fallback)) {
+                    fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
+                    found.fallback = fallbackRoutes.length;
+                    handlerOrFallbackFound = found.fallback > 0;
+                    fallbacksLoaded = true;
                 }
-                // handlers
-                if (((_c = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _c === void 0 ? void 0 : _c.handler) && !(response instanceof Response)) {
-                    const handlerRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").handler[method], true);
-                    found.handler = handlerRoutes.length;
-                    if (handlerRoutes.length > 0) {
+                if (handlerOrFallbackFound) {
+                    // filters
+                    if ((_c = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _c === void 0 ? void 0 : _c.filter) {
+                        const filterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").filter[method], false);
+                        found.filter = filterRoutes.length;
+                        if (filterRoutes.length > 0) {
+                            away: for (const routeEntry of filterRoutes) {
+                                // parse params
+                                const params = routeEntry.parseParams(pathname, parts);
+                                ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
+                                // call request handlers
+                                for (const handler of routeEntry.pipeline) {
+                                    const resp = yield handler.apply(this, [ctx]);
+                                    if (resp instanceof Response) {
+                                        response = resp;
+                                        break;
+                                    }
+                                    else if (resp === types_ts_1.Break_Pipe) {
+                                        break;
+                                    }
+                                    else if (resp === types_ts_1.Break_Pipeline) {
+                                        break away;
+                                    }
+                                }
+                                if (response instanceof Response) {
+                                    break;
+                                }
+                            }
+                        }
+                        // default filter
+                        if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFilter) {
+                            const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFilter(ctx);
+                            if (resp instanceof Response) {
+                                response = resp;
+                            }
+                        }
+                    }
+                    // handlers
+                    if (handlerRoutes.length > 0 && !(response instanceof Response)) {
                         away: for (const routeEntry of handlerRoutes) {
                             // parse params
                             const params = routeEntry.parseParams(pathname, parts);
@@ -205,12 +221,11 @@ class Router {
                             }
                         }
                     }
-                }
-                // fallbacks
-                if (((_d = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _d === void 0 ? void 0 : _d.fallback) && !(response instanceof Response)) {
-                    const fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
-                    found.fallback = fallbackRoutes.length;
-                    if (fallbackRoutes.length > 0) {
+                    // fallbacks
+                    if (((_d = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _d === void 0 ? void 0 : _d.fallback) && !(response instanceof Response)) {
+                        if (!fallbacksLoaded) {
+                            fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
+                        }
                         away: for (const routeEntry of fallbackRoutes) {
                             // parse params
                             const params = routeEntry.parseParams(pathname, parts);
@@ -233,12 +248,12 @@ class Router {
                                 break;
                             }
                         }
-                    }
-                    // default fallback
-                    if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFallback) {
-                        const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFallback(ctx);
-                        if (resp instanceof Response) {
-                            response = resp;
+                        // default fallback
+                        if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFallback) {
+                            const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFallback(ctx);
+                            if (resp instanceof Response) {
+                                response = resp;
+                            }
                         }
                     }
                 }
@@ -316,6 +331,7 @@ class Router {
                 response = new Response(response.body, Object.assign(Object.assign({}, response), { status: response.status, statusText: (0, status_ts_1.getHttpStatusText)(response.status), headers: ctx.headers }));
             }
             ctx.response = response;
+            ctx.timestamps.response = performance.now();
             // afters
             if ((_f = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _f === void 0 ? void 0 : _f.after) {
                 const afterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").after[method], false);

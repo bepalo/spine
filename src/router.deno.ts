@@ -132,10 +132,11 @@ export class Router<
     request: Request,
     ctxInit?: Omit<RespondContext<ExtendContext>, "router">,
   ): Promise<Response> {
-    let response: Response | undefined = undefined;
+    const requestTimestamp = performance.now();
     const method = request.method as HttpMethod;
     const url = new URL(request.url);
     let pathname!: string;
+    let response: Response | undefined = undefined;
     try {
       pathname = decodeURIComponent(url.pathname);
     } catch {
@@ -154,6 +155,11 @@ export class Router<
       pathname,
       $pathname: parts,
       ...ctxInit,
+      timestamps: {
+        request: requestTimestamp,
+        response: requestTimestamp,
+        ...(ctxInit as any)?.timestamps,
+      },
     } as Context<ExtendContext>;
     {
       const count = this.splitPath(pathname, parts, this.#config.maxPath);
@@ -179,55 +185,76 @@ export class Router<
       catcher: 0,
     } as Record<HandlerType, number>;
     try {
-      // filters
-      if (this.#config.enable?.filter) {
-        const filterRoutes = this.#getRouteEntries(
+      // get handlers first to check if any exist before filtering
+      const handlerRoutes = this.#getRouteEntries(
+        pathname,
+        parts,
+        this.#routes.handler[method as HttpMethodUpper],
+        true,
+      );
+      found.handler = handlerRoutes.length;
+      // for optmization, load fallbacks here only if necesasry
+      //   i.e. no handlers have been found or defaultFallback not set.
+      // if fallback routes have not been loaded now then they will be lazy
+      //   loaded later.
+      let handlerOrFallbackFound =
+        this.#config.defaultFallback != null || found.handler > 0;
+      let fallbacksLoaded = false;
+      // get fallbacks if handlers have not been found
+      let fallbackRoutes: RouteEntry<ExtendContext>[] = [];
+      if (!handlerOrFallbackFound && this.#config.enable?.fallback) {
+        fallbackRoutes = this.#getRouteEntries(
           pathname,
           parts,
-          this.#routes.filter[method as HttpMethodUpper],
+          this.#routes.fallback[method as HttpMethodUpper],
           false,
         );
-        found.filter = filterRoutes.length;
-        if (filterRoutes.length > 0) {
-          away: for (const routeEntry of filterRoutes) {
-            // parse params
-            const params = routeEntry.parseParams(pathname, parts);
-            ctx.params = params ?? EMPTY_PARAMS;
-            // call request handlers
-            for (const handler of routeEntry.pipeline) {
-              const resp = await handler.apply(this, [ctx]);
-              if (resp instanceof Response) {
-                response = resp;
+        found.fallback = fallbackRoutes.length;
+        handlerOrFallbackFound = found.fallback > 0;
+        fallbacksLoaded = true;
+      }
+      if (handlerOrFallbackFound) {
+        // filters
+        if (this.#config.enable?.filter) {
+          const filterRoutes = this.#getRouteEntries(
+            pathname,
+            parts,
+            this.#routes.filter[method as HttpMethodUpper],
+            false,
+          );
+          found.filter = filterRoutes.length;
+          if (filterRoutes.length > 0) {
+            away: for (const routeEntry of filterRoutes) {
+              // parse params
+              const params = routeEntry.parseParams(pathname, parts);
+              ctx.params = params ?? EMPTY_PARAMS;
+              // call request handlers
+              for (const handler of routeEntry.pipeline) {
+                const resp = await handler.apply(this, [ctx]);
+                if (resp instanceof Response) {
+                  response = resp;
+                  break;
+                } else if (resp === Break_Pipe) {
+                  break;
+                } else if (resp === Break_Pipeline) {
+                  break away;
+                }
+              }
+              if (response instanceof Response) {
                 break;
-              } else if (resp === Break_Pipe) {
-                break;
-              } else if (resp === Break_Pipeline) {
-                break away;
               }
             }
-            if (response instanceof Response) {
-              break;
+          }
+          // default filter
+          if (!(response instanceof Response) && this.#config.defaultFilter) {
+            const resp = await this.#config.defaultFilter(ctx);
+            if (resp instanceof Response) {
+              response = resp;
             }
           }
         }
-        // default filter
-        if (!(response instanceof Response) && this.#config.defaultFilter) {
-          const resp = await this.#config.defaultFilter(ctx);
-          if (resp instanceof Response) {
-            response = resp;
-          }
-        }
-      }
-      // handlers
-      if (this.#config.enable?.handler && !(response instanceof Response)) {
-        const handlerRoutes = this.#getRouteEntries(
-          pathname,
-          parts,
-          this.#routes.handler[method as HttpMethodUpper],
-          true,
-        );
-        found.handler = handlerRoutes.length;
-        if (handlerRoutes.length > 0) {
+        // handlers
+        if (handlerRoutes.length > 0 && !(response instanceof Response)) {
           away: for (const routeEntry of handlerRoutes) {
             // parse params
             const params = routeEntry.parseParams(pathname, parts);
@@ -249,17 +276,16 @@ export class Router<
             }
           }
         }
-      }
-      // fallbacks
-      if (this.#config.enable?.fallback && !(response instanceof Response)) {
-        const fallbackRoutes = this.#getRouteEntries(
-          pathname,
-          parts,
-          this.#routes.fallback[method as HttpMethodUpper],
-          false,
-        );
-        found.fallback = fallbackRoutes.length;
-        if (fallbackRoutes.length > 0) {
+        // fallbacks
+        if (this.#config.enable?.fallback && !(response instanceof Response)) {
+          if (!fallbacksLoaded) {
+            fallbackRoutes = this.#getRouteEntries(
+              pathname,
+              parts,
+              this.#routes.fallback[method as HttpMethodUpper],
+              false,
+            );
+          }
           away: for (const routeEntry of fallbackRoutes) {
             // parse params
             const params = routeEntry.parseParams(pathname, parts);
@@ -280,12 +306,12 @@ export class Router<
               break;
             }
           }
-        }
-        // default fallback
-        if (!(response instanceof Response) && this.#config.defaultFallback) {
-          const resp = await this.#config.defaultFallback(ctx);
-          if (resp instanceof Response) {
-            response = resp;
+          // default fallback
+          if (!(response instanceof Response) && this.#config.defaultFallback) {
+            const resp = await this.#config.defaultFallback(ctx);
+            if (resp instanceof Response) {
+              response = resp;
+            }
           }
         }
       }
@@ -377,6 +403,7 @@ export class Router<
       });
     }
     (ctx as Context<CTResponse & ExtendContext>).response = response;
+    ctx.timestamps.response = performance.now();
     // afters
     if (this.#config.enable?.after) {
       const afterRoutes = this.#getRouteEntries(

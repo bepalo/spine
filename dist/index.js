@@ -18,6 +18,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./types.js"), exports);
+__exportStar(require("./utils.js"), exports);
 __exportStar(require("./utils.node.js"), exports);
 __exportStar(require("./status.js"), exports);
 __exportStar(require("./helpers.js"), exports);

@@ -344,55 +344,54 @@ describe("Router Handler Methods", () => {
     it("router.fallback() should register fallback", async () => {
       const router = new Router();
       const spy = createSpy();
-
-      router.fallback("Get /test", () => {
-        spy();
-        return text("fallback");
-      });
-
-      const response = await router.respond(createRequest("/test", "GET"));
-      expect(spy).toHaveBeenCalled();
-      expect(await response.text()).toBe("fallback");
-    });
-
-    it("router.fallbackGet() should register GET fallback", async () => {
-      const router = new Router();
-      const spy = createSpy();
+      const spy1 = createSpy();
 
       router.fallbackGet("/test", () => {
         spy();
         return text("fallback");
       });
 
+      router.handleGet("/test", () => {
+        spy1();
+      });
       const response = await router.respond(createRequest("/test", "GET"));
       expect(spy).toHaveBeenCalled();
+      expect(spy1).toHaveBeenCalled();
+      expect(await response.text()).toBe("fallback");
+    });
+
+    it("router.fallbackGet() should register GET fallback", async () => {
+      const router = new Router();
+      const spy = createSpy();
+      const spy1 = createSpy();
+
+      router.fallbackGet("/test", () => {
+        spy();
+        return text("fallback");
+      });
+
+      router.get("/test", () => {
+        spy1();
+      });
+
+      const response = await router.respond(createRequest("/test", "GET"));
+      expect(spy).toHaveBeenCalled();
+      expect(spy1).toHaveBeenCalled();
       expect(await response.text()).toBe("fallback");
     });
 
     it("router.fallbackAll() should register fallback for all methods", async () => {
       const router = new Router();
       const spy = createSpy();
+      const spy1 = createSpy();
 
       router.fallbackAll("/test", () => {
         spy();
         return text("fallback");
       });
 
-      const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
-      for (const method of methods) {
-        const response = await router.respond(createRequest("/test", method));
-        expect(await response.text()).toBe("fallback");
-      }
-      expect(spy).toHaveBeenCalledTimes(methods.length);
-    });
-
-    it("router.fallbackCrud() should register fallback for CRUD methods", async () => {
-      const router = new Router();
-      const spy = createSpy();
-
-      router.fallbackCrud("/test", () => {
-        spy();
-        return text("fallback");
+      router.handleAll("/test", () => {
+        spy1();
       });
 
       const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
@@ -401,6 +400,30 @@ describe("Router Handler Methods", () => {
         expect(await response.text()).toBe("fallback");
       }
       expect(spy).toHaveBeenCalledTimes(methods.length);
+      expect(spy1).toHaveBeenCalledTimes(methods.length);
+    });
+
+    it("router.fallbackCrud() should register fallback for CRUD methods", async () => {
+      const router = new Router();
+      const spy = createSpy();
+      const spy1 = createSpy();
+
+      router.fallbackCrud("/test", () => {
+        spy();
+        return text("fallback");
+      });
+
+      router.handleCrud("/test", () => {
+        spy1();
+      });
+
+      const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+      for (const method of methods) {
+        const response = await router.respond(createRequest("/test", method));
+        expect(await response.text()).toBe("fallback");
+      }
+      expect(spy).toHaveBeenCalledTimes(methods.length);
+      expect(spy1).toHaveBeenCalledTimes(methods.length);
     });
   });
 
@@ -840,8 +863,12 @@ describe("Router Handler Methods", () => {
         order.push("after");
       });
 
+      router.get("/test", () => {
+        order.push("handler");
+      });
+
       const response = await router.respond(createRequest("/test"));
-      expect(order).toEqual(["filter", "fallback", "after"]);
+      expect(order).toEqual(["filter", "handler", "fallback", "after"]);
       expect(await response.text()).toBe("fallback");
     });
 

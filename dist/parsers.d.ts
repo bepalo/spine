@@ -129,8 +129,10 @@ export declare const parseBody: <ExtendContext extends Record<string, unknown> =
     clone?: boolean;
 }) => Handler<ExtendContext & CTBody>;
 export declare const parseHeaders: (rawHeaders: Uint8Array, contentDisposition?: object) => Headers;
+export declare const defaultFieldParser: (field: string, contentType?: string) => any;
 export type ParsedFormDataFile<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
     name: string;
+    fullpath: string;
     type: MimeType;
     size: number;
     totalSize?: number;
@@ -140,7 +142,20 @@ export type CTFormData<ExtendParsedFormDataFile extends Record<string, unknown> 
     fields: Map<string, string | any>;
 };
 export type ParseMultipartCallbacksReturnType = Response | typeof Break_Pipeline | typeof Break_Pipe | void | Promise<Response | typeof Break_Pipeline | typeof Break_Pipe | void>;
-export declare const parseMultipart: <ExtendContext extends Record<string, unknown> = EmptyRecord, ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord>({ idGenerator, onStart, onEnd, onHeader, onData, onDataCompletion, }: {
+export type ParseMultipartInfo<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
+    headers: Headers;
+    id: string;
+    name: string;
+    filename?: string;
+    file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
+};
+export declare const parseMultipart: <ExtendContext extends Record<string, unknown> = EmptyRecord, ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>>({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+    dontCatch?: boolean;
+    maxFields?: number;
+    maxFiles?: number;
+    maxFieldSize?: number;
+    maxFileSize?: number;
+    maxTotalSize?: number;
     idGenerator?: (info: {
         headers: Headers;
         name: string;
@@ -151,27 +166,65 @@ export declare const parseMultipart: <ExtendContext extends Record<string, unkno
         success: boolean;
         error?: Error | HttpError;
     }) => ParseMultipartCallbacksReturnType;
-    onHeader?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
-        headers: Headers;
-        id: string;
-        name: string;
-        filename?: string;
-        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
+    onHeader?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: Info) => ParseMultipartCallbacksReturnType;
+    onData: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, chunk: Uint8Array, info: Info) => ParseMultipartCallbacksReturnType;
+    onDataComplete: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: Info) => ParseMultipartCallbacksReturnType;
+    onFileLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFieldLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onFileSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFieldSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onTotalSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: Info) => ParseMultipartCallbacksReturnType;
+}) => Handler<CTFormData<ExtendParsedFormDataFile> & ExtendContext>;
+export type ParseUploadFileExtension<FileHandle = unknown> = {
+    totalChunks: number;
+    handle: FileHandle;
+    _prevProgress: number;
+    progress: number;
+};
+export declare const parseUpload: <ExtendContext extends Record<string, unknown> = {}, FileHandle = unknown, ExtendParsedFormDataFile extends Record<string, unknown> & ParseUploadFileExtension<FileHandle> = ParseUploadFileExtension<FileHandle>, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>, CTParseUpload = Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>>({ path, fileHandle, write, end, parseField, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+    path: string | {
+        (id: string, file: ParsedFormDataFile<ExtendParsedFormDataFile>): Promise<string> | string;
+    };
+    fileHandle: {
+        (fullpath: string): Promise<FileHandle> | FileHandle;
+    };
+    write: {
+        (file: ParsedFormDataFile<ExtendParsedFormDataFile>, chunk: Uint8Array, info: FileInfo): Promise<unknown> | unknown;
+    };
+    end?: {
+        (file: ParsedFormDataFile<ExtendParsedFormDataFile>, success: boolean, info: FileInfo): Promise<unknown> | unknown;
+    };
+    parseField?: (field: string, contentType?: string) => Promise<string | unknown> | string | unknown;
+    dontCatch?: boolean;
+    maxFields?: number;
+    maxFiles?: number;
+    maxFieldSize?: number;
+    maxFileSize?: number;
+    maxTotalSize?: number;
+    progressIncrement?: number;
+    idGenerator?: () => string;
+    onStart?: (ctx: CTParseUpload) => ParseMultipartCallbacksReturnType;
+    onEnd?: (ctx: CTParseUpload, info: {
+        success: boolean;
+        error?: Error | HttpError;
     }) => ParseMultipartCallbacksReturnType;
-    onData: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
-        chunk: Uint8Array;
-        headers: Headers;
-        id: string;
-        name: string;
-        filename?: string;
-        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
+    onHeader?: (ctx: CTParseUpload, info: Info) => ParseMultipartCallbacksReturnType;
+    onFieldHeader?: (ctx: CTParseUpload, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onFileHeader?: (ctx: CTParseUpload, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFileData?: (ctx: CTParseUpload, chunk: Uint8Array, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFileDataSpy?: (ctx: CTParseUpload, chunk: Uint8Array, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFieldData?: (ctx: CTParseUpload, chunk: Uint8Array, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onFieldDataSpy?: (ctx: CTParseUpload, chunk: Uint8Array, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onFileProgress?: (ctx: CTParseUpload, info: FileInfo) => Promise<void> | void;
+    onFieldComplete?: (ctx: CTParseUpload, info: FieldInfo & {
+        field: string | unknown;
     }) => ParseMultipartCallbacksReturnType;
-    onDataCompletion: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: {
-        headers: Headers;
-        id: string;
-        name: string;
-        filename?: string;
-        file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
-    }) => ParseMultipartCallbacksReturnType;
+    onFileComplete?: (ctx: CTParseUpload, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onComplete?: (ctx: CTParseUpload, info: Info) => ParseMultipartCallbacksReturnType;
+    onFileLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFieldLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onFileSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FileInfo) => ParseMultipartCallbacksReturnType;
+    onFieldSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: FieldInfo) => ParseMultipartCallbacksReturnType;
+    onTotalSizeLimit?: (ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>, info: ParseMultipartInfo<ExtendParsedFormDataFile>) => ParseMultipartCallbacksReturnType;
 }) => Handler<CTFormData<ExtendParsedFormDataFile> & ExtendContext>;
 //# sourceMappingURL=parsers.d.ts.map

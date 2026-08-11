@@ -258,6 +258,7 @@ export type BaseContext = {
   params: Record<string, string>;
   pathname: string;
   $pathname: string[];
+  timestamps: { request: number; response: number };
 };
 
 export type Context<
@@ -275,7 +276,7 @@ export type RouterConfig<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = {
   maxPath: number;
-  enable?: Partial<Record<HandlerType, boolean>>;
+  enable?: Partial<Record<Exclude<HandlerType, "handlers">, boolean>>;
   defaultFilter?: Handler<Context<ExtendContext>>;
   defaultFallback?: Handler<Context<ExtendContext>>;
   defaultCatcher?: Handler<Context<CTError & ExtendContext>>;

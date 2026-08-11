@@ -702,100 +702,49 @@ It can even handle edge cases like boundary across multiple chunks and very smal
 
 ```ts
 router.post("/upload", [
-  parseMultipart<
-    // Context extension
-    {},
-    // Parsed formdata file extension
-    // we will use this to store uploaded file related state
-    {
-      totalChunks: number;
-      prevProgress: number;
-      handle: Bun.FileBlob;
-      writer: Bun.FileSink;
-    }
-  >({
-    // // same as default implementation
-    // idGenerator: () => toBase64UUID(crypto.randomUUID()),
-    // idGenerator: ({ name }) => name,
+  parseUpload<{}, { writer: Bun.FileSink; hash: Hash | string }>({
+    // maxFields: 2,
+    // maxFiles: 1,
+    // maxFieldSize: 203,
+    // maxFileSize: 200 * 1024 * 1024,
 
-    onHeader: async (ctx, { headers, id, name, filename, file }) => {
-      console.log("[Upload](onHeader)", id);
-      // ctx.currentId = "upload_" + toBase64UUID(crypto.randomUUID());
-      if (file) {
-        const ext = file.name.substring(file.name.lastIndexOf("."));
-        const uploadPath = process.cwd() + "/uploads/" + id + ext;
-        const targetFile = Bun.file(uploadPath);
-        if (await targetFile.exists()) {
-          throw new HttpError(500, `File already exists`);
-        }
-        file.totalChunks = 0;
-        file.prevProgress = 0;
-        file.handle = targetFile;
-        file.writer = targetFile.writer();
-        // print progress start
-        console.log(
-          name,
-          filename,
-          "0%",
-          file.totalSize ? file.totalSize + " bytes" : "-",
-        );
-      } else {
-        ctx.fields.set(name, "");
-      }
+    path: process.cwd() + "/uploads",
+
+    fileHandle: (fullpath: string) => ({
+      writer: Bun.file(fullpath).writer(),
+      hash: createHash("sha256"),
+    }),
+
+    write: ({ handle }, chunk) => {
+      handle.writer.write(chunk);
+      (handle.hash as Hash).update(chunk);
     },
 
-    onData: (ctx, { chunk, id, name, filename, file }) => {
-      if (file) {
-        file.writer.write(chunk);
-        file.totalChunks++;
-        // file.crc.update(chunk);
-        // progress
-        if (file.totalSize) {
-          const progress = (file.size / file.totalSize) * 100;
-          // print progress every 10% increment
-          const truncProgress = Math.trunc(progress / 10);
-          if (truncProgress > file.prevProgress) {
-            console.log(name, filename, progress.toFixed(2) + "%");
-            file.prevProgress = truncProgress;
-          }
-        }
-      } else {
-        ctx.fields.set(
-          name,
-          ctx.fields.get(name)! + new TextDecoder().decode(chunk),
-        );
-      }
-    },
-
-    onDataCompletion: (ctx, { headers, id, name, filename, file }) => {
-      console.log("[Upload](onDataCompletion)", id);
-      if (file) {
-        file.writer.end();
-        delete file.handle;
-        delete file.writer;
-        console.log(file);
-      } else {
-        // parse json
-        const contentTypeHeader = headers.get("content-type");
-        if (contentTypeHeader?.startsWith("application/json")) {
-          ctx.fields.set(name, JSON.parse(ctx.fields.get(name)!));
-        }
-        console.log({ [name]: ctx.fields.get(name)! });
-      }
-    },
-
-    onStart: () => {
-      console.log("[Upload](onStart)");
-    },
-
-    onEnd: ({ files, fields }, { success, error }) => {
+    end: ({ handle, fullpath, name }, success) => {
+      handle.writer.end();
+      handle.hash = (handle.hash as Hash).digest().toString("hex");
       if (!success) {
-        console.error("[Upload](onEnd)", error);
-        return json({ error: error?.message });
+        Bun.file(fullpath).delete();
+        console.log(`[FileUpload](${name}) failed`);
       }
-      console.log("[Upload](onEnd)");
-      console.log({ fields, files });
-      return json({ message: "Upload successful" });
+    },
+
+    onEnd: ({ files, fields }) => {
+      console.dir(
+        {
+          files: Object.fromEntries(files.entries()),
+          fields: Object.fromEntries(fields.entries()),
+        },
+        { depth: 3 },
+      );
+    },
+
+    onFileProgress: (ctx, { file }) => {
+      console.log(
+        `[FileUpload](${file.name}) progress`,
+        file.progress.toFixed(2),
+        "%",
+      );
     },
   }),
 ]);

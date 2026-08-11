@@ -40,6 +40,10 @@ export type BaseContext = {
     params: Record<string, string>;
     pathname: string;
     $pathname: string[];
+    timestamps: {
+        request: number;
+        response: number;
+    };
 };
 export type Context<ExtendContext extends Record<string, unknown> = Record<string, never>> = BaseContext & ExtendContext;
 export type CTError = {
@@ -51,7 +55,7 @@ export type CTResponse = {
 export type RespondContext<ExtendContext extends Record<string, unknown> = Record<string, never>> = Partial<Pick<BaseContext, "headers">> & ExtendContext;
 export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
     maxPath: number;
-    enable?: Partial<Record<HandlerType, boolean>>;
+    enable?: Partial<Record<Exclude<HandlerType, "handlers">, boolean>>;
     defaultFilter?: Handler<Context<ExtendContext>>;
     defaultFallback?: Handler<Context<ExtendContext>>;
     defaultCatcher?: Handler<Context<CTError & ExtendContext>>;

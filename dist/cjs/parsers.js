@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseMultipart = exports.parseHeaders = exports.parseBody = exports.SUPPORTED_MEDIA_TYPES_LIST = exports.SUPPORTED_MEDIA_TYPES = exports.parseCookie = exports.parseCookieFromRequest = exports.parseQuery = void 0;
+exports.parseUpload = exports.parseMultipart = exports.defaultFieldParser = exports.parseHeaders = exports.parseBody = exports.SUPPORTED_MEDIA_TYPES_LIST = exports.SUPPORTED_MEDIA_TYPES = exports.parseCookie = exports.parseCookieFromRequest = exports.parseQuery = void 0;
 const rjson_1 = require("@bepalo/rjson");
 const types_ts_1 = require("./types.js");
 const helpers_ts_1 = require("./helpers.js");
@@ -438,6 +438,24 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
     return headers;
 };
 exports.parseHeaders = parseHeaders;
+const defaultFieldParser = (field, contentType) => {
+    switch (contentType) {
+        case "application/x-www-form-urlencoded": {
+            const searchParams = new URLSearchParams(field);
+            const parsed = {};
+            for (const key of searchParams.keys()) {
+                parsed[key] = searchParams.get(key);
+            }
+            return parsed;
+        }
+        case "application/json":
+            return JSON.parse(field);
+        case "application/rjson":
+            return rjson_1.RJSON.parse(field);
+    }
+    return field;
+};
+exports.defaultFieldParser = defaultFieldParser;
 var ParseMultipartState;
 (function (ParseMultipartState) {
     ParseMultipartState[ParseMultipartState["Initializing"] = 0] = "Initializing";
@@ -448,7 +466,7 @@ var ParseMultipartState;
     ParseMultipartState[ParseMultipartState["ParsingChunk"] = 5] = "ParsingChunk";
     ParseMultipartState[ParseMultipartState["Done"] = 6] = "Done";
 })(ParseMultipartState || (ParseMultipartState = {}));
-const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataCompletion, }) => {
+const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
     const prefix = new TextEncoder().encode("--");
     const crlfPrefix = new TextEncoder().encode("\r\n--");
     const endSuffix = new TextEncoder().encode("--");
@@ -459,175 +477,58 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
         const { request } = ctx;
         const headers = request.headers;
         const contentTypeHedaer = (_a = headers.get("content-type")) === null || _a === void 0 ? void 0 : _a.trim();
-        let error;
         let boundary = new Uint8Array();
         let boundaryPre = new Uint8Array();
         let boundaryPost = new Uint8Array();
+        // let error: HttpError | undefined;
         let response = undefined;
-        if (request.body == null) {
-            error = new types_ts_1.HttpError(400, "Empty body");
-        }
-        if (error == null &&
-            (contentTypeHedaer == null ||
+        try {
+            if (request.body == null) {
+                throw new types_ts_1.HttpError(400, "Empty body");
+            }
+            if (
+            // error == null &&
+            contentTypeHedaer == null ||
                 !(contentTypeHedaer.length === 19
                     ? contentTypeHedaer.startsWith("multipart/form-data")
-                    : contentTypeHedaer.startsWith("multipart/form-data;")))) {
-            error = new types_ts_1.HttpError(415, "Invalid header");
-        }
-        if (error == null && contentTypeHedaer != null) {
-            const separatorIndex = contentTypeHedaer.indexOf(";");
-            const boundaryHeader = separatorIndex != -1 &&
-                contentTypeHedaer.substring(separatorIndex).trim();
-            const equalsIndex = boundaryHeader && boundaryHeader.indexOf("=");
-            const boundaryStr = equalsIndex &&
-                equalsIndex > -1 &&
-                boundaryHeader.substring(equalsIndex + 1).trim();
-            if (!boundaryStr) {
-                error = new types_ts_1.HttpError(415, "Invalid boundary");
+                    : contentTypeHedaer.startsWith("multipart/form-data;"))) {
+                throw new types_ts_1.HttpError(415, "Invalid header");
             }
-            else {
-                const boundaryBytes = new TextEncoder().encode(boundaryStr);
-                const boundaryLen = boundaryBytes.length;
-                const crlfPrefixLen = crlfPrefix.length;
-                //
-                boundary = new Uint8Array(prefix.length + boundaryLen);
-                boundary.set(prefix, 0);
-                boundary.set(boundaryBytes, prefix.length);
-                //
-                boundaryPre = new Uint8Array(crlfPrefixLen + boundaryLen);
-                boundaryPre.set(crlfPrefix, 0);
-                boundaryPre.set(boundaryBytes, crlfPrefixLen);
-                //
-                boundaryPost = new Uint8Array(prefix.length + boundaryLen + crlf1.length);
-                boundaryPost.set(prefix, 0);
-                boundaryPost.set(boundaryBytes, prefix.length);
-                boundaryPost.set(crlf1, prefix.length + boundaryLen);
+            if (contentTypeHedaer != null) {
+                const separatorIndex = contentTypeHedaer.indexOf(";");
+                const boundaryHeader = separatorIndex != -1 &&
+                    contentTypeHedaer.substring(separatorIndex).trim();
+                const equalsIndex = boundaryHeader && boundaryHeader.indexOf("=");
+                const boundaryStr = equalsIndex &&
+                    equalsIndex > -1 &&
+                    boundaryHeader.substring(equalsIndex + 1).trim();
+                if (!boundaryStr) {
+                    throw new types_ts_1.HttpError(415, "Invalid boundary");
+                }
+                else {
+                    const boundaryBytes = new TextEncoder().encode(boundaryStr);
+                    const boundaryLen = boundaryBytes.length;
+                    const crlfPrefixLen = crlfPrefix.length;
+                    //
+                    boundary = new Uint8Array(prefix.length + boundaryLen);
+                    boundary.set(prefix, 0);
+                    boundary.set(boundaryBytes, prefix.length);
+                    //
+                    boundaryPre = new Uint8Array(crlfPrefixLen + boundaryLen);
+                    boundaryPre.set(crlfPrefix, 0);
+                    boundaryPre.set(boundaryBytes, crlfPrefixLen);
+                    //
+                    boundaryPost = new Uint8Array(prefix.length + boundaryLen + crlf1.length);
+                    boundaryPost.set(prefix, 0);
+                    boundaryPost.set(boundaryBytes, prefix.length);
+                    boundaryPost.set(crlf1, prefix.length + boundaryLen);
+                }
             }
-        }
-        // initialize context
-        ctx.fields = new Map();
-        ctx.files = new Map();
-        // start processing body as a stream of chunks
-        if (error == null && response == null && onStart != null) {
-            response = yield onStart(ctx);
-        }
-        if (error == null && response == null) {
-            const reader = request.body.getReader();
-            const crlf_len_1 = crlf2.length - 1;
-            let parserState = ParseMultipartState.Initializing;
-            let boundaryIdx = 0;
-            let crlfIdx = 0;
-            // find boundary starting from offset and based on boundaryIdx previously set
-            const findBoundary = (chunk, boundary, offset = 0) => {
-                const boundary_len_1 = boundary.length - 1;
-                let i = 0;
-                let startIdx = -1;
-                let matching = false;
-                // check unfinished boundary
-                if (boundaryIdx > 0) {
-                    for (i = offset; i < chunk.length; i++) {
-                        if (chunk[i] === boundary[boundaryIdx]) {
-                            if (!matching && boundaryIdx < boundary_len_1) {
-                                matching = true;
-                                startIdx = i;
-                            }
-                            else if (boundaryIdx === boundary_len_1) {
-                                boundaryIdx = 0;
-                                return [!matching ? 0 : startIdx, i + 1, true, false];
-                            }
-                            boundaryIdx++;
-                        }
-                        else if (matching) {
-                            boundaryIdx = 0;
-                            startIdx = -1;
-                            matching = false;
-                        }
-                    }
-                    // boundary spans whole chunk
-                    if (matching && i >= chunk.length) {
-                        return [startIdx < 0 ? 0 : startIdx, -1, false, true];
-                    }
-                    else {
-                        boundaryIdx = 0;
-                        matching = false;
-                    }
-                }
-                for (i = offset; i < chunk.length; i++) {
-                    if (chunk[i] === boundary[boundaryIdx]) {
-                        if (!matching) {
-                            matching = true;
-                            startIdx = i;
-                        }
-                        else if (boundaryIdx === boundary_len_1) {
-                            boundaryIdx = 0;
-                            return [startIdx, i + 1, false, false];
-                        }
-                        boundaryIdx++;
-                    }
-                    else if (matching) {
-                        boundaryIdx = 0;
-                        startIdx = -1;
-                        matching = false;
-                    }
-                }
-                return [startIdx, -1, false, false];
-            };
-            // find \r\n\r\n starting from offset and based on crlfIdx previously set
-            const findCRLF = (chunk, offset = 0) => {
-                let i = 0;
-                let startIdx = -1;
-                let matching = false;
-                if (crlfIdx > 0) {
-                    for (i = offset; i < chunk.length; i++) {
-                        if (chunk[i] === crlf2[crlfIdx]) {
-                            if (!matching && crlfIdx < crlf_len_1) {
-                                matching = true;
-                                startIdx = i;
-                            }
-                            else if (crlfIdx === crlf_len_1) {
-                                crlfIdx = 0;
-                                return [!matching ? 0 : startIdx, i + 1, true];
-                            }
-                            crlfIdx++;
-                        }
-                        else if (matching) {
-                            crlfIdx = 0;
-                            startIdx = -1;
-                            matching = false;
-                        }
-                    }
-                    crlfIdx = 0;
-                    matching = false;
-                }
-                for (i = offset; i < chunk.length; i++) {
-                    if (chunk[i] === crlf2[crlfIdx]) {
-                        if (!matching) {
-                            matching = true;
-                            startIdx = i;
-                        }
-                        else if (crlfIdx === crlf_len_1) {
-                            crlfIdx = 0;
-                            return [startIdx, i + 1, false];
-                        }
-                        crlfIdx++;
-                    }
-                    else if (matching) {
-                        crlfIdx = 0;
-                        startIdx = -1;
-                        matching = false;
-                    }
-                }
-                return [startIdx, -1, false];
-            };
+            // initialize context
+            ctx.fields = new Map();
+            ctx.files = new Map();
             ////////////////////////
-            let streamIsDone = false;
-            const getNextChunk = () => __awaiter(void 0, void 0, void 0, function* () {
-                const { done, value } = yield reader.read();
-                if (done) {
-                    streamIsDone = done;
-                }
-                return value;
-            });
+            // intialize states
             ////////////////////////////
             let initializationStepDone = false;
             let activeHeaders = undefined;
@@ -644,95 +545,214 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
             let expectBoundaryCRLF = 0;
             let headersChunks = [];
             let fileInfo = undefined;
-            ///////////////////////////////////////
-            away: while (parserState !== ParseMultipartState.Done) {
-                switch (parserState) {
-                    case ParseMultipartState.Initializing: {
-                        activeChunk = yield getNextChunk();
-                        parserState = ParseMultipartState.FindingBoundary;
-                        activeHeaderStart = -1;
-                        activeHeaderEnd = -1;
-                        activeBodyStart = -1;
-                        activeBodyEnd = -1;
-                        break;
+            let totalFields = 0;
+            let totalFiles = 0;
+            let activeFieldSize = 0;
+            let activeFileSize = 0;
+            let streamIsDone = false;
+            // start processing body as a stream of chunks
+            if (response == null && onStart != null) {
+                response = yield onStart(ctx);
+            }
+            if (response == null) {
+                const reader = request.body.getReader();
+                const crlf_len_1 = crlf2.length - 1;
+                let parserState = ParseMultipartState.Initializing;
+                let boundaryIdx = 0;
+                let crlfIdx = 0;
+                const getNextChunk = () => __awaiter(void 0, void 0, void 0, function* () {
+                    const { done, value } = yield reader.read();
+                    if (done) {
+                        streamIsDone = done;
                     }
-                    case ParseMultipartState.FindingBoundary: {
-                        if (activeChunk == null) {
-                            if (!streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
-                            }
-                            break away;
-                        }
-                        // find start boundary
-                        const [boundaryStart, boundaryEnd, leftOverMatch, leftOverCompleteMatch,] = findBoundary(activeChunk, initializationStepDone ? boundaryPre : boundary, activeHeaderEnd < 0 ? 0 : activeHeaderEnd + 2);
-                        if (streamIsDone &&
-                            ((boundaryEnd != -1 &&
-                                activeChunk[boundaryEnd] === endSuffix[0] &&
-                                activeChunk[boundaryEnd + 1] === endSuffix[1]) ||
-                                boundaryStart + 2 >= boundaryEnd)) {
-                            break away;
-                        }
-                        if (!initializationStepDone && boundaryStart < 0) {
-                            error = new types_ts_1.HttpError(400, "Invalid body");
-                            break away;
-                        }
-                        // check for leftOverBoundary
-                        if (leftOverBoundary != null &&
-                            !leftOverMatch &&
-                            !leftOverCompleteMatch &&
-                            boundaryIdx === 0) {
-                            if (fileInfo != null) {
-                                fileInfo.size += leftOverBoundary.length;
-                            }
-                            response = yield onData(ctx, {
-                                chunk: leftOverBoundary,
-                                headers: activeHeaders,
-                                id: activeId,
-                                name: activeName,
-                                filename: activeFilename,
-                                file: fileInfo,
-                            });
-                            if (response != null) {
-                                break away;
-                            }
-                            leftOverBoundary = undefined;
-                        }
-                        else if (leftOverMatch) {
-                            if (initializationStepDone && onDataCompletion != null) {
-                                response = yield onDataCompletion(ctx, {
-                                    headers: activeHeaders,
-                                    id: activeId,
-                                    name: activeName,
-                                    filename: activeFilename,
-                                    file: fileInfo,
-                                });
-                                if (response != null) {
-                                    break away;
+                    return value;
+                });
+                // find boundary starting from offset and based on boundaryIdx previously set
+                const findBoundary = (chunk, boundary, offset = 0) => {
+                    const boundary_len_1 = boundary.length - 1;
+                    let i = 0;
+                    let startIdx = -1;
+                    let matching = false;
+                    // check unfinished boundary
+                    if (boundaryIdx > 0) {
+                        for (i = offset; i < chunk.length; i++) {
+                            if (chunk[i] === boundary[boundaryIdx]) {
+                                if (!matching && boundaryIdx < boundary_len_1) {
+                                    matching = true;
+                                    startIdx = i;
                                 }
+                                else if (boundaryIdx === boundary_len_1) {
+                                    boundaryIdx = 0;
+                                    return [!matching ? 0 : startIdx, i + 1, true, false];
+                                }
+                                boundaryIdx++;
                             }
-                            leftOverBoundary = undefined;
+                            else if (matching) {
+                                boundaryIdx = 0;
+                                startIdx = -1;
+                                matching = false;
+                            }
                         }
-                        if (leftOverCompleteMatch) {
-                            activeBodyEnd = -1;
-                            activeHeaderStart = -1;
+                        // boundary spans whole chunk
+                        if (matching && i >= chunk.length) {
+                            return [startIdx < 0 ? 0 : startIdx, -1, false, true];
                         }
                         else {
-                            activeBodyEnd = boundaryStart;
-                            activeHeaderStart = boundaryEnd + 2;
+                            boundaryIdx = 0;
+                            matching = false;
                         }
-                        // keep looking if not found
-                        if (boundaryStart < 0) {
-                            if (streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
+                    }
+                    for (i = offset; i < chunk.length; i++) {
+                        if (chunk[i] === boundary[boundaryIdx]) {
+                            if (!matching) {
+                                matching = true;
+                                startIdx = i;
+                            }
+                            else if (boundaryIdx === boundary_len_1) {
+                                boundaryIdx = 0;
+                                return [startIdx, i + 1, false, false];
+                            }
+                            boundaryIdx++;
+                        }
+                        else if (matching) {
+                            boundaryIdx = 0;
+                            startIdx = -1;
+                            matching = false;
+                        }
+                    }
+                    return [startIdx, -1, false, false];
+                };
+                // find \r\n\r\n starting from offset and based on crlfIdx previously set
+                const findCRLF = (chunk, offset = 0) => {
+                    let i = 0;
+                    let startIdx = -1;
+                    let matching = false;
+                    if (crlfIdx > 0) {
+                        for (i = offset; i < chunk.length; i++) {
+                            if (chunk[i] === crlf2[crlfIdx]) {
+                                if (!matching && crlfIdx < crlf_len_1) {
+                                    matching = true;
+                                    startIdx = i;
+                                }
+                                else if (crlfIdx === crlf_len_1) {
+                                    crlfIdx = 0;
+                                    return [!matching ? 0 : startIdx, i + 1, true];
+                                }
+                                crlfIdx++;
+                            }
+                            else if (matching) {
+                                crlfIdx = 0;
+                                startIdx = -1;
+                                matching = false;
+                            }
+                        }
+                        crlfIdx = 0;
+                        matching = false;
+                    }
+                    for (i = offset; i < chunk.length; i++) {
+                        if (chunk[i] === crlf2[crlfIdx]) {
+                            if (!matching) {
+                                matching = true;
+                                startIdx = i;
+                            }
+                            else if (crlfIdx === crlf_len_1) {
+                                crlfIdx = 0;
+                                return [startIdx, i + 1, false];
+                            }
+                            crlfIdx++;
+                        }
+                        else if (matching) {
+                            crlfIdx = 0;
+                            startIdx = -1;
+                            matching = false;
+                        }
+                    }
+                    return [startIdx, -1, false];
+                };
+                // onData wrapper
+                const _onData = (ctx, chunk, info) => __awaiter(void 0, void 0, void 0, function* () {
+                    let response = undefined;
+                    const { file } = info;
+                    if (file != null) {
+                        file.size += chunk.length;
+                        activeFileSize += chunk.length;
+                        if (maxFileSize != null &&
+                            ((file.totalSize && file.totalSize > maxFileSize) ||
+                                activeFileSize > maxFileSize)) {
+                            if (onFileSizeLimit != null) {
+                                response = yield onFileSizeLimit(ctx, info);
+                            }
+                            if (response == null) {
+                                throw new types_ts_1.HttpError(413, "File too large");
+                                // return undefined;
+                            }
+                        }
+                    }
+                    else {
+                        activeFieldSize += chunk.length;
+                        if (maxFieldSize != null && activeFieldSize > maxFieldSize) {
+                            if (onFieldSizeLimit != null) {
+                                response = yield onFieldSizeLimit(ctx, info);
+                            }
+                            if (response == null) {
+                                throw new types_ts_1.HttpError(413, "Field too large");
+                                // return undefined;
+                            }
+                        }
+                    }
+                    if (maxTotalSize != null &&
+                        activeFileSize + activeFieldSize > maxTotalSize) {
+                        if (onTotalSizeLimit != null) {
+                            response = yield onTotalSizeLimit(ctx, info);
+                        }
+                        if (response == null) {
+                            throw new types_ts_1.HttpError(413, "Payload too large");
+                            // return undefined;
+                        }
+                    }
+                    if (response == null) {
+                        response = yield onData(ctx, chunk, info);
+                    }
+                    return response;
+                });
+                ///////////////////////////////////////
+                away: while (parserState !== ParseMultipartState.Done) {
+                    switch (parserState) {
+                        case ParseMultipartState.Initializing: {
+                            activeChunk = yield getNextChunk();
+                            parserState = ParseMultipartState.FindingBoundary;
+                            activeHeaderStart = -1;
+                            activeHeaderEnd = -1;
+                            activeBodyStart = -1;
+                            activeBodyEnd = -1;
+                            break;
+                        }
+                        case ParseMultipartState.FindingBoundary: {
+                            if (activeChunk == null) {
+                                if (!streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                }
                                 break away;
                             }
-                            if (initializationStepDone && activeBodyStart != -1) {
-                                const chunk = activeChunk.subarray(activeBodyStart, activeChunk.length - boundaryIdx);
-                                if (fileInfo != null) {
-                                    fileInfo.size += chunk.length;
-                                }
-                                response = yield onData(ctx, {
-                                    chunk,
+                            // find start boundary
+                            const [boundaryStart, boundaryEnd, leftOverMatch, leftOverCompleteMatch,] = findBoundary(activeChunk, initializationStepDone ? boundaryPre : boundary, activeHeaderEnd < 0 ? 0 : activeHeaderEnd + 2);
+                            if (streamIsDone &&
+                                ((boundaryEnd != -1 &&
+                                    activeChunk[boundaryEnd] === endSuffix[0] &&
+                                    activeChunk[boundaryEnd + 1] === endSuffix[1]) ||
+                                    boundaryStart + 2 >= boundaryEnd)) {
+                                break away;
+                            }
+                            if (!initializationStepDone && boundaryStart < 0) {
+                                throw new types_ts_1.HttpError(400, "Invalid body");
+                                // break away;
+                            }
+                            // check for leftOverBoundary
+                            if (leftOverBoundary != null &&
+                                !leftOverMatch &&
+                                !leftOverCompleteMatch &&
+                                boundaryIdx === 0) {
+                                response = yield _onData(ctx, leftOverBoundary, {
                                     headers: activeHeaders,
                                     id: activeId,
                                     name: activeName,
@@ -742,245 +762,294 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                 if (response != null) {
                                     break away;
                                 }
+                                leftOverBoundary = undefined;
                             }
-                            activeChunk = yield getNextChunk();
-                            activeHeaderStart = -1;
-                            activeHeaderEnd = -1;
-                            activeBodyStart = 0;
-                            activeBodyEnd = -1;
-                            continue;
-                        }
-                        // keep looking for the boundaryEnd in the next chunk
-                        if (boundaryEnd < 0) {
-                            if (streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
-                                break away;
+                            else if (leftOverMatch) {
+                                if (initializationStepDone && onDataComplete != null) {
+                                    response = yield onDataComplete(ctx, {
+                                        headers: activeHeaders,
+                                        id: activeId,
+                                        name: activeName,
+                                        filename: activeFilename,
+                                        file: fileInfo,
+                                    });
+                                    activeFilename = undefined;
+                                    if (response != null) {
+                                        break away;
+                                    }
+                                }
+                                else if (initializationStepDone) {
+                                    activeFilename = undefined;
+                                }
+                                leftOverBoundary = undefined;
                             }
-                            if (leftOverBoundary != null && boundaryStart !== -1) {
-                                const currentLeftOver = activeChunk.subarray(boundaryStart, activeChunk.length - boundaryStart);
-                                const newLeftOver = new Uint8Array(leftOverBoundary.length + currentLeftOver.length);
-                                newLeftOver.set(leftOverBoundary, 0);
-                                newLeftOver.set(currentLeftOver, leftOverBoundary.length);
-                                leftOverBoundary = newLeftOver;
+                            if (leftOverCompleteMatch) {
+                                activeBodyEnd = -1;
+                                activeHeaderStart = -1;
                             }
                             else {
-                                leftOverBoundary = activeChunk.subarray(activeChunk.length - boundaryIdx);
+                                activeBodyEnd = boundaryStart;
+                                activeHeaderStart = boundaryEnd + 2;
                             }
-                            if (!leftOverCompleteMatch && activeBodyEnd > 0) {
-                                const chunk = activeChunk.subarray(activeBodyStart, activeBodyEnd);
-                                if (fileInfo != null) {
-                                    fileInfo.size += chunk.length;
+                            // keep looking if not found
+                            if (boundaryStart < 0) {
+                                if (streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    // break away;
                                 }
-                                response = yield onData(ctx, {
-                                    chunk,
-                                    headers: activeHeaders,
-                                    id: activeId,
-                                    name: activeName,
-                                    filename: activeFilename,
-                                    file: fileInfo,
-                                });
-                                if (response != null) {
-                                    break away;
+                                if (initializationStepDone && activeBodyStart != -1) {
+                                    const chunk = activeChunk.subarray(activeBodyStart, activeChunk.length - boundaryIdx);
+                                    response = yield _onData(ctx, chunk, {
+                                        headers: activeHeaders,
+                                        id: activeId,
+                                        name: activeName,
+                                        filename: activeFilename,
+                                        file: fileInfo,
+                                    });
+                                    if (response != null) {
+                                        break away;
+                                    }
                                 }
+                                activeChunk = yield getNextChunk();
+                                activeHeaderStart = -1;
+                                activeHeaderEnd = -1;
+                                activeBodyStart = 0;
+                                activeBodyEnd = -1;
+                                continue;
                             }
-                            activeChunk = yield getNextChunk();
-                            activeHeaderStart = -1;
-                            activeHeaderEnd = -1;
-                            activeBodyStart = 0;
-                            activeBodyEnd = -1;
-                            continue;
-                        }
-                        if (!leftOverCompleteMatch &&
-                            boundaryEnd > activeChunk.length - crlf1.length) {
-                            expectBoundaryCRLF =
-                                crlf1.length - (activeChunk.length - boundaryEnd);
-                        }
-                        else {
-                            expectBoundaryCRLF = 0;
-                        }
-                        parserState = initializationStepDone
-                            ? ParseMultipartState.ParsingChunk
-                            : ParseMultipartState.FindingCRLF;
-                        if (!initializationStepDone) {
-                            initializationStepDone = true;
-                        }
-                        break;
-                    }
-                    case ParseMultipartState.FindingCRLF: {
-                        if (activeChunk == null) {
-                            if (!streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
+                            // keep looking for the boundaryEnd in the next chunk
+                            if (boundaryEnd < 0) {
+                                if (streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    // break away;
+                                }
+                                if (leftOverBoundary != null && boundaryStart !== -1) {
+                                    const currentLeftOver = activeChunk.subarray(boundaryStart, activeChunk.length - boundaryStart);
+                                    const newLeftOver = new Uint8Array(leftOverBoundary.length + currentLeftOver.length);
+                                    newLeftOver.set(leftOverBoundary, 0);
+                                    newLeftOver.set(currentLeftOver, leftOverBoundary.length);
+                                    leftOverBoundary = newLeftOver;
+                                }
+                                else {
+                                    leftOverBoundary = activeChunk.subarray(activeChunk.length - boundaryIdx);
+                                }
+                                if (!leftOverCompleteMatch && activeBodyEnd > 0) {
+                                    const chunk = activeChunk.subarray(activeBodyStart, activeBodyEnd);
+                                    response = yield _onData(ctx, chunk, {
+                                        headers: activeHeaders,
+                                        id: activeId,
+                                        name: activeName,
+                                        filename: activeFilename,
+                                        file: fileInfo,
+                                    });
+                                    if (response != null) {
+                                        break away;
+                                    }
+                                }
+                                activeChunk = yield getNextChunk();
+                                activeHeaderStart = -1;
+                                activeHeaderEnd = -1;
+                                activeBodyStart = 0;
+                                activeBodyEnd = -1;
+                                continue;
                             }
-                            break away;
-                        }
-                        if (activeHeaderStart < 0) {
-                            if (expectBoundaryCRLF > 0) {
-                                activeHeaderStart = expectBoundaryCRLF;
+                            if (!leftOverCompleteMatch &&
+                                boundaryEnd > activeChunk.length - crlf1.length) {
+                                expectBoundaryCRLF =
+                                    crlf1.length - (activeChunk.length - boundaryEnd);
+                            }
+                            else {
                                 expectBoundaryCRLF = 0;
                             }
-                            else {
-                                activeHeaderStart = 0;
+                            parserState = initializationStepDone
+                                ? ParseMultipartState.ParsingChunk
+                                : ParseMultipartState.FindingCRLF;
+                            if (!initializationStepDone) {
+                                initializationStepDone = true;
                             }
+                            break;
                         }
-                        // find crlf2
-                        const [crlfStart, crlfEnd, leftOverHeaderMatch] = findCRLF(activeChunk, activeHeaderStart);
-                        // check for leftOverHeader
-                        if (leftOverHeader != null && !leftOverHeaderMatch) {
-                            headersChunks.push(leftOverHeader);
-                            leftOverHeader = undefined;
-                        }
-                        // keep looking if not found
-                        if (crlfStart < 0) {
-                            if (streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
-                                break away;
-                            }
-                            const headerChunk = activeChunk.subarray(activeHeaderStart, activeChunk.length);
-                            headersChunks.push(headerChunk);
-                            activeChunk = yield getNextChunk();
-                            activeHeaderStart = -1;
-                            activeHeaderEnd = -1;
-                            activeBodyStart = -1;
-                            activeBodyEnd = -1;
-                            continue;
-                        }
-                        activeHeaderEnd = crlfStart;
-                        // keep looking for the crlfEnd in the next chunk
-                        if (crlfEnd < 0) {
-                            if (streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
-                                break away;
-                            }
-                            if (leftOverHeader != null) {
-                                const currentLeftOver = activeChunk.subarray(activeHeaderEnd);
-                                const newLeftOver = new Uint8Array(leftOverHeader.length + currentLeftOver.length);
-                                newLeftOver.set(leftOverHeader, 0);
-                                newLeftOver.set(currentLeftOver, leftOverHeader.length);
-                                leftOverBoundary = newLeftOver;
-                            }
-                            else {
-                                leftOverHeader = activeChunk.subarray(activeHeaderEnd);
-                            }
-                            const headerChunk = activeChunk.subarray(activeHeaderStart, activeHeaderEnd);
-                            headersChunks.push(headerChunk);
-                            activeChunk = yield getNextChunk();
-                            activeHeaderStart = 0;
-                            activeHeaderEnd = -1;
-                            activeBodyStart = -1;
-                            activeBodyEnd = -1;
-                            continue;
-                        }
-                        activeBodyStart = crlfEnd;
-                        if (activeHeaderStart != -1) {
-                            const headerChunk = activeChunk.subarray(activeHeaderStart, activeHeaderEnd);
-                            headersChunks.push(headerChunk);
-                        }
-                        parserState = ParseMultipartState.ParsingHeaders;
-                        break;
-                    }
-                    case ParseMultipartState.ParsingHeaders: {
-                        if (activeChunk == null) {
-                            if (!streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
-                            }
-                            break away;
-                        }
-                        let buffer = headersChunks.length === 1 ? headersChunks[0] : undefined;
-                        if (headersChunks.length > 1) {
-                            let requiredSize = 0;
-                            let bufferOffset = 0;
-                            for (const headerChunk of headersChunks) {
-                                requiredSize += headerChunk.length;
-                            }
-                            buffer = new Uint8Array(requiredSize);
-                            for (const headerChunk of headersChunks) {
-                                if (headerChunk.length === 0) {
-                                    continue;
+                        case ParseMultipartState.FindingCRLF: {
+                            if (activeChunk == null) {
+                                if (!streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
                                 }
-                                buffer.set(headerChunk, bufferOffset);
-                                bufferOffset += headerChunk.length;
-                            }
-                        }
-                        headersChunks = [];
-                        leftOverHeader = undefined;
-                        const contentDisposition = {};
-                        activeHeaders = (0, exports.parseHeaders)(new Uint8Array(buffer), contentDisposition);
-                        if (contentDisposition["name"] == null) {
-                            throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
-                        }
-                        // intialize for formdata part
-                        activeName = contentDisposition.name;
-                        activeFilename = contentDisposition.filename;
-                        activeId =
-                            idGenerator != null
-                                ? idGenerator({
-                                    headers: activeHeaders,
-                                    name: activeName,
-                                    filename: activeFilename,
-                                })
-                                : (0, utils_ts_1.toBase64UUID)(crypto.randomUUID());
-                        if (activeFilename != null) {
-                            const contentTypeHeader = activeHeaders.get("content-type");
-                            const contentLengthHeader = activeHeaders.get("content-length");
-                            const size = 0;
-                            const totalSize = contentLengthHeader
-                                ? parseInt(contentLengthHeader)
-                                : null;
-                            const type = (contentTypeHeader
-                                ? contentTypeHeader
-                                : "application/octet-stream");
-                            fileInfo = {
-                                name: activeFilename,
-                                size,
-                                totalSize,
-                                type,
-                            };
-                            ctx.files.set(activeId, fileInfo);
-                        }
-                        else {
-                            ctx.fields.set(activeName, null);
-                        }
-                        // invoke callback
-                        if (onHeader != null) {
-                            response = yield onHeader(ctx, {
-                                headers: activeHeaders,
-                                id: activeId,
-                                name: activeName,
-                                filename: activeFilename,
-                                file: fileInfo,
-                            });
-                            if (response != null) {
                                 break away;
                             }
-                        }
-                        parserState = ParseMultipartState.FindingBoundary;
-                        break;
-                    }
-                    case ParseMultipartState.ParsingChunk: {
-                        if (activeChunk == null) {
-                            if (!streamIsDone) {
-                                error = new types_ts_1.HttpError(400, "Invalid body");
+                            if (activeHeaderStart < 0) {
+                                if (expectBoundaryCRLF > 0) {
+                                    activeHeaderStart = expectBoundaryCRLF;
+                                    expectBoundaryCRLF = 0;
+                                }
+                                else {
+                                    activeHeaderStart = 0;
+                                }
                             }
-                            break away;
-                        }
-                        if (activeBodyStart != -1 && activeBodyStart < activeBodyEnd) {
-                            const chunk = activeChunk.subarray(activeBodyStart, activeBodyEnd);
-                            if (fileInfo != null) {
-                                fileInfo.size += chunk.length;
+                            // find crlf2
+                            const [crlfStart, crlfEnd, leftOverHeaderMatch] = findCRLF(activeChunk, activeHeaderStart);
+                            // check for leftOverHeader
+                            if (leftOverHeader != null && !leftOverHeaderMatch) {
+                                headersChunks.push(leftOverHeader);
+                                leftOverHeader = undefined;
                             }
-                            response = yield onData(ctx, {
-                                chunk,
-                                headers: activeHeaders,
-                                id: activeId,
-                                name: activeName,
-                                filename: activeFilename,
-                                file: fileInfo,
-                            });
-                            if (response != null) {
+                            // keep looking if not found
+                            if (crlfStart < 0) {
+                                if (streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    break away;
+                                }
+                                const headerChunk = activeChunk.subarray(activeHeaderStart, activeChunk.length);
+                                headersChunks.push(headerChunk);
+                                activeChunk = yield getNextChunk();
+                                activeHeaderStart = -1;
+                                activeHeaderEnd = -1;
+                                activeBodyStart = -1;
+                                activeBodyEnd = -1;
+                                continue;
+                            }
+                            activeHeaderEnd = crlfStart;
+                            // keep looking for the crlfEnd in the next chunk
+                            if (crlfEnd < 0) {
+                                if (streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    // break away;
+                                }
+                                if (leftOverHeader != null) {
+                                    const currentLeftOver = activeChunk.subarray(activeHeaderEnd);
+                                    const newLeftOver = new Uint8Array(leftOverHeader.length + currentLeftOver.length);
+                                    newLeftOver.set(leftOverHeader, 0);
+                                    newLeftOver.set(currentLeftOver, leftOverHeader.length);
+                                    leftOverBoundary = newLeftOver;
+                                }
+                                else {
+                                    leftOverHeader = activeChunk.subarray(activeHeaderEnd);
+                                }
+                                const headerChunk = activeChunk.subarray(activeHeaderStart, activeHeaderEnd);
+                                headersChunks.push(headerChunk);
+                                activeChunk = yield getNextChunk();
+                                activeHeaderStart = 0;
+                                activeHeaderEnd = -1;
+                                activeBodyStart = -1;
+                                activeBodyEnd = -1;
+                                continue;
+                            }
+                            activeBodyStart = crlfEnd;
+                            if (activeHeaderStart != -1) {
+                                const headerChunk = activeChunk.subarray(activeHeaderStart, activeHeaderEnd);
+                                headersChunks.push(headerChunk);
+                            }
+                            parserState = ParseMultipartState.ParsingHeaders;
+                            break;
+                        }
+                        case ParseMultipartState.ParsingHeaders: {
+                            if (activeChunk == null) {
+                                if (!streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                }
                                 break away;
                             }
-                            if (onDataCompletion != null) {
-                                response = yield onDataCompletion(ctx, {
+                            let buffer = headersChunks.length === 1 ? headersChunks[0] : undefined;
+                            if (headersChunks.length > 1) {
+                                let requiredSize = 0;
+                                let bufferOffset = 0;
+                                for (const headerChunk of headersChunks) {
+                                    requiredSize += headerChunk.length;
+                                }
+                                buffer = new Uint8Array(requiredSize);
+                                for (const headerChunk of headersChunks) {
+                                    if (headerChunk.length === 0) {
+                                        continue;
+                                    }
+                                    buffer.set(headerChunk, bufferOffset);
+                                    bufferOffset += headerChunk.length;
+                                }
+                            }
+                            headersChunks = [];
+                            leftOverHeader = undefined;
+                            const contentDisposition = {};
+                            activeHeaders = (0, exports.parseHeaders)(new Uint8Array(buffer), contentDisposition);
+                            if (contentDisposition["name"] == null) {
+                                throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                            }
+                            // intialize for formdata part
+                            activeName = contentDisposition.name;
+                            activeFilename = contentDisposition.filename;
+                            activeId =
+                                idGenerator != null
+                                    ? idGenerator({
+                                        headers: activeHeaders,
+                                        name: activeName,
+                                        filename: activeFilename,
+                                    })
+                                    : (0, utils_ts_1.toBase64UUID)(crypto.randomUUID());
+                            if (activeFilename != null) {
+                                const contentTypeHeader = activeHeaders.get("content-type");
+                                const contentLengthHeader = activeHeaders.get("content-length");
+                                const size = 0;
+                                const totalSize = contentLengthHeader
+                                    ? parseInt(contentLengthHeader)
+                                    : null;
+                                const type = (contentTypeHeader
+                                    ? contentTypeHeader
+                                    : "application/octet-stream");
+                                fileInfo = {
+                                    name: activeFilename,
+                                    size,
+                                    totalSize,
+                                    type,
+                                };
+                                ctx.files.set(activeId, fileInfo);
+                            }
+                            else {
+                                ctx.fields.set(activeName, null);
+                            }
+                            // reset states
+                            activeFieldSize = 0;
+                            activeFileSize = 0;
+                            // update states
+                            if (activeFilename != null) {
+                                totalFiles++;
+                                if (maxFiles != null && totalFiles > maxFiles) {
+                                    if (onFileLimit != null) {
+                                        response = yield onFileLimit(ctx, {
+                                            headers: activeHeaders,
+                                            id: activeId,
+                                            name: activeName,
+                                            filename: activeFilename,
+                                            file: fileInfo,
+                                        });
+                                        if (response != null) {
+                                            break away;
+                                        }
+                                    }
+                                    else {
+                                        throw new types_ts_1.HttpError(413, "Too many files");
+                                        break away;
+                                    }
+                                }
+                            }
+                            else {
+                                totalFields++;
+                                if (maxFields != null && totalFields > maxFields) {
+                                    if (onFieldLimit != null) {
+                                        response = yield onFieldLimit(ctx, {
+                                            headers: activeHeaders,
+                                            id: activeId,
+                                            name: activeName,
+                                        });
+                                        if (response != null) {
+                                            break away;
+                                        }
+                                    }
+                                    else {
+                                        throw new types_ts_1.HttpError(413, "Too many fields");
+                                        break away;
+                                    }
+                                }
+                            }
+                            // invoke callback
+                            if (onHeader != null) {
+                                response = yield onHeader(ctx, {
                                     headers: activeHeaders,
                                     id: activeId,
                                     name: activeName,
@@ -991,18 +1060,75 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
                                     break away;
                                 }
                             }
+                            parserState = ParseMultipartState.FindingBoundary;
+                            break;
                         }
-                        parserState = ParseMultipartState.FindingCRLF;
-                        break;
+                        case ParseMultipartState.ParsingChunk: {
+                            if (activeChunk == null) {
+                                if (!streamIsDone) {
+                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                }
+                                break away;
+                            }
+                            if (activeBodyStart != -1 && activeBodyStart < activeBodyEnd) {
+                                const chunk = activeChunk.subarray(activeBodyStart, activeBodyEnd);
+                                response = yield _onData(ctx, chunk, {
+                                    headers: activeHeaders,
+                                    id: activeId,
+                                    name: activeName,
+                                    filename: activeFilename,
+                                    file: fileInfo,
+                                });
+                                if (response != null) {
+                                    break away;
+                                }
+                                if (onDataComplete != null) {
+                                    response = yield onDataComplete(ctx, {
+                                        headers: activeHeaders,
+                                        id: activeId,
+                                        name: activeName,
+                                        filename: activeFilename,
+                                        file: fileInfo,
+                                    });
+                                    activeFilename = undefined;
+                                    if (response != null) {
+                                        break away;
+                                    }
+                                }
+                                else {
+                                    activeFilename = undefined;
+                                }
+                            }
+                            parserState = ParseMultipartState.FindingCRLF;
+                            break;
+                        }
                     }
                 }
             }
         }
-        // handle completion and return a response
+        catch (_error) {
+            if (dontCatch) {
+                throw _error;
+            }
+            else {
+                const error = _error instanceof Error ? _error : new Error(String(_error));
+                // handle error and return a response
+                if (onEnd != null) {
+                    response = yield onEnd(ctx, {
+                        success: false,
+                        error,
+                    });
+                }
+                return response instanceof Response
+                    ? response
+                    : (0, helpers_ts_1.status)(error.status || 500, error.message);
+            }
+        }
+        // handle complete and return a response
         if (onEnd != null) {
+            const status = response instanceof Response ? response.status : 200;
             response = yield onEnd(ctx, {
-                success: error == null,
-                error,
+                success: status >= 200 && status < 400,
             });
         }
         if (response instanceof Response) {
@@ -1014,8 +1140,157 @@ const parseMultipart = ({ idGenerator, onStart, onEnd, onHeader, onData, onDataC
         else if (response === types_ts_1.Break_Pipeline) {
             return types_ts_1.Break_Pipeline;
         }
-        return error == null ? (0, helpers_ts_1.status)(200) : (0, helpers_ts_1.status)(error.status, error.message);
+        return (0, helpers_ts_1.status)(200);
     });
 };
 exports.parseMultipart = parseMultipart;
+const parseUpload = ({ path, fileHandle, write, end, parseField = exports.defaultFieldParser, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement = 10, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
+    const getUploadPath = (id, file) => __awaiter(void 0, void 0, void 0, function* () {
+        return typeof path === "function"
+            ? yield path(id, file)
+            : path + "/" + id + file.name.substring(file.name.lastIndexOf("."));
+    });
+    return (0, exports.parseMultipart)({
+        maxFields,
+        maxFiles,
+        maxFieldSize,
+        maxFileSize,
+        maxTotalSize,
+        idGenerator,
+        onHeader: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
+            let response = undefined;
+            if (info.file) {
+                const { id, file } = info;
+                const uploadPath = yield getUploadPath(id, file);
+                file.fullpath = uploadPath;
+                file.handle = yield fileHandle(uploadPath);
+                file.totalChunks = 0;
+                file._prevProgress = 0;
+                file.progress = 0;
+                if (onFileHeader != null) {
+                    response = yield onFileHeader(ctx, info);
+                }
+            }
+            else {
+                const { name } = info;
+                ctx.fields.set(name, "");
+                if (onFieldHeader != null) {
+                    response = yield onFieldHeader(ctx, info);
+                }
+            }
+            if (onHeader != null) {
+                response = yield onHeader(ctx, info);
+            }
+            return response;
+        }),
+        onData: (ctx, chunk, info) => __awaiter(void 0, void 0, void 0, function* () {
+            if (info.file != null) {
+                const { file } = info;
+                file.totalChunks++;
+                if (onFileProgress != null &&
+                    progressIncrement != null &&
+                    progressIncrement > 0) {
+                    if (file.totalSize) {
+                        const progress = (file.size / file.totalSize) * 100;
+                        const truncProgress = Math.trunc(progress / progressIncrement);
+                        if (truncProgress > file._prevProgress) {
+                            file.progress = progress;
+                            yield onFileProgress(ctx, info);
+                            file._prevProgress = truncProgress;
+                        }
+                    }
+                }
+                if (onFileDataSpy != null) {
+                    const response = yield onFileDataSpy(ctx, chunk, info);
+                    if (response != null) {
+                        return response;
+                    }
+                }
+                if (onFileData != null) {
+                    return yield onFileData(ctx, chunk, info);
+                }
+                else {
+                    yield write(info.file, chunk, info);
+                }
+            }
+            else {
+                const { name } = info;
+                if (onFieldDataSpy != null) {
+                    const response = yield onFieldDataSpy(ctx, chunk, info);
+                    if (response != null) {
+                        return response;
+                    }
+                }
+                if (onFieldData != null) {
+                    return yield onFieldData(ctx, chunk, info);
+                }
+                else {
+                    ctx.fields.set(name, ctx.fields.get(name) + new TextDecoder().decode(chunk));
+                }
+            }
+        }),
+        onDataComplete: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
+            let response = undefined;
+            if (info.file) {
+                if (end != null) {
+                    yield end(info.file, true, info);
+                }
+                if (onFileComplete != null) {
+                    response = yield onFileComplete(ctx, info);
+                }
+            }
+            else {
+                const { name, headers } = info;
+                // parse field
+                if (parseField != null) {
+                    const contentTypeHeader = headers.get("content-type");
+                    const field = ctx.fields.get(name);
+                    const contentType = contentTypeHeader
+                        ? contentTypeHeader.split(";", 2)[0]
+                        : undefined;
+                    const parsed = yield parseField(field, contentType);
+                    ctx.fields.set(name, parsed);
+                }
+                if (onFieldComplete != null) {
+                    const field = ctx.fields.get(name);
+                    response = yield onFieldComplete(ctx, Object.assign(Object.assign({}, info), { field }));
+                }
+            }
+            if (onComplete != null) {
+                response = yield onComplete(ctx, info);
+            }
+            return response;
+        }),
+        onStart: (ctx) => {
+            if (onStart != null) {
+                return onStart(ctx);
+            }
+        },
+        onEnd: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
+            var _a;
+            if (onEnd != null) {
+                return yield onEnd(ctx, info);
+            }
+            if (!info.success) {
+                // console.error("[Upload](onEnd)", info.error);
+                return (0, helpers_ts_1.status)(500, ((_a = info.error) === null || _a === void 0 ? void 0 : _a.message) || "Error while parsing upload");
+            }
+            return (0, helpers_ts_1.status)(200);
+        }),
+        onFileSizeLimit: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
+            if (end != null) {
+                yield end(info.file, false, info);
+            }
+            if (onFileSizeLimit != null) {
+                return yield onFileSizeLimit(ctx, info);
+            }
+        }),
+        dontCatch,
+        onFileLimit,
+        onFieldLimit,
+        onFieldSizeLimit,
+        onTotalSizeLimit,
+    });
+};
+exports.parseUpload = parseUpload;
 //# sourceMappingURL=parsers.js.map
