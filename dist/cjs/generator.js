@@ -146,10 +146,10 @@ const generateStaticRoutesImporter = (router_1, routesPath_1, ...args_1) => __aw
         }
     }
     return `// This is auto-generated for static importing of @bepalo/spine file-based routes
-import { Router, Handler, HandlerRegisterPiplineOptions, Pipeline } from '@bepalo/spine';
+import { Router, Handler, HandlerRegisterPiplineOptions, Pipe } from '@bepalo/spine';
 ${imports}
 const getOptions = <ExtendContext extends Record<string, unknown>>(
-	def: { pipe: Handler<ExtendContext> | Pipeline<ExtendContext> } & HandlerRegisterPiplineOptions,
+	def: { pipe: Handler<ExtendContext> | Pipe<ExtendContext> } & HandlerRegisterPiplineOptions,
 ) => {
 	const { pipe, ...options } = def;
 	return options;
