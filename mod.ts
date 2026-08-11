@@ -1,4 +1,5 @@
 export * from "./src/types.ts";
+export * from "./src/utils.ts";
 export * from "./src/utils.deno.ts";
 export * from "./src/status.ts";
 export * from "./src/helpers.ts";
