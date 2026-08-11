@@ -492,7 +492,7 @@ describe("Router", () => {
     });
   });
 
-  describe("Middleware Pipeline", () => {
+  describe("Middleware Pipe", () => {
     it("should execute multiple handlers in order", async () => {
       const router = new Router();
       const order: string[] = [];
@@ -515,7 +515,7 @@ describe("Router", () => {
       expect(await response.text()).toBe("done");
     });
 
-    it("should stop pipeline with Break_Pipe", async () => {
+    it("should stop pipe with Break_Pipe", async () => {
       const router = new Router();
       const order: string[] = [];
 
@@ -536,7 +536,7 @@ describe("Router", () => {
       expect(order).toEqual(["first", "second"]);
     });
 
-    it("should stop pipeline queue with Break_Pipeline", async () => {
+    it("should stop pipe queue with Break_Pipeline", async () => {
       const router = new Router();
       const order: string[] = [];
 

@@ -26,16 +26,16 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
-var _Router_instances, _Router_config, _Router_routes, _Router_register, _Router_processPath, _Router_getRouteEntries, _Router_InitEntries, _Router_initRoutes;
+var _Router_instances, _Router_config, _Router_routes, _Router_processPath, _Router_getRouteEntries, _Router_InitEntries, _Router_initRoutes;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Router = exports.HANDLER_TYPES = exports.HTTP_METHODS_UPPER = exports.CRUD_METHODS = exports.HTTP_METHODS = void 0;
+exports.Router = exports.HANDLER_TYPES = exports.HTTP_METHODS_UPPER = exports.CRUD_METHODS = exports.HTTP_METHODS = exports.REGISTER_PATH_REGEX = exports.PATH_PART_REGEX = void 0;
 const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
 const utils_node_ts_1 = require("./utils.node.js");
 const EMPTY_PARAMS = Object.freeze({});
 const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
-const PATH_PART_REGEX = new RegExp(`^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`, "u");
-const REGISTER_PATH_REGEX = new RegExp(`^(?:/(?:${W}*|${W}*(?:\\|${W}*)*:${W}*|\\*))+|(?:/${W}*)*(?:/\\.?\\*\\*)|(?:/${W}*)*(?:/::${W}*)$`, "u");
+exports.PATH_PART_REGEX = new RegExp(`^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`, "u");
+exports.REGISTER_PATH_REGEX = new RegExp(`^(?:/(?:${W}*|${W}*(?:\\|${W}*)*:${W}*|\\*))+|(?:/${W}*)*(?:/\\.?\\*\\*)|(?:/${W}*)*(?:/::${W}*)$`, "u");
 exports.HTTP_METHODS = new Set([
     "Head",
     "Get",
@@ -170,7 +170,7 @@ class Router {
                                 const params = routeEntry.parseParams(pathname, parts);
                                 ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
                                 // call request handlers
-                                for (const handler of routeEntry.pipeline) {
+                                for (const handler of routeEntry.pipe) {
                                     const resp = yield handler.apply(this, [ctx]);
                                     if (resp instanceof Response) {
                                         response = resp;
@@ -203,7 +203,7 @@ class Router {
                             const params = routeEntry.parseParams(pathname, parts);
                             ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
                             // call request handlers
-                            for (const handler of routeEntry.pipeline) {
+                            for (const handler of routeEntry.pipe) {
                                 const resp = yield handler(ctx);
                                 if (resp instanceof Response) {
                                     response = resp;
@@ -231,7 +231,7 @@ class Router {
                             const params = routeEntry.parseParams(pathname, parts);
                             ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
                             // call request handlers
-                            for (const handler of routeEntry.pipeline) {
+                            for (const handler of routeEntry.pipe) {
                                 const resp = yield handler(ctx);
                                 if (resp instanceof Response) {
                                     response = resp;
@@ -292,7 +292,7 @@ class Router {
                             const params = routeEntry.parseParams(url.pathname, parts);
                             ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
                             // call request handlers
-                            for (const handler of routeEntry.pipeline) {
+                            for (const handler of routeEntry.pipe) {
                                 const resp = yield handler(ctx);
                                 if (resp instanceof Response) {
                                     response = resp;
@@ -343,7 +343,7 @@ class Router {
                         ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
                         ctx.response = response;
                         // call request handlers
-                        for (const handler of routeEntry.pipeline) {
+                        for (const handler of routeEntry.pipe) {
                             const resp = yield handler(ctx);
                             if (resp instanceof Response) {
                                 response = resp;
@@ -423,21 +423,21 @@ class Router {
                                     }
                                 }
                                 const definition = Array.isArray(_definition) || typeof _definition === "function"
-                                    ? { pipeline: _definition }
+                                    ? { pipe: _definition }
                                     : {
-                                        pipeline: _definition.pipeline,
+                                        pipe: _definition.pipe,
                                         openApi: _definition.openApi,
                                     };
-                                const pipeline = definition.pipeline;
+                                const pipe = definition.pipe;
                                 const openApi = definition.openApi;
                                 if (openApi != null && handlerType !== "handler") {
                                     console.warn(`OpenApi definition will be ignored in '${node.path}' ${_method}`);
                                 }
-                                if (pipeline == null) {
-                                    throw new types_ts_1.RouterError(`Undefined pipeline in '${node.path}' ${_method}`);
+                                if (pipe == null) {
+                                    throw new types_ts_1.RouterError(`Undefined pipe in '${node.path}' ${_method}`);
                                 }
-                                if (!Array.isArray(pipeline) && typeof pipeline !== "function") {
-                                    throw new types_ts_1.RouterError(`Bad pipeline type in '${node.path}' ${_method}`);
+                                if (!Array.isArray(pipe) && typeof pipe !== "function") {
+                                    throw new types_ts_1.RouterError(`Bad pipe type in '${node.path}' ${_method}`);
                                 }
                                 if (openApi != null && typeof openApi !== "object") {
                                     throw new types_ts_1.RouterError(`Bad openApi type in '${node.path}' ${_method}`);
@@ -445,8 +445,8 @@ class Router {
                                 const options = handlerType === "handler" && openApi != null
                                     ? { openApi }
                                     : undefined;
-                                if (Array.isArray(pipeline) || typeof pipeline === "function") {
-                                    __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, handlerType, `${method} ${path}`, pipeline, options);
+                                if (Array.isArray(pipe) || typeof pipe === "function") {
+                                    this.register(handlerType, `${method} ${path}`, pipe, options);
                                 }
                             }
                         }
@@ -524,7 +524,7 @@ class Router {
             });
         });
     }
-    all(paths, pipeline, options) {
+    all(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -532,9 +532,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    crud(paths, pipeline, options) {
+    crud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -542,54 +542,54 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    head(paths, pipeline, options) {
+    head(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    get(paths, pipeline, options) {
+    get(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    post(paths, pipeline, options) {
+    post(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    put(paths, pipeline, options) {
+    put(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    patch(paths, pipeline, options) {
+    patch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    delete(paths, pipeline, options) {
+    delete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    options(paths, pipeline, options) {
+    options(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    trace(paths, pipeline, options) {
+    trace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    connect(paths, pipeline, options) {
+    connect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    filterAll(paths, pipeline, options) {
+    filterAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -597,9 +597,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterCrud(paths, pipeline, options) {
+    filterCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -607,54 +607,54 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterHead(paths, pipeline, options) {
+    filterHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterGet(paths, pipeline, options) {
+    filterGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterPost(paths, pipeline, options) {
+    filterPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterPut(paths, pipeline, options) {
+    filterPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterPatch(paths, pipeline, options) {
+    filterPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterDelete(paths, pipeline, options) {
+    filterDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterOptions(paths, pipeline, options) {
+    filterOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterTrace(paths, pipeline, options) {
+    filterTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    filterConnect(paths, pipeline, options) {
+    filterConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+        return this.register("filter", methodPaths, pipe, options);
     }
-    handleAll(paths, pipeline, options) {
+    handleAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -662,9 +662,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleCrud(paths, pipeline, options) {
+    handleCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -672,54 +672,54 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleHead(paths, pipeline, options) {
+    handleHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleGet(paths, pipeline, options) {
+    handleGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handlePost(paths, pipeline, options) {
+    handlePost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handlePut(paths, pipeline, options) {
+    handlePut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handlePatch(paths, pipeline, options) {
+    handlePatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleDelete(paths, pipeline, options) {
+    handleDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleOptions(paths, pipeline, options) {
+    handleOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleTrace(paths, pipeline, options) {
+    handleTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    handleConnect(paths, pipeline, options) {
+    handleConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+        return this.register("handler", methodPaths, pipe, options);
     }
-    fallbackAll(paths, pipeline, options) {
+    fallbackAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -727,9 +727,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackCrud(paths, pipeline, options) {
+    fallbackCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -737,54 +737,54 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackHead(paths, pipeline, options) {
+    fallbackHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackGet(paths, pipeline, options) {
+    fallbackGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackPost(paths, pipeline, options) {
+    fallbackPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackPut(paths, pipeline, options) {
+    fallbackPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackPatch(paths, pipeline, options) {
+    fallbackPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackDelete(paths, pipeline, options) {
+    fallbackDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackOptions(paths, pipeline, options) {
+    fallbackOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackTrace(paths, pipeline, options) {
+    fallbackTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    fallbackConnect(paths, pipeline, options) {
+    fallbackConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    afterAll(paths, pipeline, options) {
+    afterAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -792,9 +792,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterCrud(paths, pipeline, options) {
+    afterCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -802,54 +802,54 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterHead(paths, pipeline, options) {
+    afterHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterGet(paths, pipeline, options) {
+    afterGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterPost(paths, pipeline, options) {
+    afterPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterPut(paths, pipeline, options) {
+    afterPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterPatch(paths, pipeline, options) {
+    afterPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterDelete(paths, pipeline, options) {
+    afterDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterOptions(paths, pipeline, options) {
+    afterOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterTrace(paths, pipeline, options) {
+    afterTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    afterConnect(paths, pipeline, options) {
+    afterConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+        return this.register("after", methodPaths, pipe, options);
     }
-    catchAll(paths, pipeline, options) {
+    catchAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -857,9 +857,9 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchCrud(paths, pipeline, options) {
+    catchCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
         for (const p of paths) {
@@ -867,67 +867,179 @@ class Router {
                 methodPaths.push(`${method} ${p}`);
             }
         }
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchHead(paths, pipeline, options) {
+    catchHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchGet(paths, pipeline, options) {
+    catchGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchPost(paths, pipeline, options) {
+    catchPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchPut(paths, pipeline, options) {
+    catchPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchPatch(paths, pipeline, options) {
+    catchPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchDelete(paths, pipeline, options) {
+    catchDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchOptions(paths, pipeline, options) {
+    catchOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchTrace(paths, pipeline, options) {
+    catchTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    catchConnect(paths, pipeline, options) {
+    catchConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+        return this.register("catcher", methodPaths, pipe, options);
     }
-    filter(methodPaths, pipeline, options) {
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "filter", methodPaths, pipeline, options);
+    filter(methodPaths, pipe, options) {
+        return this.register("filter", methodPaths, pipe, options);
     }
-    handle(methodPaths, pipeline, options) {
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "handler", methodPaths, pipeline, options);
+    handle(methodPaths, pipe, options) {
+        return this.register("handler", methodPaths, pipe, options);
     }
-    fallback(methodPaths, pipeline, options) {
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "fallback", methodPaths, pipeline, options);
+    fallback(methodPaths, pipe, options) {
+        return this.register("fallback", methodPaths, pipe, options);
     }
-    after(methodPaths, pipeline, options) {
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "after", methodPaths, pipeline, options);
+    after(methodPaths, pipe, options) {
+        return this.register("after", methodPaths, pipe, options);
     }
-    catch(methodPaths, pipeline, options) {
-        return __classPrivateFieldGet(this, _Router_instances, "m", _Router_register).call(this, "catcher", methodPaths, pipeline, options);
+    catch(methodPaths, pipe, options) {
+        return this.register("catcher", methodPaths, pipe, options);
+    }
+    register(handlerType, methodPaths, pipe, options) {
+        const overwrite = (options === null || options === void 0 ? void 0 : options.overwrite) === true;
+        methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
+        pipe = Array.isArray(pipe) ? pipe : [pipe];
+        for (const methodPath of methodPaths) {
+            const [method, originalPath] = methodPath.split(" ", 2);
+            const processedPaths = __classPrivateFieldGet(this, _Router_instances, "m", _Router_processPath).call(this, originalPath);
+            const { params, paths } = processedPaths;
+            const paramsMap = params ? new Map(params) : undefined;
+            for (const path of paths) {
+                const standardPath = params
+                    ? path
+                        .split("/")
+                        .map((p, idx) => (p === "*" ? `:${paramsMap === null || paramsMap === void 0 ? void 0 : paramsMap.get(idx)}` : p))
+                        .join("/")
+                    : path;
+                const openApiPath = params
+                    ? path
+                        .split("/")
+                        .map((p, idx) => (p === "*" ? `{${paramsMap === null || paramsMap === void 0 ? void 0 : paramsMap.get(idx)}}` : p))
+                        .join("/")
+                    : path;
+                const upperMethod = method.toUpperCase();
+                if (!exports.HTTP_METHODS_UPPER.has(upperMethod)) {
+                    throw new types_ts_1.RouterError(`Unsupported HTTP Method ${method}`);
+                }
+                const routes = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType][upperMethod];
+                if (!exports.REGISTER_PATH_REGEX.test(path)) {
+                    throw new types_ts_1.RouterError(`Invalid path for (${method} ${originalPath} -> ${path})`);
+                }
+                const parts = path.split("/", __classPrivateFieldGet(this, _Router_config, "f").maxPath + 1);
+                if (parts.length - 1 > __classPrivateFieldGet(this, _Router_config, "f").maxPath) {
+                    throw new types_ts_1.RouterError(`Path parts length limit exceeded ${__classPrivateFieldGet(this, _Router_config, "f").maxPath}`);
+                }
+                const parts_len_1 = parts.length - 1;
+                const hasGlob = parts.some((p) => p === "*");
+                const superGlobIndex = path.endsWith("/**") ? path.length - 3 : -1;
+                const hasSuperGlob = superGlobIndex >= 0;
+                const entry = {
+                    parseParams: parseParams.bind(null, hasSuperGlob ? superGlobIndex + 1 : undefined, params),
+                    params,
+                    pipe,
+                    originalPath,
+                    standardPath,
+                    openApiPath,
+                    path,
+                    pathParts: parts,
+                    openApi: options === null || options === void 0 ? void 0 : options.openApi,
+                };
+                // check for super globs
+                if (hasSuperGlob) {
+                    if (hasGlob) {
+                        throw new types_ts_1.RouterError(`SuperGlob route with Globs are not allowed. for (${method} ${originalPath} -> ${path})`);
+                    }
+                    let superGlobEntries = routes.superGlobs[parts_len_1];
+                    const basePath = path.substring(0, superGlobIndex + 1);
+                    if (!overwrite &&
+                        superGlobEntries &&
+                        superGlobEntries.has(basePath)) {
+                        throw new types_ts_1.RouterError(`SuperGlob route already set for (${method} ${originalPath} -> ${path})`);
+                    }
+                    if (superGlobEntries == null) {
+                        superGlobEntries = new Map();
+                        routes.superGlobs[parts_len_1] = superGlobEntries;
+                    }
+                    superGlobEntries.set(basePath, entry);
+                }
+                else if (hasGlob) {
+                    // check for globs
+                    let globEntries = routes.globs[parts.length];
+                    if (globEntries) {
+                        if (!overwrite && globEntries && globEntries.has(path)) {
+                            throw new types_ts_1.RouterError(`Glob route already set for (${method} ${originalPath} -> ${path})`);
+                        }
+                        // check for collision
+                        for (const globEntry of globEntries.values()) {
+                            let collision = -1;
+                            for (let i = 1; i < parts.length; i++) {
+                                if (parts[i] === "*" && globEntry.pathParts[i] === "*") {
+                                    collision = i;
+                                }
+                                else if (parts[i] !== globEntry.pathParts[i]) {
+                                    collision = -1;
+                                    break;
+                                }
+                            }
+                            if (collision >= 0 && !overwrite) {
+                                throw new types_ts_1.RouterError(`Route collision for (${method} ${originalPath} -> ${path} with ${globEntry.originalPath} at ${parts.slice(0, collision + 1).join("/")})`);
+                            }
+                        }
+                    }
+                    if (globEntries == null) {
+                        globEntries = new Map();
+                        routes.globs[parts.length] = globEntries;
+                    }
+                    globEntries.set(path, entry);
+                }
+                else {
+                    let entries = routes.entries[parts.length];
+                    if (!overwrite && entries && entries.has(path)) {
+                        throw new types_ts_1.RouterError(`Route already set for (${method} ${originalPath} -> ${path})`);
+                    }
+                    if (entries == null) {
+                        entries = new Map();
+                        routes.entries[parts.length] = entries;
+                    }
+                    entries.set(path, entry);
+                }
+            }
+        }
+        return this;
     }
     splitPath(pathname, parts, maxPath) {
         const path_len_1 = pathname.length - 1;
@@ -968,7 +1080,7 @@ class Router {
                 continue;
             }
             // validate part
-            if (!PATH_PART_REGEX.test(part)) {
+            if (!exports.PATH_PART_REGEX.test(part)) {
                 throw new types_ts_1.RouterError(`Invalid path ${pathname} -> ${part}`);
             }
             // parse part
@@ -1059,118 +1171,7 @@ class Router {
     }
 }
 exports.Router = Router;
-_Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_instances = new WeakSet(), _Router_register = function _Router_register(handlerType, methodPaths, pipeline, options) {
-    const overwrite = (options === null || options === void 0 ? void 0 : options.overwrite) === true;
-    methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
-    pipeline = Array.isArray(pipeline) ? pipeline : [pipeline];
-    for (const methodPath of methodPaths) {
-        const [method, originalPath] = methodPath.split(" ", 2);
-        const processedPaths = __classPrivateFieldGet(this, _Router_instances, "m", _Router_processPath).call(this, originalPath);
-        const { params, paths } = processedPaths;
-        const paramsMap = params ? new Map(params) : undefined;
-        for (const path of paths) {
-            const standardPath = params
-                ? path
-                    .split("/")
-                    .map((p, idx) => (p === "*" ? `:${paramsMap === null || paramsMap === void 0 ? void 0 : paramsMap.get(idx)}` : p))
-                    .join("/")
-                : path;
-            const openApiPath = params
-                ? path
-                    .split("/")
-                    .map((p, idx) => (p === "*" ? `{${paramsMap === null || paramsMap === void 0 ? void 0 : paramsMap.get(idx)}}` : p))
-                    .join("/")
-                : path;
-            const upperMethod = method.toUpperCase();
-            if (!exports.HTTP_METHODS_UPPER.has(upperMethod)) {
-                throw new types_ts_1.RouterError(`Unsupported HTTP Method ${method}`);
-            }
-            const routes = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType][upperMethod];
-            if (!REGISTER_PATH_REGEX.test(path)) {
-                throw new types_ts_1.RouterError(`Invalid path for (${method} ${originalPath} -> ${path})`);
-            }
-            const parts = path.split("/", __classPrivateFieldGet(this, _Router_config, "f").maxPath + 1);
-            if (parts.length - 1 > __classPrivateFieldGet(this, _Router_config, "f").maxPath) {
-                throw new types_ts_1.RouterError(`Path parts length limit exceeded ${__classPrivateFieldGet(this, _Router_config, "f").maxPath}`);
-            }
-            const parts_len_1 = parts.length - 1;
-            const hasGlob = parts.some((p) => p === "*");
-            const superGlobIndex = path.endsWith("/**") ? path.length - 3 : -1;
-            const hasSuperGlob = superGlobIndex >= 0;
-            const entry = {
-                parseParams: parseParams.bind(null, hasSuperGlob ? superGlobIndex + 1 : undefined, params),
-                params,
-                pipeline,
-                originalPath,
-                standardPath,
-                openApiPath,
-                path,
-                pathParts: parts,
-                openApi: options === null || options === void 0 ? void 0 : options.openApi,
-            };
-            // check for super globs
-            if (hasSuperGlob) {
-                if (hasGlob) {
-                    throw new types_ts_1.RouterError(`SuperGlob route with Globs are not allowed. for (${method} ${originalPath} -> ${path})`);
-                }
-                let superGlobEntries = routes.superGlobs[parts_len_1];
-                const basePath = path.substring(0, superGlobIndex + 1);
-                if (!overwrite &&
-                    superGlobEntries &&
-                    superGlobEntries.has(basePath)) {
-                    throw new types_ts_1.RouterError(`SuperGlob route already set for (${method} ${originalPath} -> ${path})`);
-                }
-                if (superGlobEntries == null) {
-                    superGlobEntries = new Map();
-                    routes.superGlobs[parts_len_1] = superGlobEntries;
-                }
-                superGlobEntries.set(basePath, entry);
-            }
-            else if (hasGlob) {
-                // check for globs
-                let globEntries = routes.globs[parts.length];
-                if (globEntries) {
-                    if (!overwrite && globEntries && globEntries.has(path)) {
-                        throw new types_ts_1.RouterError(`Glob route already set for (${method} ${originalPath} -> ${path})`);
-                    }
-                    // check for collision
-                    for (const globEntry of globEntries.values()) {
-                        let collision = -1;
-                        for (let i = 1; i < parts.length; i++) {
-                            if (parts[i] === "*" && globEntry.pathParts[i] === "*") {
-                                collision = i;
-                            }
-                            else if (parts[i] !== globEntry.pathParts[i]) {
-                                collision = -1;
-                                break;
-                            }
-                        }
-                        if (collision >= 0 && !overwrite) {
-                            throw new types_ts_1.RouterError(`Route collision for (${method} ${originalPath} -> ${path} with ${globEntry.originalPath} at ${parts.slice(0, collision + 1).join("/")})`);
-                        }
-                    }
-                }
-                if (globEntries == null) {
-                    globEntries = new Map();
-                    routes.globs[parts.length] = globEntries;
-                }
-                globEntries.set(path, entry);
-            }
-            else {
-                let entries = routes.entries[parts.length];
-                if (!overwrite && entries && entries.has(path)) {
-                    throw new types_ts_1.RouterError(`Route already set for (${method} ${originalPath} -> ${path})`);
-                }
-                if (entries == null) {
-                    entries = new Map();
-                    routes.entries[parts.length] = entries;
-                }
-                entries.set(path, entry);
-            }
-        }
-    }
-    return this;
-}, _Router_processPath = function _Router_processPath(path) {
+_Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_instances = new WeakSet(), _Router_processPath = function _Router_processPath(path) {
     const processedPaths = {
         paths: [""],
     };

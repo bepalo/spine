@@ -57,7 +57,7 @@ export declare const limitRate: <ExtendContext extends Record<string, unknown> =
  * @param {boolean} [config.credentials=false] - Allow credentials (cookies, authorization headers)
  * @param {number} [config.maxAge=86400] - Maximum age for preflight cache in seconds
  * @param {boolean} [config.varyOrigin=false] - Add Vary: Origin header for caching
- * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
+ * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
  * @returns {Function} Middleware function that handles CORS headers
  *
  * @example

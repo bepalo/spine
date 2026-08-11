@@ -26,6 +26,7 @@ __exportStar(require("./parsers.js"), exports);
 __exportStar(require("./auth-middlewares.js"), exports);
 __exportStar(require("./middlewares.js"), exports);
 __exportStar(require("./router.js"), exports);
+__exportStar(require("./generator.js"), exports);
 const router_ts_1 = __importDefault(require("./router.js"));
 exports.default = router_ts_1.default;
 //# sourceMappingURL=index.js.map

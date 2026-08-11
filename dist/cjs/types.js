@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HttpError = exports.RouterError = exports.MIME_TYPES = exports.Break_Pipe = exports.Break_Pipeline = void 0;
 // Symbol used to signal breaking from all handler pipeline in queue
 exports.Break_Pipeline = Symbol("Break_Pipeline");
-// Symbol used to signal breaking from current handler pipeline in queue but not others
+// Symbol used to signal breaking from current handler pipe in queue but not others
 exports.Break_Pipe = Symbol("Break_Pipe");
 exports.MIME_TYPES = new Map([
     ["aac", "audio/aac"],

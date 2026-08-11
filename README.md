@@ -79,7 +79,7 @@ Average       10.05k        8.13k         7.65k    ┌────────�
 
 ## 📑 Table of Contents
 
-- [Why Spine?](#why-spine)
+- [What is new?](#what-is-new)
 - [Quick Start](#quick-start)
 - [Routing](#routing)
   - [Parameters](#parameters)
@@ -105,6 +105,85 @@ Average       10.05k        8.13k         7.65k    ┌────────�
 - [License](#-license)
 - [Thanks and Enjoy](#️-thanks-and-enjoy)
 - [Be a Sponsor](#-be-a-sponsor)
+
+## What is new v1.2.10?
+
+- Implemented static route generator function `generateStaticRoutesImporter` to use with nextjs, cloudflare workers and more which do not do accept dynamic imports.
+
+```ts
+// src/server/utils/gen-routes.ts
+import Router from "@bepalo/spine";
+import generateStaticRoutesImporter from "@bepalo/spine";
+
+await generateStaticRoutesImporter(
+  new Router(),
+  "./src/server/routes",
+  "./routes/",
+).then((content) =>
+  Bun.write("./src/server/index.ts", "// src/server/index.ts\n" + content),
+);
+```
+
+```ts
+// src/server/index.ts
+// This is auto-generated for static importing of @bepalo/spine file-based routes
+import {
+  Router,
+  Handler,
+  HandlerRegisterPiplineOptions,
+  Pipeline,
+} from "@bepalo/spine";
+import * as route__index from "./routes/_index";
+import * as route_api_$$$path from "./routes/api/[## path]";
+import * as route_api_$ from "./routes/api/[[#]]";
+import * as route_api_fruits from "./routes/api/fruits";
+import * as route_api_users_$$$usersPath from "./routes/api/users/[## usersPath]";
+import * as route_api_users_$$$id from "./routes/api/users/[id]";
+import * as route_pages_$$ from "./routes/pages/[[##]]";
+
+const getOptions = <ExtendContext extends Record<string, unknown>>(
+  def: {
+    pipe: Handler<ExtendContext> | Pipeline<ExtendContext>;
+  } & HandlerRegisterPiplineOptions,
+) => {
+  const { pipe, ...options } = def;
+  return options;
+};
+
+export const setRoutes = async <ExtendContext extends Record<string, unknown>>(
+  router: Router<ExtendContext>,
+) => {
+  //     /
+  router.handleGet(
+    "/_index",
+    route__index.Get.pipe,
+    getOptions(route__index.Get),
+  );
+  router.filterGet("/_index", route__index.Get_Filter);
+  //     /api
+  router.filterGet("/api/::path", route_api_$$$path.Get_Filter);
+  router.filterGet("/api/*!", route_api_$.Get_Filter);
+  router.handleDelete("/api/fruits", route_api_fruits.Delete);
+  router.handleGet("/api/fruits", route_api_fruits.Get);
+  router.handlePatch("/api/fruits", route_api_fruits.Patch);
+  router.handlePost("/api/fruits", route_api_fruits.Post);
+  //     /api/users
+  router.filterGet(
+    "/api/users/::usersPath",
+    route_api_users_$$$usersPath.Get_Filter,
+  );
+  router.handleGet(
+    "/api/users/:id",
+    route_api_users_$$$id.Get.pipe,
+    getOptions(route_api_users_$$$id.Get),
+  );
+  //     /pages
+  router.handleGet("/pages/**!", route_pages_$$.Get);
+};
+
+// Use this to set the routes in your router
+export default setRoutes;
+```
 
 ## Quick Start
 
@@ -336,7 +415,7 @@ Spine separates request processing into explicit phases:
 
 ```text
                   ( @Bepalo/spine )
-                   router pipeline
+                   router pipe
                          ┌───────────────────────┐
                          ▼                       │
                   ┌──────┴───────┐               │
@@ -410,7 +489,7 @@ spine.catchGet("/api/**", ({ error }) =>
 
 spine.afterGet("/api/**", ({ response }) => {
   console.log(response.status);
-  // even the response after a caught error will pass through the after-pipeline
+  // even the response after a caught error will pass through the after-pipe
   // error thrown here is not caught.
   // afters are best used for logging or modifying the final response
 });
@@ -422,7 +501,7 @@ Handlers can also be composed into pipelines:
 spine.post("/users", [parseBody(), validateUser(), createUser()]);
 ```
 
-A pipeline can stop normally by returning a `Response`, or use Spine's explicit control symbols:
+A pipe can stop normally by returning a `Response`, or use Spine's explicit control symbols:
 
 ```ts
 import { Break_Pipe, Break_Pipeline } from "@bepalo/spine";
@@ -430,7 +509,7 @@ import { Break_Pipe, Break_Pipeline } from "@bepalo/spine";
 spine.filterGet("/**", cors({ maxTokens: 60 }));
 spine.filterGet("/api/**", [cors({ maxTokens: 200 }), () => Break_Pipeline]);. /* '/**' cors wont be called */
 
-// Break_Pipeline breaks from the overall handlers pipeline while
+// Break_Pipeline breaks from the overall handlers pipe while
 // Break_Pipe breaks from the current handler pipe without returning a Response.
 
 ```

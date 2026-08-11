@@ -20,7 +20,7 @@ const types_ts_1 = require("./types.js");
  * @param {Object} [options] - Configuration options.
  * @param {ParseAuthFn}[options.parseAuth] - Function to extract authentication info from the request.
  *   Should return an `Auth` object if valid, `Error` if invalid, or `null/undefined` if missing.
- * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
+ * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
  *
  * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
@@ -61,7 +61,7 @@ exports.authenticate = authenticate;
  * @param {string[]}[options.permissions] - List of permissions required for access.
  * @param {(permission: string,role: string) => boolean|null|undefined}[options.hasPermission] - Function to check if a role has a given permission.
  *   Required if `permissions` is provided.
- * @param {boolean} [options.breakPipeline=false] - If true, stops only pipeline flow per handler type after success.
+ * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
  *
  * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.

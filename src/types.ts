@@ -1,6 +1,6 @@
 // Symbol used to signal breaking from all handler pipeline in queue
 export const Break_Pipeline = Symbol("Break_Pipeline");
-// Symbol used to signal breaking from current handler pipeline in queue but not others
+// Symbol used to signal breaking from current handler pipe in queue but not others
 export const Break_Pipe = Symbol("Break_Pipe");
 
 export type HttpMethod =
@@ -291,7 +291,7 @@ export interface RouteEntry<
     parts: string[],
   ) => Record<string, string> | undefined;
   params?: Array<[number, string]>;
-  pipeline: Pipeline<ExtendContext>;
+  pipe: Pipe<ExtendContext>;
   originalPath: string;
   standardPath: string;
   openApiPath: string;
@@ -333,7 +333,7 @@ export type Handler<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = (ctx: Context<ExtendContext>) => Promise<HandlerReturn> | HandlerReturn;
 
-export type Pipeline<
+export type Pipe<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = Array<Handler<ExtendContext>>;
 
@@ -345,6 +345,16 @@ export type HandlerRegisterPiplineOptions = {
   overwrite?: boolean;
   openApi?: OpenApiDesc;
 };
+
+export type HandlerDef<
+  ExtendContext extends Record<string, unknown> = Record<string, never>,
+> = Handler<ExtendContext> | Pipe<ExtendContext>;
+
+export type PipeDef<
+  ExtendContext extends Record<string, unknown> = Record<string, never>,
+> = {
+  pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
+} & HandlerRegisterPiplineOptions;
 
 export class RouterError extends Error {
   constructor(message: string, options?: ErrorOptions) {

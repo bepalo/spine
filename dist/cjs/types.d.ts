@@ -64,7 +64,7 @@ export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<
 export interface RouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     parseParams: (pathname: string, parts: string[]) => Record<string, string> | undefined;
     params?: Array<[number, string]>;
-    pipeline: Pipeline<ExtendContext>;
+    pipe: Pipe<ExtendContext>;
     originalPath: string;
     standardPath: string;
     openApiPath: string;
@@ -88,7 +88,7 @@ export interface HandlerRouteEntries<ExtendContext extends Record<string, unknow
 }
 export type HandlerReturn = Response | typeof Break_Pipeline | typeof Break_Pipe | void;
 export type Handler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<ExtendContext>) => Promise<HandlerReturn> | HandlerReturn;
-export type Pipeline<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<Handler<ExtendContext>>;
+export type Pipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<Handler<ExtendContext>>;
 export type RegisterPiplineOptions = {
     overwrite?: boolean;
 };
@@ -96,6 +96,10 @@ export type HandlerRegisterPiplineOptions = {
     overwrite?: boolean;
     openApi?: OpenApiDesc;
 };
+export type HandlerDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext>;
+export type PipeDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
+    pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
+} & HandlerRegisterPiplineOptions;
 export declare class RouterError extends Error {
     constructor(message: string, options?: ErrorOptions);
 }

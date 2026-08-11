@@ -18,7 +18,7 @@ import {
   type HttpMethodUpper,
   type MethodPath,
   type Path,
-  type Pipeline,
+  type Pipe,
   type RegisterPiplineOptions,
   type RespondContext,
   type RouteEntries,
@@ -30,12 +30,12 @@ import { walk, dynamicImport } from "./utils.node.ts";
 
 const EMPTY_PARAMS = Object.freeze({});
 const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
-const PATH_PART_REGEX = new RegExp(
+export const PATH_PART_REGEX = new RegExp(
   `^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`,
   "u",
 );
 
-const REGISTER_PATH_REGEX = new RegExp(
+export const REGISTER_PATH_REGEX = new RegExp(
   `^(?:/(?:${W}*|${W}*(?:\\|${W}*)*:${W}*|\\*))+|(?:/${W}*)*(?:/\\.?\\*\\*)|(?:/${W}*)*(?:/::${W}*)$`,
   "u",
 );
@@ -229,7 +229,7 @@ export class Router<
               const params = routeEntry.parseParams(pathname, parts);
               ctx.params = params ?? EMPTY_PARAMS;
               // call request handlers
-              for (const handler of routeEntry.pipeline) {
+              for (const handler of routeEntry.pipe) {
                 const resp = await handler.apply(this, [ctx]);
                 if (resp instanceof Response) {
                   response = resp;
@@ -260,7 +260,7 @@ export class Router<
             const params = routeEntry.parseParams(pathname, parts);
             ctx.params = params ?? EMPTY_PARAMS;
             // call request handlers
-            for (const handler of routeEntry.pipeline) {
+            for (const handler of routeEntry.pipe) {
               const resp = await handler(ctx);
               if (resp instanceof Response) {
                 response = resp;
@@ -291,7 +291,7 @@ export class Router<
             const params = routeEntry.parseParams(pathname, parts);
             ctx.params = params ?? EMPTY_PARAMS;
             // call request handlers
-            for (const handler of routeEntry.pipeline) {
+            for (const handler of routeEntry.pipe) {
               const resp = await handler(ctx);
               if (resp instanceof Response) {
                 response = resp;
@@ -360,7 +360,7 @@ export class Router<
             const params = routeEntry.parseParams(url.pathname, parts);
             ctx.params = params ?? EMPTY_PARAMS;
             // call request handlers
-            for (const handler of routeEntry.pipeline) {
+            for (const handler of routeEntry.pipe) {
               const resp = await handler(ctx);
               if (resp instanceof Response) {
                 response = resp;
@@ -420,7 +420,7 @@ export class Router<
           ctx.params = params ?? EMPTY_PARAMS;
           (ctx as Context<CTResponse & ExtendContext>).response = response;
           // call request handlers
-          for (const handler of routeEntry.pipeline) {
+          for (const handler of routeEntry.pipe) {
             const resp = await handler(ctx);
             if (resp instanceof Response) {
               response = resp;
@@ -506,26 +506,26 @@ export class Router<
             }
             const definition =
               Array.isArray(_definition) || typeof _definition === "function"
-                ? { pipeline: _definition }
+                ? { pipe: _definition }
                 : {
-                    pipeline: (_definition as Record<string, unknown>).pipeline,
+                    pipe: (_definition as Record<string, unknown>).pipe,
                     openApi: (_definition as Record<string, unknown>).openApi,
                   };
-            const pipeline = definition.pipeline;
+            const pipe = definition.pipe;
             const openApi = definition.openApi;
             if (openApi != null && handlerType !== "handler") {
               console.warn(
                 `OpenApi definition will be ignored in '${node.path}' ${_method}`,
               );
             }
-            if (pipeline == null) {
+            if (pipe == null) {
               throw new RouterError(
-                `Undefined pipeline in '${node.path}' ${_method}`,
+                `Undefined pipe in '${node.path}' ${_method}`,
               );
             }
-            if (!Array.isArray(pipeline) && typeof pipeline !== "function") {
+            if (!Array.isArray(pipe) && typeof pipe !== "function") {
               throw new RouterError(
-                `Bad pipeline type in '${node.path}' ${_method}`,
+                `Bad pipe type in '${node.path}' ${_method}`,
               );
             }
             if (openApi != null && typeof openApi !== "object") {
@@ -537,11 +537,11 @@ export class Router<
               handlerType === "handler" && openApi != null
                 ? { openApi }
                 : undefined;
-            if (Array.isArray(pipeline) || typeof pipeline === "function") {
-              this.#register(
+            if (Array.isArray(pipe) || typeof pipe === "function") {
+              this.register(
                 handlerType,
                 `${method as HttpMethod} ${path as `/${string}`}`,
-                pipeline as Pipeline<ExtendContext> | Handler<ExtendContext>,
+                pipe as Pipe<ExtendContext> | Handler<ExtendContext>,
                 options as HandlerRegisterPiplineOptions,
               );
             }
@@ -629,11 +629,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: P | Array<P>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -643,10 +641,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -656,11 +654,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -670,10 +666,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -683,21 +679,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -707,21 +701,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -731,21 +723,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -755,21 +745,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -779,21 +767,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -803,21 +789,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -827,21 +811,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -851,21 +833,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -875,21 +855,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -899,11 +877,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -913,10 +889,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -926,11 +902,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -940,10 +914,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -953,21 +927,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -977,21 +949,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1001,21 +971,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1025,21 +993,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1049,21 +1015,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1073,21 +1037,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1097,21 +1059,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1121,21 +1081,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1145,21 +1103,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1169,11 +1125,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -1183,10 +1137,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1196,11 +1150,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -1210,10 +1162,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1223,21 +1175,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1247,21 +1197,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1271,21 +1219,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1295,21 +1241,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1319,21 +1263,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1343,21 +1285,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1367,21 +1307,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1391,21 +1329,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1415,21 +1351,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1439,11 +1373,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -1453,10 +1385,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1466,11 +1398,9 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
@@ -1480,10 +1410,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1493,21 +1423,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1517,21 +1445,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1541,21 +1467,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1565,21 +1489,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1589,21 +1511,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1613,21 +1533,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1637,21 +1555,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1661,21 +1577,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1685,21 +1599,19 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
-      | Pipeline<
-          CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
-        >,
+      | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1709,14 +1621,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1731,10 +1643,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1744,14 +1656,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1766,10 +1678,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1779,14 +1691,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1798,10 +1710,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1811,14 +1723,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1830,10 +1742,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1843,14 +1755,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1862,10 +1774,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1875,14 +1787,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1894,10 +1806,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1907,14 +1819,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1926,10 +1838,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1939,14 +1851,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1958,10 +1870,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -1971,14 +1883,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -1990,10 +1902,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2003,14 +1915,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -2022,10 +1934,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2035,14 +1947,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTResponse &
             ExtendContext &
@@ -2054,10 +1966,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2067,14 +1979,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2089,10 +2001,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2102,14 +2014,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2124,10 +2036,10 @@ export class Router<
         methodPaths.push(`${method} ${p}`);
       }
     }
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2137,14 +2049,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2156,10 +2068,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2169,14 +2081,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2188,10 +2100,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2201,14 +2113,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2220,10 +2132,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2233,14 +2145,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2252,10 +2164,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2265,14 +2177,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2284,10 +2196,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2297,14 +2209,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2316,10 +2228,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2329,14 +2241,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2348,10 +2260,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2361,14 +2273,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2380,10 +2292,10 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
@@ -2393,14 +2305,14 @@ export class Router<
     P extends Path = Path,
   >(
     paths: Path | Array<Path>,
-    pipeline:
+    pipe:
       | Handler<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
             ExtendContextMore
         >
-      | Pipeline<
+      | Pipe<
           CTParams<ExtractParams<P>> &
             CTError &
             ExtendContext &
@@ -2412,106 +2324,104 @@ export class Router<
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
     ) as Array<MethodPath>;
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   filter<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<ExtendContext & ExtendContextMore>
-      | Pipeline<ExtendContext & ExtendContextMore>,
+      | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
-    return this.#register(
+    return this.register(
       "filter",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   handle<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<ExtendContext & ExtendContextMore>
-      | Pipeline<ExtendContext & ExtendContextMore>,
+      | Pipe<ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
-    return this.#register(
+    return this.register(
       "handler",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   fallback<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<ExtendContext & ExtendContextMore>
-      | Pipeline<ExtendContext & ExtendContextMore>,
+      | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
-    return this.#register(
+    return this.register(
       "fallback",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   after<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<ExtendContext & ExtendContextMore>
-      | Pipeline<ExtendContext & ExtendContextMore>,
+      | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
-    return this.#register(
+    return this.register(
       "after",
       methodPaths,
-      pipeline as Handler<ExtendContext> | Pipeline<ExtendContext>,
+      pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   catch<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<
           ExtendContext & ExtendContextMore & { error: Error | HttpError }
         >
-      | Pipeline<
-          ExtendContext & ExtendContextMore & { error: Error | HttpError }
-        >,
+      | Pipe<ExtendContext & ExtendContextMore & { error: Error | HttpError }>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
-    return this.#register(
+    return this.register(
       "catcher",
       methodPaths,
-      pipeline as
+      pipe as
         | Handler<ExtendContext & { error: Error | HttpError }>
-        | Pipeline<ExtendContext & { error: Error | HttpError }>,
+        | Pipe<ExtendContext & { error: Error | HttpError }>,
       options,
     );
   }
 
-  #register(
+  register(
     handlerType: HandlerType,
     methodPaths: MethodPath | Array<MethodPath>,
-    pipeline:
+    pipe:
       | Handler<ExtendContext & { error: Error | HttpError }>
-      | Pipeline<ExtendContext & { error: Error | HttpError }>,
+      | Pipe<ExtendContext & { error: Error | HttpError }>,
     options?: RegisterPiplineOptions | HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
     const overwrite = options?.overwrite === true;
     methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
-    pipeline = Array.isArray(pipeline) ? pipeline : [pipeline];
+    pipe = Array.isArray(pipe) ? pipe : [pipe];
     for (const methodPath of methodPaths) {
       const [method, originalPath] = methodPath.split(" ", 2) as [
         HttpMethod,
@@ -2560,7 +2470,7 @@ export class Router<
             params,
           ),
           params,
-          pipeline,
+          pipe,
           originalPath,
           standardPath,
           openApiPath,

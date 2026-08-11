@@ -676,8 +676,8 @@ describe("Router Handler Methods", () => {
     });
   });
 
-  describe("Pipeline Handlers", () => {
-    it("should execute pipeline of handlers in order", async () => {
+  describe("Pipe Handlers", () => {
+    it("should execute pipe of handlers in order", async () => {
       const router = new Router();
       const order: string[] = [];
 
@@ -699,7 +699,7 @@ describe("Router Handler Methods", () => {
       expect(await response.text()).toBe("done");
     });
 
-    it("should handle mixed handler types in pipeline", async () => {
+    it("should handle mixed handler types in pipe", async () => {
       const router = new Router();
       const order: string[] = [];
 
