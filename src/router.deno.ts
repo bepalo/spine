@@ -5,6 +5,10 @@ import {
   ExtractParams,
   HttpError,
   RouterError,
+  type HttpMethodLower,
+  type OpenApiPathItem,
+  type OpenApiParameter,
+  type OpenApiResponse,
   type Context,
   type CTError,
   type CTResponse,
@@ -24,6 +28,8 @@ import {
   type RouteEntries,
   type RouteEntry,
   type RouterConfig,
+  OpenApiSchema,
+  OpenApiSecurityScheme,
 } from "./types.ts";
 import { CTParams } from "./parsers.ts";
 import { walk, dynamicImport } from "./utils.deno.ts";
@@ -477,7 +483,7 @@ export class Router<
           const pathname = !node.parent
             ? `/${processedName}`
             : `/${node.parent}/${processedName}`;
-          const path = this.translateRouteFilePath(pathname);
+          const path = translateRouteFilePath(pathname, this.#config.maxPath);
           for (const _method of Object.keys(handlersImp)) {
             const _definition = handlersImp[_method];
             let method: HttpMethod;
@@ -553,74 +559,238 @@ export class Router<
     }
   }
 
-  generateOpenAPI(info?: { title?: string; version?: string }): Promise<{
+  generateOpenAPI(info?: {
+    title?: string;
+    version?: string;
+    description?: string;
+    servers?: Array<{ url: string; description?: string }>;
+    security?: Array<Record<string, string[]>>;
+    components?: {
+      schemas?: Record<string, OpenApiSchema>;
+      securitySchemes?: Record<string, OpenApiSecurityScheme>;
+    };
+  }): Promise<{
     openapi: "3.0.0";
-    info: { title: string; version: string };
-    paths: Record<string, unknown>;
+    info: {
+      title: string;
+      version: string;
+      description?: string;
+    };
+    servers?: Array<{ url: string; description?: string }>;
+    paths: Record<string, Record<HttpMethodLower, OpenApiPathItem>>;
+    components?: {
+      schemas?: Record<string, OpenApiSchema>;
+      securitySchemes?: Record<string, OpenApiSecurityScheme>;
+    };
+    security?: Array<Record<string, string[]>>;
   }> {
+    const {
+      title = "API",
+      version = "1.0.0",
+      description,
+      servers = [{ url: "/", description: "Current server" }],
+      security,
+      components: globalComponents,
+    } = info ?? {};
+
     return new Promise((resolve) => {
-      const { title = "API", version = "1.0.0" } = info ?? {};
-      const paths: Record<string, unknown> = {};
       const handlers = this.#routes.handler;
+      const paths: Record<string, Record<string, OpenApiPathItem>> = {};
+      const schemas: Record<string, OpenApiSchema> = {};
+      const securitySchemes: Record<string, OpenApiSecurityScheme> = {};
+
+      // Group routes by path
+      const routeGroups = new Map<
+        string,
+        Map<HttpMethodUpper, HandlerRouteEntry<ExtendContext>>
+      >();
+
+      // Collect all routes
       for (const method of Object.keys(handlers)) {
         const methodHandlers = handlers[method as HttpMethodUpper];
         for (const entries of [
           methodHandlers.entries,
           methodHandlers.globs,
           methodHandlers.superGlobs,
-          // methodHandlers.superGlobsWithGlobs,
-        ])
+        ]) {
           for (const bucket of entries) {
-            if (bucket == null) {
-              continue;
-            }
-            for (const key of bucket.keys()) {
-              const entry = bucket.get(key);
-              if (entry == null) {
+            if (bucket == null) continue;
+
+            for (const [, entry] of bucket) {
+              if (entry == null) continue;
+
+              // Skip super glob routes for OpenAPI (they're catch-alls)
+              if (entry.path.endsWith("/**")) {
                 continue;
               }
-              const pathname = entry.openApiPath;
-              const openApi = entry.openApi;
-              if (openApi != null) {
-                if (paths[pathname] == null) {
-                  paths[pathname] = {};
-                }
-                const methodLower = method.toLowerCase();
-                const parameters =
-                  openApi.parameters ??
-                  entry.params?.map(([, paramId]: [number, string]) => ({
-                    name: paramId,
-                    in: "path",
-                    required: true,
-                    schema: { type: "string" },
-                  })) ??
-                  [];
-                const responses = openApi.responses ?? {
-                  "200": {
-                    description: "OK",
-                    content: {
-                      "application/json": {
-                        schema: { type: "object" },
+
+              let pathMethods = routeGroups.get(entry.openApiPath);
+              if (!pathMethods) {
+                pathMethods = new Map();
+                routeGroups.set(entry.openApiPath, pathMethods);
+              }
+              pathMethods.set(method as HttpMethodUpper, entry);
+            }
+          }
+        }
+      }
+
+      // Build paths
+      for (const [pathname, methods] of routeGroups) {
+        const pathItem: Record<string, OpenApiPathItem> = {};
+        paths[pathname] = pathItem;
+
+        for (const [method, entry] of methods) {
+          const openApi = entry.openApi ?? {};
+          const methodLower = method.toLowerCase() as HttpMethodLower;
+
+          // Build parameters - only include path params that are actually in the path
+          // console.log(entry);
+          const pathParams = [];
+          if (entry.params != null) {
+            for (const [idx, paramId] of entry.params) {
+              // if(entry.pathParts[idx])
+              console.log([idx, paramId, entry.pathParts[idx]]);
+              pathParams.push({
+                name: paramId,
+                in: "path" as const,
+                required: true,
+                schema: { type: "string" as const },
+              });
+            }
+          }
+
+          // Combine with user-defined parameters
+          const userParams = openApi.parameters ?? [];
+          const allParams = [...userParams, ...pathParams];
+
+          // Remove duplicates (by name + in combination)
+          const paramSet = new Set<string>();
+          const parameters: OpenApiParameter[] = [];
+          for (const param of allParams) {
+            const key = `${param.name}:${param.in}`;
+            if (!paramSet.has(key)) {
+              paramSet.add(key);
+              parameters.push(param);
+            }
+          }
+
+          // Build request body
+          const requestBody = openApi.requestBody;
+
+          // Build responses
+          const responses: Record<string, OpenApiResponse> = {};
+
+          if (openApi.responses) {
+            Object.assign(responses, openApi.responses);
+          } else {
+            // Infer responses from HTTP method
+            if (method !== "DELETE" && method !== "HEAD") {
+              responses["200"] = {
+                description: "Successful response",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        data: { type: "object" },
+                        message: { type: "string" },
                       },
                     },
                   },
-                };
-                (paths as Record<string, Record<string, unknown>>)[pathname][
-                  methodLower
-                ] = {
-                  ...openApi,
-                  parameters,
-                  responses,
-                };
-              }
+                },
+              };
+            } else if (method === "DELETE") {
+              responses["204"] = {
+                description: "Resource deleted successfully",
+              };
             }
+
+            // Add common error responses
+            if (entry.params?.length) {
+              responses["404"] = {
+                description: "Resource not found",
+              };
+            }
+
+            responses["400"] = {
+              description: "Bad request",
+            };
+
+            responses["500"] = {
+              description: "Internal server error",
+            };
           }
+
+          // Build security
+          let operationSecurity = openApi.security;
+          if (!operationSecurity && security) {
+            operationSecurity = security;
+          }
+
+          // Generate clean operation ID
+          const operationId =
+            openApi.operationId || generateOperationId(method, pathname);
+
+          // Build operation object
+          const operation: OpenApiPathItem = {
+            summary: openApi.summary,
+            description: openApi.description,
+            tags: openApi.tags,
+            parameters: parameters.length > 0 ? parameters : undefined,
+            requestBody,
+            responses,
+            security: operationSecurity,
+            operationId,
+          };
+
+          // Remove undefined properties
+          const cleanedOperation = Object.fromEntries(
+            Object.entries(operation).filter(
+              ([_, value]) => value !== undefined,
+            ),
+          ) as OpenApiPathItem;
+
+          pathItem[methodLower] = cleanedOperation;
+        }
       }
-      resolve({
-        openapi: "3.0.0",
-        info: { title, version },
+
+      // Merge global components with any collected schemas
+      const components: any = {};
+      if (globalComponents?.schemas) {
+        Object.assign(schemas, globalComponents.schemas);
+      }
+      if (Object.keys(schemas).length > 0) {
+        components.schemas = schemas;
+      }
+
+      if (globalComponents?.securitySchemes) {
+        Object.assign(securitySchemes, globalComponents.securitySchemes);
+      }
+      if (Object.keys(securitySchemes).length > 0) {
+        components.securitySchemes = securitySchemes;
+      }
+
+      const result: any = {
+        openapi: "3.0.0" as const,
+        info: {
+          title,
+          version,
+          ...(description && { description }),
+        },
+        servers,
         paths,
-      });
+      };
+
+      if (Object.keys(components).length > 0) {
+        result.components = components;
+      }
+
+      if (security && security.length > 0) {
+        result.security = security;
+      }
+
+      resolve(result);
     });
   }
 
@@ -2784,105 +2954,6 @@ export class Router<
     return routeEntries;
   }
 
-  translateRouteFilePath(pathname: string) {
-    const parts = pathname.split("/", this.#config.maxPath + 1);
-    const parts_len_1 = parts.length - 1;
-    let lastPartIsEscaped = false;
-    for (let i = 1; i < parts.length; i++) {
-      const part = parts[i];
-      if (part == null) {
-        parts[i] = "";
-        continue;
-      }
-      // validate part
-      if (!PATH_PART_REGEX.test(part)) {
-        throw new RouterError(`Invalid path ${pathname} -> ${part}`);
-      }
-      // parse part
-      switch (part) {
-        case "":
-          break;
-        case "[#]":
-          parts[i] = "*";
-          break;
-        case "[##]":
-          parts[i] = "**";
-          break;
-        case "[[#]]":
-          parts[i] = "*!";
-          break;
-        case "[[##]]":
-          parts[i] = "**!";
-          break;
-        default:
-          if (part.startsWith("#")) {
-            if (i === parts_len_1) {
-              lastPartIsEscaped = true;
-            }
-            parts[i] = part.substring(1);
-          } else if (part.startsWith("[") && part.endsWith("]")) {
-            const nextBracketIdx = part.indexOf("[", 1);
-            if (nextBracketIdx < 0) {
-              const extractedPart = part.substring(1, part.length - 1);
-              // check for ## name
-              if (extractedPart.startsWith("##")) {
-                parts[i] = "::" + extractedPart.substring(2).trim();
-              } else {
-                // [name]
-                parts[i] = ":" + extractedPart;
-              }
-            } else {
-              // [[##name]] | [[## name! ]] | [[a,b]name!] | [[a,b] name ] | [[a,b] [name] ]
-              const lastBracketIdx = part.indexOf("]", 1);
-              const separatorIdx =
-                lastBracketIdx >= 0 ? lastBracketIdx : part.length;
-              const paths = part.substring(nextBracketIdx + 1, separatorIdx);
-              // [[##name]] | [[## name]]
-              if (paths.startsWith("##")) {
-                const paramId = paths.substring(2).trim();
-                parts[i] = `::${paramId}!`;
-              } else {
-                const paramId = part
-                  .substring(separatorIdx + 1, part.length - 1)
-                  .trim();
-                // split values a,b,c and replace , with |
-                let newPaths = "";
-                let lastI = 0;
-                for (let i = 0; i < paths.length; ) {
-                  const cc = paths.charCodeAt(i);
-                  if (cc === 44) {
-                    newPaths += paths.substring(lastI, i) + "|";
-                    lastI = ++i;
-                    continue;
-                  }
-                  i++;
-                }
-                if (lastI < paths.length) {
-                  newPaths += paths.substring(lastI);
-                }
-                if (paramId.startsWith("[") && paramId.endsWith("]")) {
-                  const extrParamId = paramId
-                    .substring(1, paramId.length - 1)
-                    .trim();
-                  parts[i] = `${newPaths}:${extrParamId}!`;
-                } else {
-                  parts[i] = newPaths + ":" + paramId;
-                }
-              }
-            }
-          }
-      }
-    }
-    if (
-      !lastPartIsEscaped &&
-      parts.length > 1 &&
-      parts[parts_len_1] === "index"
-    ) {
-      parts[parts_len_1] = "";
-    }
-    return parts.join("/");
-  }
-
   #InitEntries(method: HttpMethodUpper): RouteEntries<ExtendContext> {
     return {
       method,
@@ -2934,6 +3005,122 @@ const parseParams = (
     }
   }
   return paramsRec;
+};
+
+export const translateRouteFilePath = (
+  pathname: string,
+  maxPath: number = 64,
+) => {
+  const parts = pathname.split("/", maxPath + 1);
+  const parts_len_1 = parts.length - 1;
+  let lastPartIsEscaped = false;
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    if (part == null) {
+      parts[i] = "";
+      continue;
+    }
+    // validate part
+    if (!PATH_PART_REGEX.test(part)) {
+      throw new RouterError(`Invalid path ${pathname} -> ${part}`);
+    }
+    // parse part
+    switch (part) {
+      case "":
+        break;
+      case "[#]":
+        parts[i] = "*";
+        break;
+      case "[##]":
+        parts[i] = "**";
+        break;
+      case "[[#]]":
+        parts[i] = "*!";
+        break;
+      case "[[##]]":
+        parts[i] = "**!";
+        break;
+      default:
+        if (part.startsWith("#")) {
+          if (i === parts_len_1) {
+            lastPartIsEscaped = true;
+          }
+          parts[i] = part.substring(1);
+        } else if (part.startsWith("[") && part.endsWith("]")) {
+          const nextBracketIdx = part.indexOf("[", 1);
+          if (nextBracketIdx < 0) {
+            const extractedPart = part.substring(1, part.length - 1);
+            // check for ## name
+            if (extractedPart.startsWith("##")) {
+              parts[i] = "::" + extractedPart.substring(2).trim();
+            } else {
+              // [name]
+              parts[i] = ":" + extractedPart;
+            }
+          } else {
+            // [[##name]] | [[## name! ]] | [[a,b]name!] | [[a,b] name ] | [[a,b] [name] ]
+            const lastBracketIdx = part.indexOf("]", 1);
+            const separatorIdx =
+              lastBracketIdx >= 0 ? lastBracketIdx : part.length;
+            const paths = part.substring(nextBracketIdx + 1, separatorIdx);
+            // [[##name]] | [[## name]]
+            if (paths.startsWith("##")) {
+              const paramId = paths.substring(2).trim();
+              parts[i] = `::${paramId}!`;
+            } else {
+              const paramId = part
+                .substring(separatorIdx + 1, part.length - 1)
+                .trim();
+              // split values a,b,c and replace , with |
+              let newPaths = "";
+              let lastI = 0;
+              for (let i = 0; i < paths.length; ) {
+                const cc = paths.charCodeAt(i);
+                if (cc === 44) {
+                  newPaths += paths.substring(lastI, i) + "|";
+                  lastI = ++i;
+                  continue;
+                }
+                i++;
+              }
+              if (lastI < paths.length) {
+                newPaths += paths.substring(lastI);
+              }
+              if (paramId.startsWith("[") && paramId.endsWith("]")) {
+                const extrParamId = paramId
+                  .substring(1, paramId.length - 1)
+                  .trim();
+                parts[i] = `${newPaths}:${extrParamId}!`;
+              } else {
+                parts[i] = newPaths + ":" + paramId;
+              }
+            }
+          }
+        }
+    }
+  }
+  if (
+    !lastPartIsEscaped &&
+    parts.length > 1 &&
+    parts[parts_len_1] === "index"
+  ) {
+    parts[parts_len_1] = "";
+  }
+  return parts.join("/");
+};
+
+const generateOperationId = (method: HttpMethodUpper, path: string): string => {
+  // Remove all special characters and format properly
+  const cleanPath = path
+    .replace(/[{}]/g, "")
+    .replace(/\*/g, "")
+    .replace(/[^a-zA-Z0-9\/]/g, "")
+    .split("/")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+
+  return `${method.toLowerCase()}${cleanPath}`;
 };
 
 export default Router;

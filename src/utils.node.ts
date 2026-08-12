@@ -1,6 +1,7 @@
 import { DirWalkNode } from "./utils.ts";
 import { readdir } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 export async function* walk(
   dir: string,
@@ -25,5 +26,5 @@ export async function* walk(
 }
 
 export const dynamicImport = async (fullPath: string): Promise<unknown> => {
-  return await import(fullPath);
+  return await import(pathToFileURL(fullPath).href);
 };

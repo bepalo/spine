@@ -4,8 +4,14 @@ import {
   HttpMethodUpper,
   RouterError,
 } from "./types.ts";
-import { Router, HTTP_METHODS_UPPER, HANDLER_TYPES } from "./router.ts";
+import {
+  HTTP_METHODS_UPPER,
+  HANDLER_TYPES,
+  translateRouteFilePath,
+} from "./router.ts";
 import { walk, dynamicImport } from "./utils.node.ts";
+import { hash } from "node:crypto";
+import { DirWalkNode } from "./utils.ts";
 
 function getRouteLoaders(
   routerId: string,
@@ -63,7 +69,7 @@ function getRouteLoaders(
     }
     const entryId = `${moduleId}.${methodHandler}`;
     const optionsStr =
-      Object.entries(options).length > 0 ? `, getOptions(${entryId})` : "";
+      Object.entries(options).length > 0 ? `, $O(${entryId})` : "";
     const pipeStr = defIsObject ? `${entryId}.pipe` : entryId;
     switch (handlerType) {
       case "filter":
@@ -86,11 +92,77 @@ function getRouteLoaders(
   return setters;
 }
 
-export const generateStaticRoutesImporter = async (
-  router: Router,
-  routesPath: string,
-  importRoot: string = "./",
-) => {
+/**
+ * Generate static import for file-structure defined routes.
+ * This is useful for integration with frameworks such as Nexts and cloudflare
+ * and production in general.
+ *
+ * @param options Options for static routes import generator. eg. './routes'
+ * @param {string} options.routesPath The root path of the routes.
+ * @param {string} options.importRoot The import root-prefix to use in the generated imports.
+ *   `importRoot: ''` -> `import ... from 'api/index.ts';`
+ *   `importRoot: './routes/'` ->  `import ... from './routes/api/index.ts';`
+ * @param {boolean} options.usePathForIdGeneration Use transformed path instead of hash for import ids.
+ * @param {boolean|{(name:string):string}} options.importExtensions Enable or customize import extensions.
+ * @param {RegExp} options.pattern Pattern to match route file names against. Use for filtering.
+ * @param {RegExp} options.dirPattern Pattern to match route file parent against.
+ *    Use for filtering the route folders.
+ *    Note that the parent path matched will not start with `/` and will be relative to `routesPath`.
+ * @param {{(name:string):string}} options.processedName Transform route file name. Use to remove custom file extensions.
+ *    This should be used in conjunction with `importExtensions`.
+ * @param {(error: Error | unknown, node: DirWalkNode) => boolean | void} options.onError Custom error handler. Return true in order to break and stop loading.
+ * @returns {string} The generated static import of routes.
+ *
+ * @example
+ *
+ * ```
+ *  import { generateStaticRoutesImporter } from "@bepalo/spine";
+ *  import { hash } from "node:crypto";
+ *
+ *  await generateStaticRoutesImporter({
+ *    routesPath: "./routes",
+ *    importRoot: "./routes/",
+ *    pattern: /route\.(?:ts|js|mjs)$/, // match only routes ending with .route.ts...
+ *    dirPattern: /^api/, // match only routes under ./routes/api
+ *    processName: (name) => name.substring(0, name.length - ".route.ts".length),
+ *    importExtensions: (name) => name.substring(name.length - ".route.ts".length),
+ *  }).then(async (c) => {
+ *    const output = "./all-routes.ts";
+ *
+ *    // update generated import file if the hash changed.
+ *    const f = Bun.file(output);
+ *    if (await f.exists()) {
+ *      if (hash("sha1", c, "hex") != hash("sha1", await f.text(), "hex")) {
+ *        Bun.write(output, c);
+ *        console.log(new Date().getTime(), "[SPINE-GEN]", c.length, `'${output}'`);
+ *      }
+ *    } else {
+ *      Bun.write(output, c);
+ *      console.log(new Date().getTime(), "[SPINE-GEN]", c.length, `'${output}'`);
+ *    }
+ *  });
+ *  ```
+ *
+ */
+export const generateStaticRoutesImporter = async ({
+  routesPath,
+  importRoot = "./",
+  usePathForIdGeneration = false,
+  importExtensions = false,
+  pattern = /\.(js|ts|mjs|cjs)$/,
+  dirPattern = /.*/,
+  processName = (name: string) => name.substring(0, name.lastIndexOf(".")),
+  onError,
+}: {
+  routesPath: string;
+  importRoot: string;
+  usePathForIdGeneration?: boolean;
+  importExtensions?: boolean | { (name: string): string };
+  pattern?: RegExp;
+  dirPattern?: RegExp;
+  processName?: (name: string) => string;
+  onError?: (error: Error | unknown, node: DirWalkNode) => boolean | void;
+}): Promise<string> => {
   let imports = "";
   let loads = "";
   const prefix = "route";
@@ -99,37 +171,64 @@ export const generateStaticRoutesImporter = async (
     Array<Record<"name" | "pathname" | "importStr" | "loadStr", string>>
   >();
   for await (const node of walk(routesPath)) {
-    const { name, type, relativePath, fullPath, parent, path: _path } = node;
-    if (type === "file") {
-      const pureRelativePath = relativePath.substring(
-        0,
-        relativePath.lastIndexOf("."),
-      );
-      let pathname = router.translateRouteFilePath("/" + pureRelativePath);
-      pathname = pureRelativePath.endsWith("/index")
-        ? pathname.substring(0, pathname.length - 1)
-        : pathname;
-      let path = pathname
-        .replace(/\//g, "_")
-        .replace(/(\*{1,2})!?/g, (_m, m1) => "$".repeat(m1.length))
-        .replace(
-          /(_.+?(?:\|.+?)*)?\:{1,2}(.*)!?[\/$]?/g,
-          (_m, m1, m2) => (m1 ? m1.replace(/\|/g, "$") + "$$" : "") + "$" + m2,
-        );
-      const importName = prefix + path;
-      const importPath = importRoot + pureRelativePath;
-      const module = (await dynamicImport(fullPath)) as object;
-      const routeDef =
-        "  " +
-        (await getRouteLoaders("router", importName, pathname, module, _path));
-      const importStr = `import * as ${importName} from "${importPath}";\n`;
-      const loadStr = routeDef;
-      let entry = map.get("/" + parent);
-      if (!entry) {
-        entry = [];
-        map.set("/" + parent, entry);
+    try {
+      const { name, type, relativePath, fullPath, parent, path: _path } = node;
+      if (type === "file") {
+        if (!pattern.test(node.name)) {
+          continue;
+        }
+        if (!dirPattern.test(node.parent)) {
+          continue;
+        }
+        const processedName = decodeURIComponent(processName(node.name));
+        const pureRelativePath = !node.parent
+          ? `${processedName}`
+          : `${node.parent}/${processedName}`;
+        const extension =
+          typeof importExtensions === "function"
+            ? importExtensions(node.name)
+            : importExtensions
+              ? relativePath.substring(relativePath.lastIndexOf("."))
+              : "";
+        let pathname = translateRouteFilePath("/" + pureRelativePath);
+        pathname = pureRelativePath.endsWith("/index")
+          ? pathname.substring(0, pathname.length - 1)
+          : pathname;
+        const importName =
+          prefix +
+          "_" +
+          (usePathForIdGeneration
+            ? pureRelativePath
+                .replace(/\//g, "_")
+                .replace(/[^a-zA-Z0-9_]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_/, "")
+                .replace(/_$/, "")
+            : hash("sha1", pureRelativePath, "base64url").replace(
+                /[^a-zA-Z0-9_]/g,
+                "_",
+              ));
+        const importPath = importRoot + pureRelativePath + extension;
+        const module = (await dynamicImport(fullPath)) as object;
+        const routeDef =
+          "  " + getRouteLoaders("router", importName, pathname, module, _path);
+        const importStr = `import * as ${importName} from "${importPath}";\n`;
+        const loadStr = routeDef;
+        let entry = map.get("/" + parent);
+        if (!entry) {
+          entry = [];
+          map.set("/" + parent, entry);
+        }
+        entry.push({ name, pathname, importStr, loadStr });
       }
-      entry.push({ name, pathname, importStr, loadStr });
+    } catch (error) {
+      if (onError != null) {
+        if (onError(error, node)) {
+          break;
+        }
+      } else {
+        console.error(node.path, error);
+      }
     }
   }
   // append in a sorted order
@@ -138,7 +237,8 @@ export const generateStaticRoutesImporter = async (
     a[0].localeCompare(b[0]),
   );
   for (const [p, es] of sortedEntries) {
-    loads += `\n  //     ${p}`;
+    // add group header
+    loads += `\n  // ─── ${p} ───`;
     for (const e of es) {
       const { importStr, loadStr } = e;
       imports += importStr;
@@ -146,16 +246,16 @@ export const generateStaticRoutesImporter = async (
     }
   }
   return `// This is auto-generated for static importing of @bepalo/spine file-based routes
-import { Router, Handler, HandlerRegisterPiplineOptions, Pipe } from '@bepalo/spine';
+import { Router, type PipeDef } from "@bepalo/spine";
 ${imports}
-const getOptions = <ExtendContext extends Record<string, unknown>>(
-	def: { pipe: Handler<ExtendContext> | Pipe<ExtendContext> } & HandlerRegisterPiplineOptions,
-) => {
-	const { pipe, ...options } = def;
-	return options;
-};
+const $O = <ExtendContext extends Record<string, unknown>>({
+  pipe,
+  ...options
+}: PipeDef<ExtendContext>) => options;
 
-export const setRoutes = async <ExtendContext extends Record<string, unknown>>(router: Router<ExtendContext>) => {${loads}
+export const setRoutes = async <ExtendContext extends Record<string, unknown>>(
+  router: Router<ExtendContext>
+) => {${loads}
 };\n
 // Use this to set the routes in your router
 export default setRoutes;

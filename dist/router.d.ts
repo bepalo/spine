@@ -1,4 +1,4 @@
-import { ExtractParams, HttpError, type CTError, type CTResponse, type EmptyRecord, type Handler, type HandlerRegisterPiplineOptions, type HandlerType, type HttpMethod, type HttpMethodUpper, type MethodPath, type Path, type Pipe, type RegisterPiplineOptions, type RespondContext, type RouterConfig } from "./types.ts";
+import { ExtractParams, HttpError, type HttpMethodLower, type OpenApiPathItem, type CTError, type CTResponse, type EmptyRecord, type Handler, type HandlerRegisterPiplineOptions, type HandlerType, type HttpMethod, type HttpMethodUpper, type MethodPath, type Path, type Pipe, type RegisterPiplineOptions, type RespondContext, type RouterConfig, OpenApiSchema, OpenApiSecurityScheme } from "./types.ts";
 import { CTParams } from "./parsers.ts";
 export declare const PATH_PART_REGEX: RegExp;
 export declare const REGISTER_PATH_REGEX: RegExp;
@@ -36,13 +36,33 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
     generateOpenAPI(info?: {
         title?: string;
         version?: string;
+        description?: string;
+        servers?: Array<{
+            url: string;
+            description?: string;
+        }>;
+        security?: Array<Record<string, string[]>>;
+        components?: {
+            schemas?: Record<string, OpenApiSchema>;
+            securitySchemes?: Record<string, OpenApiSecurityScheme>;
+        };
     }): Promise<{
         openapi: "3.0.0";
         info: {
             title: string;
             version: string;
+            description?: string;
         };
-        paths: Record<string, unknown>;
+        servers?: Array<{
+            url: string;
+            description?: string;
+        }>;
+        paths: Record<string, Record<HttpMethodLower, OpenApiPathItem>>;
+        components?: {
+            schemas?: Record<string, OpenApiSchema>;
+            securitySchemes?: Record<string, OpenApiSecurityScheme>;
+        };
+        security?: Array<Record<string, string[]>>;
     }>;
     all<ExtendContextMore extends Record<string, unknown> = EmptyRecord, P extends Path = Path>(paths: P | Array<P>, pipe: Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore> | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
     crud<ExtendContextMore extends Record<string, unknown> = EmptyRecord, P extends Path = Path>(paths: Path | Array<Path>, pipe: Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore> | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
@@ -125,7 +145,7 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
         error: Error | HttpError;
     }>, options?: RegisterPiplineOptions | HandlerRegisterPiplineOptions): Router<ExtendContext>;
     splitPath(pathname: string, parts: string[], maxPath: number): number;
-    translateRouteFilePath(pathname: string): string;
 }
+export declare const translateRouteFilePath: (pathname: string, maxPath?: number) => string;
 export default Router;
 //# sourceMappingURL=router.d.ts.map

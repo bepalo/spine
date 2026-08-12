@@ -38,6 +38,7 @@ exports.dynamicImport = void 0;
 exports.walk = walk;
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
+const node_url_1 = require("node:url");
 function walk(dir, rootPath) {
     return __asyncGenerator(this, arguments, function* walk_1() {
         rootPath = rootPath || dir;
@@ -60,7 +61,7 @@ function walk(dir, rootPath) {
     });
 }
 const dynamicImport = (fullPath) => __awaiter(void 0, void 0, void 0, function* () {
-    return yield import(fullPath);
+    return yield import((0, node_url_1.pathToFileURL)(fullPath).href);
 });
 exports.dynamicImport = dynamicImport;
 //# sourceMappingURL=utils.node.js.map

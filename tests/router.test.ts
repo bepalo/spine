@@ -1,6 +1,6 @@
 // router.test.ts
 import { describe, it, expect, vi } from "bun:test";
-import { Router } from "../src/router.ts";
+import { Router, translateRouteFilePath } from "../src/router.ts";
 import { json, text, status, redirect } from "../src/helpers.ts";
 import {
   Break_Pipe,
@@ -1213,7 +1213,7 @@ describe("Router", () => {
     it("should translate file system paths to route paths", () => {
       const router = new Router();
       // Access private method for testing
-      const translate = router.translateRouteFilePath.bind(router);
+      const translate = translateRouteFilePath.bind(router);
 
       expect(translate("/users/index")).toBe("/users/");
       expect(translate("/users/profile")).toBe("/users/profile");

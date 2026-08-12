@@ -14,6 +14,17 @@ export type HttpMethod =
   | "Trace"
   | "Connect";
 
+export type HttpMethodLower =
+  | "head"
+  | "get"
+  | "post"
+  | "put"
+  | "patch"
+  | "delete"
+  | "options"
+  | "trace"
+  | "connect";
+
 export type HttpMethodUpper =
   | "HEAD"
   | "GET"
@@ -376,6 +387,7 @@ export type OpenApiDesc = {
   summary?: string;
   description?: string;
   tags?: string[];
+  operationId?: string;
   parameters?: OpenApiParameter[];
   requestBody?: {
     required?: boolean;
@@ -399,16 +411,77 @@ export type OpenApiDesc = {
       >;
     }
   >;
+  security?: Array<Record<string, string[]>>;
 };
 
-type OpenApiParameter = {
+export type OpenApiPathItem = {
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  parameters?: OpenApiParameter[];
+  requestBody?: OpenApiRequestBody;
+  responses: Record<string, OpenApiResponse>;
+  security?: Array<Record<string, string[]>>;
+  operationId?: string;
+};
+
+export type OpenApiRequestBody = {
+  required?: boolean;
+  content: Record<
+    string,
+    {
+      schema: OpenApiSchema;
+      examples?: Record<string, { value: any; summary?: string }>;
+    }
+  >;
+};
+
+export type OpenApiResponse = {
+  description: string;
+  content?: Record<
+    string,
+    {
+      schema: OpenApiSchema;
+      examples?: Record<string, { value: any; summary?: string }>;
+    }
+  >;
+  headers?: Record<
+    string,
+    {
+      description?: string;
+      schema: OpenApiSchema;
+    }
+  >;
+};
+
+export type OpenApiSecurityScheme = {
+  type: "apiKey" | "http" | "oauth2" | "openIdConnect";
+  description?: string;
+  name?: string;
+  in?: "query" | "header" | "cookie";
+  scheme?: string;
+  bearerFormat?: string;
+  flows?: {
+    implicit?: { authorizationUrl: string; scopes: Record<string, string> };
+    password?: { tokenUrl: string; scopes: Record<string, string> };
+    clientCredentials?: { tokenUrl: string; scopes: Record<string, string> };
+    authorizationCode?: {
+      authorizationUrl: string;
+      tokenUrl: string;
+      scopes: Record<string, string>;
+    };
+  };
+  openIdConnectUrl?: string;
+};
+
+export type OpenApiParameter = {
   name: string;
   in: "query" | "header" | "path" | "cookie";
   required?: boolean;
   schema: OpenApiSchema;
 };
 
-type OpenApiSchema = {
+export type OpenApiSchema = {
   type: "string" | "number" | "integer" | "boolean" | "array" | "object";
   properties?: Record<string, OpenApiSchema>;
   items?: OpenApiSchema;
