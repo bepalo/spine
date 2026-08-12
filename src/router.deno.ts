@@ -138,7 +138,7 @@ export class Router<
     request: Request,
     ctxInit?: Omit<RespondContext<ExtendContext>, "router">,
   ): Promise<Response> {
-    const requestTimestamp = performance.now();
+    const requestTimestamp = Date.now();
     const method = request.method as HttpMethod;
     const url = new URL(request.url);
     let pathname!: string;
@@ -409,7 +409,7 @@ export class Router<
       });
     }
     (ctx as Context<CTResponse & ExtendContext>).response = response;
-    ctx.timestamps.response = performance.now();
+    ctx.timestamps.response = Date.now();
     // afters
     if (this.#config.enable?.after) {
       const afterRoutes = this.#getRouteEntries(

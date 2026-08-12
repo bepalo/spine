@@ -101,7 +101,7 @@ class Router {
     respond(request, ctxInit) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d, _e, _f;
-            const requestTimestamp = performance.now();
+            const requestTimestamp = Date.now();
             const method = request.method;
             const url = new URL(request.url);
             let pathname;
@@ -331,7 +331,7 @@ class Router {
                 response = new Response(response.body, Object.assign(Object.assign({}, response), { status: response.status, statusText: (0, status_ts_1.getHttpStatusText)(response.status), headers: ctx.headers }));
             }
             ctx.response = response;
-            ctx.timestamps.response = performance.now();
+            ctx.timestamps.response = Date.now();
             // afters
             if ((_f = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _f === void 0 ? void 0 : _f.after) {
                 const afterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").after[method], false);
