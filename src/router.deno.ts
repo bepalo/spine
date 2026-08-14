@@ -40,7 +40,7 @@ import { CTParams } from "./parsers.ts";
 import { walk, dynamicImport } from "./utils.deno.ts";
 
 const EMPTY_PARAMS = Object.freeze({});
-const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
+const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-\\s.]";
 export const PATH_PART_REGEX = new RegExp(
   `^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`,
   "u",
@@ -2940,10 +2940,9 @@ export class Router<
     methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
     pipe = Array.isArray(pipe) ? pipe : [pipe];
     for (const methodPath of methodPaths) {
-      const [method, originalPath] = methodPath.split(" ", 2) as [
-        HttpMethod,
-        string,
-      ];
+      const separator1Idx = methodPath.indexOf(" ");
+      const method = methodPath.substring(0, separator1Idx) as HttpMethod;
+      const originalPath = methodPath.substring(separator1Idx + 1);
       const processedPaths = this.#processPath(originalPath);
       const { params, paths } = processedPaths;
       const paramsMap = params ? new Map(params) : undefined;

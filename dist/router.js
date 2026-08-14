@@ -33,7 +33,7 @@ const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
 const utils_node_ts_1 = require("./utils.node.js");
 const EMPTY_PARAMS = Object.freeze({});
-const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-.]";
+const W = "[\\p{L}\\p{M}\\p{N}\\p{S}\\p{P}_\\-\\s.]";
 exports.PATH_PART_REGEX = new RegExp(`^(?:#?${W}+|\\[(?:${W}*|#{1,2}|##\\s*${W}*\\s*|\\[##\\s*${W}*\\s*\\]|\\[${W}*(?:,${W}*)*\\](?:\\s*${W}*\\s*|\\[\\s*${W}*\\s*\\]))\\])$`, "u");
 exports.REGISTER_PATH_REGEX = new RegExp(`^(?:/(?:${W}*|${W}*(?:\\|${W}*)*:${W}*|\\*))+|(?:/${W}*)*(?:/\\.?\\*\\*)|(?:/${W}*)*(?:/::${W}*)$`, "u");
 exports.HTTP_METHODS = new Set([
@@ -1307,7 +1307,9 @@ class Router {
         methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
         pipe = Array.isArray(pipe) ? pipe : [pipe];
         for (const methodPath of methodPaths) {
-            const [method, originalPath] = methodPath.split(" ", 2);
+            const separator1Idx = methodPath.indexOf(" ");
+            const method = methodPath.substring(0, separator1Idx);
+            const originalPath = methodPath.substring(separator1Idx + 1);
             const processedPaths = __classPrivateFieldGet(this, _Router_instances, "m", _Router_processPath).call(this, originalPath);
             const { params, paths } = processedPaths;
             const paramsMap = params ? new Map(params) : undefined;

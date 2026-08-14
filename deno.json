@@ -1,6 +1,6 @@
 {
   "name": "@bepalo/spine",
-  "version": "1.5.15",
+  "version": "1.5.16",
   "exports": {
     ".": "./mod.ts",
     "./mod.ts": "./mod.ts"

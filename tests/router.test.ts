@@ -1218,6 +1218,9 @@ describe("Router", () => {
 
       expect(translate("/users/index")).toBe("/users/");
       expect(translate("/users/profile")).toBe("/users/profile");
+      expect(translate("/users/check out")).toBe("/users/check out");
+      expect(translate("/users/check out/notify")).toBe("/users/check out/notify");
+      expect(translate("/users/check out/redirect")).toBe("/users/check out/redirect");
       expect(translate("/api/[#]/users")).toBe("/api/*/users");
       expect(translate("/api/[[#]]/users")).toBe("/api/*!/users");
       expect(translate("/api/[#]/users/[[#]]")).toBe("/api/*/users/*!");
@@ -1241,6 +1244,48 @@ describe("Router", () => {
       );
       expect(translate("/dashboard/[[,admin,vendor,client][ role ]]")).toBe(
         "/dashboard/|admin|vendor|client:role!",
+      );
+      expect(translate("/main api/[#]/users")).toBe("/main api/*/users");
+      expect(translate("/main api/[[#]]/users")).toBe("/main api/*!/users");
+      expect(translate("/main api/[#]/users/[[#]]")).toBe("/main api/*/users/*!");
+      expect(translate("/main api/[[#]]/users/[#]")).toBe("/main api/*!/users/*");
+      expect(translate("/main api/[##]")).toBe("/main api/**");
+      expect(translate("/main api/[[##]]")).toBe("/main api/**!");
+      expect(translate("/main api/[##slug]")).toBe("/main api/::slug");
+      expect(translate("/main api/[## slug ]")).toBe("/main api/::slug");
+      expect(translate("/main api/[[##slug]]")).toBe("/main api/::slug!");
+      expect(translate("/main api/[[## slug ]]")).toBe("/main api/::slug!");
+      expect(translate("/ma in/[page]")).toBe("/ma in/:page");
+      expect(translate("/use rs/[id]")).toBe("/use rs/:id");
+      expect(translate("/dash board/[[admin,vendor,client]role]")).toBe(
+        "/dash board/admin|vendor|client:role",
+      );
+      expect(translate("/dash board/[[admin,vendor,client] role ]")).toBe(
+        "/dash board/admin|vendor|client:role",
+      );
+      expect(translate("/dash board/[[,admin,vendor,client][role]]")).toBe(
+        "/dash board/|admin|vendor|client:role!",
+      );
+      expect(translate("/dash board/[[,admin,vendor,client][ role ]]")).toBe(
+        "/dash board/|admin|vendor|client:role!",
+      );
+      expect(translate("/main api/[#]/users/more space")).toBe("/main api/*/users/more space");
+      expect(translate("/main api/[[#]]/users/more space")).toBe("/main api/*!/users/more space");
+      expect(translate("/main api/[#]/users/[[#]]/more space")).toBe("/main api/*/users/*!/more space");
+      expect(translate("/main api/[[#]]/users/[#]/more space")).toBe("/main api/*!/users/*/more space");
+      expect(translate("/ma in/[page]/more space")).toBe("/ma in/:page/more space");
+      expect(translate("/use rs/[id]/more space")).toBe("/use rs/:id/more space");
+      expect(translate("/dash board/[[admin,vendor,client]role]/more space")).toBe(
+        "/dash board/admin|vendor|client:role/more space",
+      );
+      expect(translate("/dash board/[[admin,vendor,client] role ]/more space")).toBe(
+        "/dash board/admin|vendor|client:role/more space",
+      );
+      expect(translate("/dash board/[[,admin,vendor,client][role]]/more space")).toBe(
+        "/dash board/|admin|vendor|client:role!/more space",
+      );
+      expect(translate("/dash board/[[,admin,vendor,client][ role ]]/more space")).toBe(
+        "/dash board/|admin|vendor|client:role!/more space",
       );
     });
   });
