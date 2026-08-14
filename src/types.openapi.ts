@@ -33,7 +33,7 @@ export type OpenApiDesc = {
   security?: Array<Record<string, string[]>>;
 };
 
-export type OpenApiPathItem = {
+export type OpenApiOperation = {
   summary?: string;
   description?: string;
   tags?: string[];
@@ -288,7 +288,7 @@ export interface GeneratedOpenApi {
     description?: string;
     url: string;
   };
-  paths: Record<string, Record<HttpMethodLower, OpenApiPathItem>>;
+  paths: Record<string, Record<HttpMethodLower, OpenApiOperation>>;
   components?: {
     schemas?: Record<string, OpenApiSchema>;
     securitySchemes?: Record<string, OpenApiSecurityScheme>;

@@ -662,36 +662,41 @@ class Router {
                                     }
                                 }
                             }
-                            if (entry.openApi == null) {
-                                entry.openApi = {};
-                            }
-                            entry.openApi.tags = tags;
                             const sortEntry = Object.freeze({
                                 method: methodUpper,
                                 path: entry.path,
                                 parts: Object.freeze([...entry.pathParts]),
-                                tags: Object.freeze(entry.openApi && tags && tags.length > 0
-                                    ? [...tags].sort()
-                                    : []),
+                                tags: entry.openApi && Array.isArray(tags) && tags.length > 0
+                                    ? Object.freeze([...tags].sort())
+                                    : Object.freeze([]),
                             });
                             // Apply pick filter
                             if (typeof pick === "function" && !pick(sortEntry)) {
                                 continue;
                             }
-                            routeGroupsSorter.push([sortEntry, entry]);
+                            routeGroupsSorter.push([sortEntry, { entry, tags }]);
                         }
                     }
                 }
             }
             // Sort route groups
             routeGroupsSorter.sort(([a], [b]) => routeSorter(a, b));
-            for (const [{ method, path, parts }, entry] of routeGroupsSorter) {
+            for (const [{ method, path, parts }, { entry, tags },] of routeGroupsSorter) {
                 let pathMethods = routeGroups[entry.openApiPath];
                 if (!pathMethods) {
                     pathMethods = Object.create(null);
                     routeGroups[entry.openApiPath] = pathMethods;
                 }
-                pathMethods[method] = entry;
+                if (pathMethods[method] != null) {
+                    console.warn(`Duplicate method found in ${entry.openApiPath}.${method}`);
+                }
+                pathMethods[method] = { entry, tags };
+                // Track all tags used by this operation
+                if (tags) {
+                    for (const tag of tags) {
+                        usedTags.add(tag);
+                    }
+                }
             }
             // Build paths
             for (const pathname of Object.keys(routeGroups)) {
@@ -699,29 +704,9 @@ class Router {
                 const pathItem = {};
                 paths[pathname] = pathItem;
                 for (const method of Object.keys(methods)) {
-                    const entry = methods[method];
+                    const { entry, tags } = methods[method];
                     const openApi = entry.openApi || {};
                     const methodLower = method.toLowerCase();
-                    // Determine tags for this operation
-                    let tags = openApi.tags;
-                    // // Auto-tag based on path if no explicit tags and autoTag is enabled
-                    // if (autoTag && !tags) {
-                    //   const pathParts = pathname.split("/").filter(Boolean);
-                    //   if (pathParts.length > 0) {
-                    //     if (typeof autoTag === "function") {
-                    //       tags = autoTag(entry);
-                    //     } else {
-                    //       const tag = pathParts[0] || "default";
-                    //       tags = [tag];
-                    //     }
-                    //   }
-                    // }
-                    // Track all tags used by this operation
-                    if (tags) {
-                        for (const tag of tags) {
-                            usedTags.add(tag);
-                        }
-                    }
                     // Auto-summary from path - use the last meaningful part
                     let summary = openApi.summary;
                     if (autoSummary && !summary) {
@@ -804,7 +789,13 @@ class Router {
                     }
                     // Generate operation ID with uniqueness guarantee
                     let operationId = openApi.operationId;
-                    if (!operationId && includeOperationId) {
+                    if (operationId) {
+                        if (usedOperationIds.has(operationId)) {
+                            console.warn(`Duplicate OpenApi operationId '${operationId}' in  ${entry.openApiPath}.${method}`);
+                        }
+                        usedOperationIds.add(operationId);
+                    }
+                    else if (includeOperationId) {
                         operationId = __classPrivateFieldGet(this, _Router_instances, "m", _Router_generateUniqueOperationId).call(this, method, pathname, cleanOperationId, usedOperationIds);
                     }
                     // Build operation object

@@ -6,7 +6,7 @@ import {
   HttpError,
   RouterError,
   type HttpMethodLower,
-  type OpenApiPathItem,
+  type OpenApiOperation,
   type OpenApiParameter,
   type OpenApiResponse,
   type Context,
@@ -741,7 +741,7 @@ export class Router<
 
     return new Promise((resolve) => {
       const handlers = this.#routes.handler;
-      const paths: Record<string, Record<string, OpenApiPathItem>> = {};
+      const paths: Record<string, Record<string, OpenApiOperation>> = {};
       const schemas: Record<string, OpenApiSchema> = {};
       const securitySchemes: Record<string, OpenApiSecurityScheme> = {};
       const parameters: Record<string, OpenApiParameter> = {};
@@ -754,11 +754,14 @@ export class Router<
       // Group routes by path
       const routeGroupsSorter: [
         GenerateOpenAPISortParam,
-        HandlerRouteEntry<ExtendContext>,
+        { entry: HandlerRouteEntry<ExtendContext>; tags?: string[] },
       ][] = [];
       const routeGroups = Object.create(null) as Record<
         string,
-        Record<HttpMethodUpper, HandlerRouteEntry<ExtendContext>>
+        Record<
+          HttpMethodUpper,
+          { entry: HandlerRouteEntry<ExtendContext>; tags?: string[] }
+        >
       >;
 
       // Collect all routes
@@ -805,20 +808,14 @@ export class Router<
                 }
               }
 
-              if (entry.openApi == null) {
-                entry.openApi = {};
-              }
-              entry.openApi.tags = tags;
-
               const sortEntry = Object.freeze({
                 method: methodUpper,
                 path: entry.path,
                 parts: Object.freeze([...entry.pathParts]),
-                tags: Object.freeze(
-                  entry.openApi && tags && tags.length > 0
-                    ? [...tags].sort()
-                    : [],
-                ),
+                tags:
+                  entry.openApi && Array.isArray(tags) && tags.length > 0
+                    ? Object.freeze([...tags].sort())
+                    : Object.freeze([]),
               });
 
               // Apply pick filter
@@ -826,7 +823,7 @@ export class Router<
                 continue;
               }
 
-              routeGroupsSorter.push([sortEntry, entry]);
+              routeGroupsSorter.push([sortEntry, { entry, tags }]);
             }
           }
         }
@@ -834,51 +831,42 @@ export class Router<
 
       // Sort route groups
       routeGroupsSorter.sort(([a], [b]) => routeSorter(a, b));
-      for (const [{ method, path, parts }, entry] of routeGroupsSorter) {
+      for (const [
+        { method, path, parts },
+        { entry, tags },
+      ] of routeGroupsSorter) {
         let pathMethods = routeGroups[entry.openApiPath];
         if (!pathMethods) {
           pathMethods = Object.create(null);
           routeGroups[entry.openApiPath] = pathMethods;
         }
-        pathMethods[method] = entry;
+        if (pathMethods[method] != null) {
+          console.warn(
+            `Duplicate method found in ${entry.openApiPath}.${method}`,
+          );
+        }
+        pathMethods[method] = { entry, tags };
+        // Track all tags used by this operation
+        if (tags) {
+          for (const tag of tags) {
+            usedTags.add(tag);
+          }
+        }
       }
 
       // Build paths
       for (const pathname of Object.keys(routeGroups)) {
         const methods = routeGroups[pathname];
-        const pathItem: Record<string, OpenApiPathItem> = {};
+        const pathItem: Record<string, OpenApiOperation> = {};
         paths[pathname] = pathItem;
 
         for (const method of Object.keys(methods)) {
-          const entry = methods[method as HttpMethodUpper];
+          const { entry, tags } = methods[method as HttpMethodUpper];
           const openApi = entry.openApi || {};
           const methodLower = method.toLowerCase() as Exclude<
             HttpMethodLower,
             "connect"
           >;
-
-          // Determine tags for this operation
-          let tags: string[] | undefined = openApi.tags;
-
-          // // Auto-tag based on path if no explicit tags and autoTag is enabled
-          // if (autoTag && !tags) {
-          //   const pathParts = pathname.split("/").filter(Boolean);
-          //   if (pathParts.length > 0) {
-          //     if (typeof autoTag === "function") {
-          //       tags = autoTag(entry);
-          //     } else {
-          //       const tag = pathParts[0] || "default";
-          //       tags = [tag];
-          //     }
-          //   }
-          // }
-
-          // Track all tags used by this operation
-          if (tags) {
-            for (const tag of tags) {
-              usedTags.add(tag);
-            }
-          }
 
           // Auto-summary from path - use the last meaningful part
           let summary = openApi.summary;
@@ -982,7 +970,14 @@ export class Router<
 
           // Generate operation ID with uniqueness guarantee
           let operationId = openApi.operationId;
-          if (!operationId && includeOperationId) {
+          if (operationId) {
+            if (usedOperationIds.has(operationId)) {
+              console.warn(
+                `Duplicate OpenApi operationId '${operationId}' in  ${entry.openApiPath}.${method}`,
+              );
+            }
+            usedOperationIds.add(operationId);
+          } else if (includeOperationId) {
             operationId = this.#generateUniqueOperationId(
               method as HttpMethodUpper,
               pathname,
@@ -992,7 +987,7 @@ export class Router<
           }
 
           // Build operation object
-          const operation: OpenApiPathItem = {
+          const operation: OpenApiOperation = {
             summary: summary,
             description: openApi.description,
             tags: tags,
@@ -1008,7 +1003,7 @@ export class Router<
             Object.entries(operation).filter(
               ([_, value]) => value !== undefined,
             ),
-          ) as OpenApiPathItem;
+          ) as OpenApiOperation;
 
           pathItem[methodLower] = cleanedOperation;
         }

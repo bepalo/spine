@@ -1,6 +1,6 @@
 {
   "name": "@bepalo/spine",
-  "version": "1.5.14",
+  "version": "1.5.15",
   "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
   "author": "Natnael Eshetu",
   "license": "MIT",
