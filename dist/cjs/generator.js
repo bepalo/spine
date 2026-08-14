@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -29,10 +62,10 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateStaticRoutesImporter = void 0;
 const types_ts_1 = require("./types.js");
-const router_ts_1 = require("./router.js");
+const router_ts_1 = __importStar(require("./router.js"));
 const utils_node_ts_1 = require("./utils.node.js");
 const node_crypto_1 = require("node:crypto");
-function getRouteLoaders(routerId, moduleId, pathname, module, importPath) {
+function getRouteLoaders(routerId, moduleId, pathname, module, importPath, testRouter) {
     let setters = "";
     for (const [methodHandler, def] of Object.entries(module)) {
         // get method and handler type
@@ -70,6 +103,7 @@ function getRouteLoaders(routerId, moduleId, pathname, module, importPath) {
         const entryId = `${moduleId}.${methodHandler}`;
         const optionsStr = Object.entries(options).length > 0 ? `, $O(${entryId})` : "";
         const pipeStr = defIsObject ? `${entryId}.pipe` : entryId;
+        testRouter.register(handlerType, `${method} ${pathname}`, pipe, options);
         switch (handlerType) {
             case "filter":
                 setters += `\n  ${routerId}.filter${method}("${pathname}", ${pipeStr}${optionsStr});`;
@@ -144,6 +178,7 @@ function getRouteLoaders(routerId, moduleId, pathname, module, importPath) {
  */
 const generateStaticRoutesImporter = (_a) => __awaiter(void 0, [_a], void 0, function* ({ routesPath, importRoot = "./", usePathForIdGeneration = false, importExtensions = false, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), onError, }) {
     var _b, e_1, _c, _d;
+    const testRouter = new router_ts_1.default();
     let imports = "";
     let loads = "";
     const prefix = "route";
@@ -187,7 +222,8 @@ const generateStaticRoutesImporter = (_a) => __awaiter(void 0, [_a], void 0, fun
                             : (0, node_crypto_1.hash)("sha1", pureRelativePath, "base64url").replace(/[^a-zA-Z0-9_]/g, "_"));
                     const importPath = importRoot + pureRelativePath + extension;
                     const module = (yield (0, utils_node_ts_1.dynamicImport)(fullPath));
-                    const routeDef = "  " + getRouteLoaders("router", importName, pathname, module, _path);
+                    const routeDef = "  " +
+                        getRouteLoaders("router", importName, pathname, module, _path, testRouter);
                     const importStr = `import * as ${importName} from "${importPath}";\n`;
                     const loadStr = routeDef;
                     let entry = map.get("/" + parent);

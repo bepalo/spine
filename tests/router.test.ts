@@ -1,4 +1,5 @@
-// router.test.ts
+// tests/router.test.ts
+
 import { describe, it, expect, vi } from "bun:test";
 import { Router, translateRouteFilePath } from "../src/router.ts";
 import { json, text, status, redirect } from "../src/helpers.ts";
@@ -2581,10 +2582,10 @@ describe("OpenAPI Generation - Extended", () => {
     const get = path.get;
 
     expect(get.parameters).toHaveLength(2);
-    expect(get.parameters[0].name).toBe("id");
-    expect(get.parameters[0].in).toBe("path");
-    expect(get.parameters[1].name).toBe("fields");
-    expect(get.parameters[1].in).toBe("query");
+    expect(get.parameters![1].name).toBe("id");
+    expect(get.parameters![1].in).toBe("path");
+    expect(get.parameters![0].name).toBe("fields");
+    expect(get.parameters![0].in).toBe("query");
   });
 
   it("should generate OpenAPI with request body", async () => {

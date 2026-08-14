@@ -1,5 +1,7 @@
+import { OpenApiDesc } from "./types.openapi.ts";
 export declare const Break_Pipeline: unique symbol;
 export declare const Break_Pipe: unique symbol;
+export * from "./types.openapi.ts";
 export type HttpMethod = "Head" | "Get" | "Post" | "Put" | "Patch" | "Delete" | "Options" | "Trace" | "Connect";
 export type HttpMethodLower = "head" | "get" | "post" | "put" | "patch" | "delete" | "options" | "trace" | "connect";
 export type HttpMethodUpper = "HEAD" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "TRACE" | "CONNECT";
@@ -73,7 +75,7 @@ export interface RouteEntry<ExtendContext extends Record<string, unknown> = Reco
     pathParts: string[];
 }
 export type HandlerRouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> = RouteEntry<ExtendContext> & {
-    openApi?: OpenApiDesc;
+    openApi?: OpenApiDesc | false;
 };
 export interface RouteEntries<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     method: HttpMethodUpper;
@@ -95,7 +97,7 @@ export type RegisterPiplineOptions = {
 };
 export type HandlerRegisterPiplineOptions = {
     overwrite?: boolean;
-    openApi?: OpenApiDesc;
+    openApi?: OpenApiDesc | false;
 };
 export type HandlerDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext>;
 export type PipeDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
@@ -108,101 +110,4 @@ export declare class HttpError extends Error {
     status: number;
     constructor(status: number, message: string, options?: ErrorOptions);
 }
-export type OpenApiDesc = {
-    summary?: string;
-    description?: string;
-    tags?: string[];
-    operationId?: string;
-    parameters?: OpenApiParameter[];
-    requestBody?: {
-        required?: boolean;
-        content: Record<string, {
-            schema: OpenApiSchema;
-        }>;
-    };
-    responses?: Record<string, {
-        description: string;
-        content?: Record<string, {
-            schema: OpenApiSchema;
-            example?: any;
-        }>;
-    }>;
-    security?: Array<Record<string, string[]>>;
-};
-export type OpenApiPathItem = {
-    summary?: string;
-    description?: string;
-    tags?: string[];
-    parameters?: OpenApiParameter[];
-    requestBody?: OpenApiRequestBody;
-    responses: Record<string, OpenApiResponse>;
-    security?: Array<Record<string, string[]>>;
-    operationId?: string;
-};
-export type OpenApiRequestBody = {
-    required?: boolean;
-    content: Record<string, {
-        schema: OpenApiSchema;
-        examples?: Record<string, {
-            value: any;
-            summary?: string;
-        }>;
-    }>;
-};
-export type OpenApiResponse = {
-    description: string;
-    content?: Record<string, {
-        schema: OpenApiSchema;
-        examples?: Record<string, {
-            value: any;
-            summary?: string;
-        }>;
-    }>;
-    headers?: Record<string, {
-        description?: string;
-        schema: OpenApiSchema;
-    }>;
-};
-export type OpenApiSecurityScheme = {
-    type: "apiKey" | "http" | "oauth2" | "openIdConnect";
-    description?: string;
-    name?: string;
-    in?: "query" | "header" | "cookie";
-    scheme?: string;
-    bearerFormat?: string;
-    flows?: {
-        implicit?: {
-            authorizationUrl: string;
-            scopes: Record<string, string>;
-        };
-        password?: {
-            tokenUrl: string;
-            scopes: Record<string, string>;
-        };
-        clientCredentials?: {
-            tokenUrl: string;
-            scopes: Record<string, string>;
-        };
-        authorizationCode?: {
-            authorizationUrl: string;
-            tokenUrl: string;
-            scopes: Record<string, string>;
-        };
-    };
-    openIdConnectUrl?: string;
-};
-export type OpenApiParameter = {
-    name: string;
-    in: "query" | "header" | "path" | "cookie";
-    required?: boolean;
-    schema: OpenApiSchema;
-};
-export type OpenApiSchema = {
-    type: "string" | "number" | "integer" | "boolean" | "array" | "object";
-    properties?: Record<string, OpenApiSchema>;
-    items?: OpenApiSchema;
-    required?: string[];
-    enum?: string[];
-};
-export {};
 //# sourceMappingURL=types.d.ts.map

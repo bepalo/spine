@@ -1,4 +1,5 @@
-// router.handlers.test.ts
+// tests/router.handlers.test.ts
+
 import { describe, it, expect, vi } from "bun:test";
 import Router from "../src/router.ts";
 import { json, text, status } from "../src/helpers.ts";

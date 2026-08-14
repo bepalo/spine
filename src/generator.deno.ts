@@ -2,9 +2,10 @@ import {
   HandlerType,
   HttpMethod,
   HttpMethodUpper,
+  MethodPath,
   RouterError,
 } from "./types.ts";
-import {
+import Router, {
   HTTP_METHODS_UPPER,
   HANDLER_TYPES,
   translateRouteFilePath,
@@ -19,6 +20,7 @@ function getRouteLoaders(
   pathname: string,
   module: object,
   importPath: string,
+  testRouter: Router,
 ) {
   let setters = "";
   for (const [methodHandler, def] of Object.entries(module)) {
@@ -71,6 +73,12 @@ function getRouteLoaders(
     const optionsStr =
       Object.entries(options).length > 0 ? `, $O(${entryId})` : "";
     const pipeStr = defIsObject ? `${entryId}.pipe` : entryId;
+    testRouter.register(
+      handlerType,
+      `${method} ${pathname}` as MethodPath,
+      pipe,
+      options,
+    );
     switch (handlerType) {
       case "filter":
         setters += `\n  ${routerId}.filter${method}("${pathname}", ${pipeStr}${optionsStr});`;
@@ -163,6 +171,7 @@ export const generateStaticRoutesImporter = async ({
   processName?: (name: string) => string;
   onError?: (error: Error | unknown, node: DirWalkNode) => boolean | void;
 }): Promise<string> => {
+  const testRouter = new Router();
   let imports = "";
   let loads = "";
   const prefix = "route";
@@ -211,7 +220,15 @@ export const generateStaticRoutesImporter = async ({
         const importPath = importRoot + pureRelativePath + extension;
         const module = (await dynamicImport(fullPath)) as object;
         const routeDef =
-          "  " + getRouteLoaders("router", importName, pathname, module, _path);
+          "  " +
+          getRouteLoaders(
+            "router",
+            importName,
+            pathname,
+            module,
+            _path,
+            testRouter,
+          );
         const importStr = `import * as ${importName} from "${importPath}";\n`;
         const loadStr = routeDef;
         let entry = map.get("/" + parent);

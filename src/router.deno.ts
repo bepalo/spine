@@ -30,6 +30,11 @@ import {
   type RouterConfig,
   OpenApiSchema,
   OpenApiSecurityScheme,
+  GenerateOpenApiInfo,
+  GenerateOpenAPIOptions,
+  GeneratedOpenApi,
+  GenerateOpenAPISortParam,
+  SORT_METHOD_PRIORITY_INDEX,
 } from "./types.ts";
 import { CTParams } from "./parsers.ts";
 import { walk, dynamicImport } from "./utils.deno.ts";
@@ -559,31 +564,99 @@ export class Router<
     }
   }
 
-  generateOpenAPI(info?: {
-    title?: string;
-    version?: string;
-    description?: string;
-    servers?: Array<{ url: string; description?: string }>;
-    security?: Array<Record<string, string[]>>;
-    components?: {
-      schemas?: Record<string, OpenApiSchema>;
-      securitySchemes?: Record<string, OpenApiSecurityScheme>;
-    };
-  }): Promise<{
-    openapi: "3.0.0";
-    info: {
-      title: string;
-      version: string;
-      description?: string;
-    };
-    servers?: Array<{ url: string; description?: string }>;
-    paths: Record<string, Record<HttpMethodLower, OpenApiPathItem>>;
-    components?: {
-      schemas?: Record<string, OpenApiSchema>;
-      securitySchemes?: Record<string, OpenApiSecurityScheme>;
-    };
-    security?: Array<Record<string, string[]>>;
-  }> {
+  /**
+   * Generates an OpenAPI 3.0.0 specification document from the registered routes.
+   *
+   * This method scans all registered routes and builds a comprehensive OpenAPI specification
+   * that can be used with Swagger UI, Redoc, or any OpenAPI-compatible tooling.
+   *
+   * @param info - Configuration for the OpenAPI document
+   * @param info.title - API title (defaults to "API")
+   * @param info.version - API version (defaults to "1.0.0")
+   * @param info.description - API description
+   * @param info.servers - Array of server URLs and descriptions
+   * @param info.security - Global security requirements
+   * @param info.components - Reusable components (schemas, securitySchemes, parameters, responses, examples)
+   * @param info.termsOfService - URL to terms of service
+   * @param info.contact - Contact information for the API
+   * @param info.license - License information
+   * @param info.tags - Global tags for grouping operations
+   * @param info.externalDocs - External documentation reference
+   *
+   * @param options - Generation options
+   * @param {Map<HttpMethodUpper,number>} options.sortMethodPriorityMap - Map method to priority for the default sorter.
+   * @param {1|-1|undefined} options.sortPathnameOrder - Enable and define the pathname sort order for the default sorter.
+   * @param {1|-1|undefined} options.sortMethodOrder - Enable and define the method sort order for the default sorter.
+   * @param {1|-1|undefined} options.sortTagsOrder - Enable and define the tags sort order for the default sorter.
+   * @param options.pick - Filter function to selectively include routes
+   *   - Receives one `GenerateOpenAPISortParam` parameter: `{ method, path, parts, tags }`
+   *   - Return true to include, false to exclude
+   * @param options.routeSorter - Custom route sorter.
+   *   - Recieves two `GenerateOpenAPISortParam` parameters: `{ method, path, parts, tags }`
+   *   - Return -1, 0, 1 
+   * @param options.includeOperationId - Whether to generate operationId for each operation (default: true)
+   * @param options.autoTag - Automatically tag operations based on path (default: true)
+   *   - When `true`, uses the first path segment as the tag
+   *   - When a function, allows custom tag generation
+   * @param options.commonParameters - Parameters to apply to all operations
+   * @param options.autoSummary - Generate summary from path when not provided (default: true)
+   * @param options.cleanOperationId - Remove special characters from operation IDs (default: true)
+
+   * @returns {Promise<GeneratedOpenApi>} A promise that resolves to the complete OpenAPI 3.0.0 specification
+   *
+   * @example
+   * ```typescript
+   * // Basic usage
+   * const openapi = await router.generateOpenAPI({
+   *   title: "My API",
+   *   version: "2.0.0",
+   *   description: "My awesome API",
+   * });
+   *
+   * // With custom options
+   * const openapi = await router.generateOpenAPI(
+   *   { title: "My API", version: "1.0.0" },
+   *   {
+   *     pick: ({ tags, path, parts, method }) => {
+   *       return path.startsWith('/api');
+   *     },
+   *     autoTag: ({ path }) => {
+   *       const parts = path.split('/').filter(p => p && p !== "*");
+   *       return parts.length > 0 ? [parts[0]] : ['default'];
+   *     },
+   *     commonParameters: [
+   *       {
+   *         name: 'X-Request-ID',
+   *         in: 'header',
+   *         schema: { type: 'string' },
+   *         description: 'Request ID for tracing'
+   *       }
+   *     ]
+   *   }
+   * );
+   *
+   * // Write to file
+   * await Deno.writeTextFile('./openapi.json', JSON.stringify(openapi, null, 2));
+   * ```
+   *
+   * @remarks
+   * - Routes with `openApi: false` in their definition are excluded from generation
+   * - Super glob routes (`/**`) are automatically excluded
+   * - Unnamed glob routes (`/*`) are named by their index like so 'glob1'
+   * - Connect HTTP method is not supported
+   * - Tags are only included if they are actually used by at least one operation
+   * - Response schemas are only included when explicitly provided
+   * - Path parameters are automatically extracted from route definitions and forced to `required: true`
+   * - Operation IDs are guaranteed to be unique with collision detection
+   *
+   * @see {@link GenerateOpenApiInfo} for complete info options
+   * @see {@link GenerateOpenAPIOptions} for complete generation options
+   * @see {@link GeneratedOpenApi} for the return type structure
+   */
+  generateOpenAPI(
+    info?: GenerateOpenApiInfo,
+    options?: GenerateOpenAPIOptions<ExtendContext>,
+  ): Promise<GeneratedOpenApi> {
     const {
       title = "API",
       version = "1.0.0",
@@ -591,23 +664,115 @@ export class Router<
       servers = [{ url: "/", description: "Current server" }],
       security,
       components: globalComponents,
-    } = info ?? {};
+      termsOfService,
+      contact,
+      license,
+      tags: globalTags,
+      externalDocs,
+    } = info ?? Object.create(null);
+
+    const sortMethodPriorityMap =
+      options?.sortMethodPriorityMap ?? SORT_METHOD_PRIORITY_INDEX;
+    const sortPathnameOrder =
+      options?.sortPathnameOrder && options.sortPathnameOrder < 0 ? -1 : 1;
+    const sortMethodOrder =
+      options?.sortMethodOrder && options.sortMethodOrder < 0 ? -1 : 1;
+    const sortTagsOrder =
+      options?.sortTagsOrder && options.sortTagsOrder < 0 ? -1 : 1;
+    const {
+      pick,
+      includeOperationId = true,
+      autoTag = true,
+      commonParameters = [],
+      autoSummary = true,
+      cleanOperationId = true,
+      routeSorter = (
+        a: GenerateOpenAPISortParam,
+        b: GenerateOpenAPISortParam,
+      ) => {
+        // sort by tags
+        if (options?.sortTagsOrder != null) {
+          const minTagsLen = Math.min(a.tags.length, b.tags.length);
+          for (let i = 0; i < minTagsLen; i++) {
+            const comp = sortTagsOrder * a.tags[i].localeCompare(b.tags[i]);
+            if (comp !== 0) {
+              return comp;
+            }
+          }
+          if (minTagsLen === 0 && a.tags.length !== b.tags.length) {
+            const comp =
+              sortTagsOrder * (a.tags.length < b.tags.length ? -1 : 1);
+            if (comp !== 0) {
+              return comp;
+            }
+          }
+        }
+        // sort by pathname parts
+        if (options?.sortPathnameOrder != null) {
+          const minLen = Math.min(a.parts.length, b.parts.length);
+          for (let i = 0; i < minLen; i++) {
+            let comp =
+              sortPathnameOrder * a.parts[i]!.localeCompare(b.parts[i]!);
+            if (comp !== 0) {
+              return comp;
+            }
+          }
+          if (a.parts.length != b.parts.length) {
+            const comp =
+              sortPathnameOrder * (a.parts.length < b.parts.length ? -1 : 1);
+            if (comp !== 0) {
+              return comp;
+            }
+          }
+        }
+        // sort by methods
+        if (options?.sortMethodOrder != null) {
+          if (a.method !== b.method) {
+            const ma = sortMethodPriorityMap.get(a.method)!;
+            const mb = sortMethodPriorityMap.get(b.method)!;
+            return ma === mb
+              ? sortMethodOrder * a.method.localeCompare(b.method)
+              : sortMethodOrder * (ma - mb);
+          }
+        }
+        return 0;
+      },
+    } = options ?? Object.create(null);
 
     return new Promise((resolve) => {
       const handlers = this.#routes.handler;
       const paths: Record<string, Record<string, OpenApiPathItem>> = {};
       const schemas: Record<string, OpenApiSchema> = {};
       const securitySchemes: Record<string, OpenApiSecurityScheme> = {};
+      const parameters: Record<string, OpenApiParameter> = {};
+      const responses: Record<string, OpenApiResponse> = {};
+      const examples: Record<string, { value: any; summary?: string }> = {};
+      const usedTags = new Set<string>();
+      const usedOperationIds = new Set<string>();
+      const warnings: string[] = [];
 
       // Group routes by path
-      const routeGroups = new Map<
+      const routeGroupsSorter: [
+        GenerateOpenAPISortParam,
+        HandlerRouteEntry<ExtendContext>,
+      ][] = [];
+      const routeGroups = Object.create(null) as Record<
         string,
-        Map<HttpMethodUpper, HandlerRouteEntry<ExtendContext>>
-      >();
+        Record<HttpMethodUpper, HandlerRouteEntry<ExtendContext>>
+      >;
 
       // Collect all routes
       for (const method of Object.keys(handlers)) {
-        const methodHandlers = handlers[method as HttpMethodUpper];
+        const methodUpper = method.toUpperCase() as HttpMethodUpper;
+
+        // Check if method is supported by OpenAPI
+        if (methodUpper === "CONNECT") {
+          continue;
+        }
+
+        const methodHandlers = handlers[methodUpper];
+        if (!methodHandlers) continue;
+
         for (const entries of [
           methodHandlers.entries,
           methodHandlers.globs,
@@ -619,106 +784,193 @@ export class Router<
             for (const [, entry] of bucket) {
               if (entry == null) continue;
 
-              // Skip super glob routes for OpenAPI (they're catch-alls)
-              if (entry.path.endsWith("/**")) {
+              // Check openApi first
+              if (entry.openApi === false) continue;
+
+              // Skip super glob routes
+              if (entry.path.endsWith("/**")) continue;
+
+              let tags: string[] | undefined = entry.openApi?.tags;
+
+              // Auto-tag based on path if no explicit tags and autoTag is enabled
+              if (autoTag && !tags) {
+                const pathParts = entry.pathParts.filter((p) => p && p !== "*");
+                if (pathParts.length > 0) {
+                  if (typeof autoTag === "function") {
+                    tags = autoTag(entry);
+                  } else {
+                    const tag = pathParts[0] || "default";
+                    tags = [tag];
+                  }
+                }
+              }
+
+              if (entry.openApi == null) {
+                entry.openApi = {};
+              }
+              entry.openApi.tags = tags;
+
+              const sortEntry = Object.freeze({
+                method: methodUpper,
+                path: entry.path,
+                parts: Object.freeze([...entry.pathParts]),
+                tags: Object.freeze(
+                  entry.openApi && tags && tags.length > 0
+                    ? [...tags].sort()
+                    : [],
+                ),
+              });
+
+              // Apply pick filter
+              if (typeof pick === "function" && !pick(sortEntry)) {
                 continue;
               }
 
-              let pathMethods = routeGroups.get(entry.openApiPath);
-              if (!pathMethods) {
-                pathMethods = new Map();
-                routeGroups.set(entry.openApiPath, pathMethods);
-              }
-              pathMethods.set(method as HttpMethodUpper, entry);
+              routeGroupsSorter.push([sortEntry, entry]);
             }
           }
         }
       }
 
+      // Sort route groups
+      routeGroupsSorter.sort(([a], [b]) => routeSorter(a, b));
+      for (const [{ method, path, parts }, entry] of routeGroupsSorter) {
+        let pathMethods = routeGroups[entry.openApiPath];
+        if (!pathMethods) {
+          pathMethods = Object.create(null);
+          routeGroups[entry.openApiPath] = pathMethods;
+        }
+        pathMethods[method] = entry;
+      }
+
       // Build paths
-      for (const [pathname, methods] of routeGroups) {
+      for (const pathname of Object.keys(routeGroups)) {
+        const methods = routeGroups[pathname];
         const pathItem: Record<string, OpenApiPathItem> = {};
         paths[pathname] = pathItem;
 
-        for (const [method, entry] of methods) {
-          const openApi = entry.openApi ?? {};
-          const methodLower = method.toLowerCase() as HttpMethodLower;
+        for (const method of Object.keys(methods)) {
+          const entry = methods[method as HttpMethodUpper];
+          const openApi = entry.openApi || {};
+          const methodLower = method.toLowerCase() as Exclude<
+            HttpMethodLower,
+            "connect"
+          >;
 
-          // Build parameters - only include path params that are actually in the path
-          // console.log(entry);
-          const pathParams = [];
-          if (entry.params != null) {
-            for (const [idx, paramId] of entry.params) {
-              // if(entry.pathParts[idx])
-              console.log([idx, paramId, entry.pathParts[idx]]);
-              pathParams.push({
+          // Determine tags for this operation
+          let tags: string[] | undefined = openApi.tags;
+
+          // // Auto-tag based on path if no explicit tags and autoTag is enabled
+          // if (autoTag && !tags) {
+          //   const pathParts = pathname.split("/").filter(Boolean);
+          //   if (pathParts.length > 0) {
+          //     if (typeof autoTag === "function") {
+          //       tags = autoTag(entry);
+          //     } else {
+          //       const tag = pathParts[0] || "default";
+          //       tags = [tag];
+          //     }
+          //   }
+          // }
+
+          // Track all tags used by this operation
+          if (tags) {
+            for (const tag of tags) {
+              usedTags.add(tag);
+            }
+          }
+
+          // Auto-summary from path - use the last meaningful part
+          let summary = openApi.summary;
+          if (autoSummary && !summary) {
+            const pathParts = pathname
+              .split("/")
+              .filter((p, idx) => p && entry.pathParts[idx] !== "*");
+            // Find the last non-parameter part or use the last part
+            let resource =
+              pathParts[pathParts.length - 1] || pathParts[0] || "root";
+            // Remove OpenAPI parameter syntax for summary
+            resource = resource.replace(/[{}]/g, "");
+            const action = method.toLowerCase();
+            summary = `${action} ${resource}`;
+          }
+
+          // Build parameters - router-derived path parameters MUST be required: true
+          const entryParams: [number, string][] = [];
+          let globIdx = 0;
+          for (let i = 1; i < entry.pathParts.length; i++) {
+            const part = entry.pathParts[i];
+            if (part === "*") {
+              const foundParam = entry.params?.find(
+                ([idx, paramId]) => idx === i,
+              );
+              entryParams.push([
+                i,
+                foundParam ? foundParam[1] : `glob${++globIdx}`,
+              ]);
+            }
+          }
+          const pathParams: OpenApiParameter[] = [];
+          if (entryParams.length > 0) {
+            for (const [idx, paramId] of entryParams) {
+              // Start with the router-derived parameter
+              const baseParam: OpenApiParameter = {
                 name: paramId,
                 in: "path" as const,
                 required: true,
                 schema: { type: "string" as const },
-              });
+              };
+
+              // Check if user defined this parameter
+              const userParam = (openApi.parameters ?? []).find(
+                (p) => p.name === paramId && p.in === "path",
+              );
+
+              if (userParam) {
+                // Merge user metadata while preserving required: true
+                pathParams.push({
+                  ...baseParam,
+                  ...userParam,
+                  required: true, // Force required: true for path params
+                  in: "path" as const, // Force in: "path"
+                });
+              } else {
+                pathParams.push(baseParam);
+              }
             }
           }
 
-          // Combine with user-defined parameters
-          const userParams = openApi.parameters ?? [];
-          const allParams = [...userParams, ...pathParams];
+          // Get user-defined parameters (non-path params)
+          const userParams = (openApi.parameters ?? []).filter(
+            (p) => p.in !== "path",
+          );
+
+          // Combine: common parameters + user params + path params
+          // Path params come last so they take precedence for required: true
+          const allParams = [...commonParameters, ...userParams, ...pathParams];
 
           // Remove duplicates (by name + in combination)
           const paramSet = new Set<string>();
-          const parameters: OpenApiParameter[] = [];
+          const finalParams: OpenApiParameter[] = [];
           for (const param of allParams) {
             const key = `${param.name}:${param.in}`;
             if (!paramSet.has(key)) {
               paramSet.add(key);
-              parameters.push(param);
+              finalParams.push(param);
             }
           }
 
           // Build request body
           const requestBody = openApi.requestBody;
 
-          // Build responses
-          const responses: Record<string, OpenApiResponse> = {};
-
+          // Build responses - only use provided responses, no inference
+          const responseObj: Record<string, OpenApiResponse> = {};
           if (openApi.responses) {
-            Object.assign(responses, openApi.responses);
+            Object.assign(responseObj, openApi.responses);
           } else {
-            // Infer responses from HTTP method
-            if (method !== "DELETE" && method !== "HEAD") {
-              responses["200"] = {
-                description: "Successful response",
-                content: {
-                  "application/json": {
-                    schema: {
-                      type: "object",
-                      properties: {
-                        data: { type: "object" },
-                        message: { type: "string" },
-                      },
-                    },
-                  },
-                },
-              };
-            } else if (method === "DELETE") {
-              responses["204"] = {
-                description: "Resource deleted successfully",
-              };
-            }
-
-            // Add common error responses
-            if (entry.params?.length) {
-              responses["404"] = {
-                description: "Resource not found",
-              };
-            }
-
-            responses["400"] = {
-              description: "Bad request",
-            };
-
-            responses["500"] = {
-              description: "Internal server error",
+            // Minimal default response - just a description
+            responseObj["200"] = {
+              description: "Successful response",
             };
           }
 
@@ -728,18 +980,25 @@ export class Router<
             operationSecurity = security;
           }
 
-          // Generate clean operation ID
-          const operationId =
-            openApi.operationId || generateOperationId(method, pathname);
+          // Generate operation ID with uniqueness guarantee
+          let operationId = openApi.operationId;
+          if (!operationId && includeOperationId) {
+            operationId = this.#generateUniqueOperationId(
+              method as HttpMethodUpper,
+              pathname,
+              cleanOperationId,
+              usedOperationIds,
+            );
+          }
 
           // Build operation object
           const operation: OpenApiPathItem = {
-            summary: openApi.summary,
+            summary: summary,
             description: openApi.description,
-            tags: openApi.tags,
-            parameters: parameters.length > 0 ? parameters : undefined,
+            tags: tags,
+            parameters: finalParams.length > 0 ? finalParams : undefined,
             requestBody,
-            responses,
+            responses: responseObj,
             security: operationSecurity,
             operationId,
           };
@@ -755,8 +1014,10 @@ export class Router<
         }
       }
 
-      // Merge global components with any collected schemas
+      // Build components
       const components: any = {};
+
+      // Merge global and collected schemas
       if (globalComponents?.schemas) {
         Object.assign(schemas, globalComponents.schemas);
       }
@@ -764,6 +1025,7 @@ export class Router<
         components.schemas = schemas;
       }
 
+      // Merge global and collected security schemes
       if (globalComponents?.securitySchemes) {
         Object.assign(securitySchemes, globalComponents.securitySchemes);
       }
@@ -771,27 +1033,117 @@ export class Router<
         components.securitySchemes = securitySchemes;
       }
 
+      // Add global parameters
+      if (globalComponents?.parameters) {
+        Object.assign(parameters, globalComponents.parameters);
+      }
+      if (Object.keys(parameters).length > 0) {
+        components.parameters = parameters;
+      }
+
+      // Add global responses
+      if (globalComponents?.responses) {
+        Object.assign(responses, globalComponents.responses);
+      }
+      if (Object.keys(responses).length > 0) {
+        components.responses = responses;
+      }
+
+      // Add global examples
+      if (globalComponents?.examples) {
+        Object.assign(examples, globalComponents.examples);
+      }
+      if (Object.keys(examples).length > 0) {
+        components.examples = examples;
+      }
+
+      // Build final result
       const result: any = {
         openapi: "3.0.0" as const,
         info: {
           title,
           version,
           ...(description && { description }),
+          ...(termsOfService && { termsOfService }),
+          ...(contact && { contact }),
+          ...(license && { license }),
         },
         servers,
         paths,
       };
 
+      // Add tags - ONLY include tags that are actually used by operations
+      const allTags: Array<{
+        name: string;
+        description?: string;
+        externalDocs?: any;
+      }> = [];
+
+      // Start with global tags that are actually used
+      if (globalTags) {
+        for (const tag of globalTags) {
+          if (usedTags.has(tag.name)) {
+            allTags.push(tag);
+          }
+        }
+      }
+
+      // Add auto-generated tags that aren't already in global tags
+      for (const tag of usedTags) {
+        if (!allTags.some((t) => t.name === tag)) {
+          allTags.push({ name: tag });
+        }
+      }
+
+      if (allTags.length > 0) {
+        result.tags = allTags;
+      }
+
+      // Add external docs
+      if (externalDocs) {
+        result.externalDocs = externalDocs;
+      }
+
+      // Add components
       if (Object.keys(components).length > 0) {
         result.components = components;
       }
 
+      // Add security
       if (security && security.length > 0) {
         result.security = security;
       }
 
+      // Log warnings if any
+      if (warnings.length > 0 && typeof console !== "undefined") {
+        console.warn("OpenAPI Generation Warnings:", warnings.join("\n  "));
+      }
+
       resolve(result);
     });
+  }
+
+  /**
+   * Generates a unique operation ID with collision detection.
+   */
+  #generateUniqueOperationId(
+    method: HttpMethodUpper,
+    path: string,
+    clean: boolean,
+    usedIds: Set<string>,
+  ): string {
+    let baseId = generateOperationId(method, path, clean);
+    let operationId = baseId;
+    let counter = 1;
+
+    // Ensure uniqueness
+    while (usedIds.has(operationId)) {
+      operationId = `${baseId}${counter}`;
+      counter++;
+    }
+
+    usedIds.add(operationId);
+    return operationId;
   }
 
   all<
@@ -2601,16 +2953,28 @@ export class Router<
       const { params, paths } = processedPaths;
       const paramsMap = params ? new Map(params) : undefined;
       for (const path of paths) {
-        const standardPath = params
-          ? path
-              .split("/")
-              .map((p, idx) => (p === "*" ? `:${paramsMap?.get(idx)}` : p))
+        const parts = path.split("/", this.#config.maxPath + 1);
+        const containsParams = params || parts.some((p) => p === "*");
+        const standardPath = containsParams
+          ? parts
+              .map((p, idx) =>
+                p === "*"
+                  ? paramsMap?.has(idx)
+                    ? `:${paramsMap.get(idx)!}`
+                    : "*"
+                  : p,
+              )
               .join("/")
           : path;
-        const openApiPath = params
+        let globIdx = 0;
+        const openApiPath = containsParams
           ? path
               .split("/")
-              .map((p, idx) => (p === "*" ? `{${paramsMap?.get(idx)}}` : p))
+              .map((p, idx) =>
+                p === "*"
+                  ? `{${paramsMap?.get(idx) || `glob${++globIdx}`}}`
+                  : p,
+              )
               .join("/")
           : path;
         const upperMethod = method.toUpperCase() as HttpMethodUpper;
@@ -2623,7 +2987,6 @@ export class Router<
             `Invalid path for (${method} ${originalPath} -> ${path})`,
           );
         }
-        const parts = path.split("/", this.#config.maxPath + 1);
         if (parts.length - 1 > this.#config.maxPath) {
           throw new RouterError(
             `Path parts length limit exceeded ${this.#config.maxPath}`,
@@ -2662,8 +3025,9 @@ export class Router<
             superGlobEntries &&
             superGlobEntries.has(basePath)
           ) {
+            const superGlobEntry = superGlobEntries.get(basePath)!;
             throw new RouterError(
-              `SuperGlob route already set for (${method} ${originalPath} -> ${path})`,
+              `SuperGlob route collision for (${method} ${originalPath} -> ${path} with ${superGlobEntry.originalPath} at ${superGlobEntry.pathParts.join("/")})`,
             );
           }
           if (superGlobEntries == null) {
@@ -2676,8 +3040,9 @@ export class Router<
           let globEntries = routes.globs[parts.length];
           if (globEntries) {
             if (!overwrite && globEntries && globEntries.has(path)) {
+              const globEntry = globEntries.get(path)!;
               throw new RouterError(
-                `Glob route already set for (${method} ${originalPath} -> ${path})`,
+                `Glob route collision for (${method} ${originalPath} -> ${path} with ${globEntry.originalPath} at ${globEntry.pathParts.join("/")})`,
               );
             }
             // check for collision
@@ -3109,18 +3474,37 @@ export const translateRouteFilePath = (
   return parts.join("/");
 };
 
-const generateOperationId = (method: HttpMethodUpper, path: string): string => {
-  // Remove all special characters and format properly
-  const cleanPath = path
-    .replace(/[{}]/g, "")
-    .replace(/\*/g, "")
-    .replace(/[^a-zA-Z0-9\/]/g, "")
+const generateOperationId = (
+  method: HttpMethodUpper,
+  path: string,
+  clean: boolean = true,
+): string => {
+  // Clean path
+  let cleanPath = path
     .split("/")
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part) => {
+      // Remove braces and special chars
+      let cleaned = part
+        .replace(/[{}]/g, "")
+        .replace(/[\-\.@]/g, (m) =>
+          m === "-" ? "_" : m === "." ? "__" : "_at_",
+        );
+      if (clean) {
+        // Remove other special chars
+        cleaned = cleaned.replace(/[^a-zA-Z0-9_]/g, "");
+      }
+      // Convert to PascalCase
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    })
     .join("");
 
-  return `${method.toLowerCase()}${cleanPath}`;
+  if (!cleanPath) {
+    cleanPath = "Root";
+  }
+
+  const methodPrefix = method.toLowerCase();
+  return `${methodPrefix}${cleanPath}`;
 };
 
 export default Router;
