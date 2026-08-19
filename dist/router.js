@@ -1,4 +1,5 @@
 "use strict";
+// src/router.ts
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -85,22 +86,22 @@ class Router {
         return Object.assign({}, __classPrivateFieldGet(this, _Router_config, "f").enable);
     }
     constructor(config) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
         _Router_instances.add(this);
         _Router_config.set(this, void 0);
         _Router_routes.set(this, void 0);
         __classPrivateFieldSet(this, _Router_config, Object.assign(Object.assign({}, config), { maxPath: (_a = config === null || config === void 0 ? void 0 : config.maxPath) !== null && _a !== void 0 ? _a : 24, enable: {
                 filter: (_c = (_b = config === null || config === void 0 ? void 0 : config.enable) === null || _b === void 0 ? void 0 : _b.filter) !== null && _c !== void 0 ? _c : true,
-                handler: (_e = (_d = config === null || config === void 0 ? void 0 : config.enable) === null || _d === void 0 ? void 0 : _d.handler) !== null && _e !== void 0 ? _e : true,
-                fallback: (_g = (_f = config === null || config === void 0 ? void 0 : config.enable) === null || _f === void 0 ? void 0 : _f.fallback) !== null && _g !== void 0 ? _g : true,
-                after: (_j = (_h = config === null || config === void 0 ? void 0 : config.enable) === null || _h === void 0 ? void 0 : _h.after) !== null && _j !== void 0 ? _j : true,
-                catcher: (_l = (_k = config === null || config === void 0 ? void 0 : config.enable) === null || _k === void 0 ? void 0 : _k.catcher) !== null && _l !== void 0 ? _l : true,
+                fallback: (_e = (_d = config === null || config === void 0 ? void 0 : config.enable) === null || _d === void 0 ? void 0 : _d.fallback) !== null && _e !== void 0 ? _e : true,
+                after: (_g = (_f = config === null || config === void 0 ? void 0 : config.enable) === null || _f === void 0 ? void 0 : _f.after) !== null && _g !== void 0 ? _g : true,
+                catcher: (_j = (_h = config === null || config === void 0 ? void 0 : config.enable) === null || _h === void 0 ? void 0 : _h.catcher) !== null && _j !== void 0 ? _j : true,
             } }), "f");
         __classPrivateFieldSet(this, _Router_routes, __classPrivateFieldGet(this, _Router_instances, "m", _Router_initRoutes).call(this), "f");
     }
     respond(request, ctxInit) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e, _f;
+            var _a, _b, _c, _d, _e;
+            const startTimestamp = performance.now();
             const requestTimestamp = Date.now();
             const method = request.method;
             const url = new URL(request.url);
@@ -109,7 +110,7 @@ class Router {
             try {
                 pathname = decodeURIComponent(url.pathname);
             }
-            catch (_g) {
+            catch (_f) {
                 return new Response(null, {
                     status: 400,
                     statusText: (0, status_ts_1.getHttpStatusText)(400),
@@ -117,7 +118,7 @@ class Router {
             }
             const parts = [];
             const ctx = Object.assign(Object.assign({ router: this, url,
-                request, headers: (_a = ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.headers) !== null && _a !== void 0 ? _a : new Headers(), params: EMPTY_PARAMS, pathname, $pathname: parts }, ctxInit), { timestamps: Object.assign({ request: requestTimestamp, response: requestTimestamp }, ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.timestamps) });
+                request, headers: (_a = ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.headers) !== null && _a !== void 0 ? _a : new Headers(), params: EMPTY_PARAMS, pathname, $pathname: parts }, ctxInit), { timestamps: Object.assign({ request: requestTimestamp, start: startTimestamp, end: startTimestamp }, ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.timestamps) });
             {
                 const count = this.splitPath(pathname, parts, __classPrivateFieldGet(this, _Router_config, "f").maxPath);
                 if (count < 0) {
@@ -142,118 +143,90 @@ class Router {
                 catcher: 0,
             };
             try {
-                // get handlers first to check if any exist before filtering
+                // filters
+                if ((_b = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _b === void 0 ? void 0 : _b.filter) {
+                    const filterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").filter[method], false);
+                    found.filter = filterRoutes.length;
+                    if (filterRoutes.length > 0) {
+                        away: for (const routeEntry of filterRoutes) {
+                            // parse params
+                            const params = routeEntry.parseParams(pathname, parts);
+                            ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
+                            // call request handlers
+                            for (const handler of routeEntry.pipe) {
+                                const resp = yield handler.apply(this, [ctx]);
+                                if (resp instanceof Response) {
+                                    response = resp;
+                                    break away;
+                                }
+                                else if (resp === types_ts_1.Break_Pipe) {
+                                    break;
+                                }
+                                else if (resp === types_ts_1.Break_Pipeline) {
+                                    break away;
+                                }
+                            }
+                        }
+                    }
+                    // default filter
+                    if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFilter) {
+                        const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFilter(ctx);
+                        if (resp instanceof Response) {
+                            response = resp;
+                        }
+                    }
+                }
                 const handlerRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").handler[method], true);
                 found.handler = handlerRoutes.length;
-                // for optmization, load fallbacks here only if necesasry
-                //   i.e. no handlers have been found or defaultFallback not set.
-                // if fallback routes have not been loaded now then they will be lazy
-                //   loaded later.
-                let handlerOrFallbackFound = __classPrivateFieldGet(this, _Router_config, "f").defaultFallback != null || found.handler > 0;
-                let fallbacksLoaded = false;
-                // get fallbacks if handlers have not been found
-                let fallbackRoutes = [];
-                if (!handlerOrFallbackFound && ((_b = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _b === void 0 ? void 0 : _b.fallback)) {
-                    fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
-                    found.fallback = fallbackRoutes.length;
-                    handlerOrFallbackFound = found.fallback > 0;
-                    fallbacksLoaded = true;
+                // handlers
+                if (handlerRoutes.length > 0 && !(response instanceof Response)) {
+                    away: for (const routeEntry of handlerRoutes) {
+                        // parse params
+                        const params = routeEntry.parseParams(pathname, parts);
+                        ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
+                        // call request handlers
+                        for (const handler of routeEntry.pipe) {
+                            const resp = yield handler(ctx);
+                            if (resp instanceof Response) {
+                                response = resp;
+                                break away;
+                            }
+                            else if (resp === types_ts_1.Break_Pipe) {
+                                break;
+                            }
+                            else if (resp === types_ts_1.Break_Pipeline) {
+                                break away;
+                            }
+                        }
+                    }
                 }
-                if (handlerOrFallbackFound) {
-                    // filters
-                    if ((_c = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _c === void 0 ? void 0 : _c.filter) {
-                        const filterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").filter[method], false);
-                        found.filter = filterRoutes.length;
-                        if (filterRoutes.length > 0) {
-                            away: for (const routeEntry of filterRoutes) {
-                                // parse params
-                                const params = routeEntry.parseParams(pathname, parts);
-                                ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
-                                // call request handlers
-                                for (const handler of routeEntry.pipe) {
-                                    const resp = yield handler.apply(this, [ctx]);
-                                    if (resp instanceof Response) {
-                                        response = resp;
-                                        break;
-                                    }
-                                    else if (resp === types_ts_1.Break_Pipe) {
-                                        break;
-                                    }
-                                    else if (resp === types_ts_1.Break_Pipeline) {
-                                        break away;
-                                    }
-                                }
-                                if (response instanceof Response) {
-                                    break;
-                                }
-                            }
-                        }
-                        // default filter
-                        if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFilter) {
-                            const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFilter(ctx);
+                // fallbacks
+                if (((_c = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _c === void 0 ? void 0 : _c.fallback) && !(response instanceof Response)) {
+                    const fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
+                    away: for (const routeEntry of fallbackRoutes) {
+                        // parse params
+                        const params = routeEntry.parseParams(pathname, parts);
+                        ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
+                        // call request handlers
+                        for (const handler of routeEntry.pipe) {
+                            const resp = yield handler(ctx);
                             if (resp instanceof Response) {
                                 response = resp;
+                                break away;
+                            }
+                            else if (resp === types_ts_1.Break_Pipe) {
+                                break;
+                            }
+                            else if (resp === types_ts_1.Break_Pipeline) {
+                                break away;
                             }
                         }
                     }
-                    // handlers
-                    if (handlerRoutes.length > 0 && !(response instanceof Response)) {
-                        away: for (const routeEntry of handlerRoutes) {
-                            // parse params
-                            const params = routeEntry.parseParams(pathname, parts);
-                            ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
-                            // call request handlers
-                            for (const handler of routeEntry.pipe) {
-                                const resp = yield handler(ctx);
-                                if (resp instanceof Response) {
-                                    response = resp;
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipe) {
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipeline) {
-                                    break away;
-                                }
-                            }
-                            if (response instanceof Response) {
-                                break;
-                            }
-                        }
-                    }
-                    // fallbacks
-                    if (((_d = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _d === void 0 ? void 0 : _d.fallback) && !(response instanceof Response)) {
-                        if (!fallbacksLoaded) {
-                            fallbackRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").fallback[method], false);
-                        }
-                        away: for (const routeEntry of fallbackRoutes) {
-                            // parse params
-                            const params = routeEntry.parseParams(pathname, parts);
-                            ctx.params = params !== null && params !== void 0 ? params : EMPTY_PARAMS;
-                            // call request handlers
-                            for (const handler of routeEntry.pipe) {
-                                const resp = yield handler(ctx);
-                                if (resp instanceof Response) {
-                                    response = resp;
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipe) {
-                                    break;
-                                }
-                                else if (resp === types_ts_1.Break_Pipeline) {
-                                    break away;
-                                }
-                            }
-                            if (response instanceof Response) {
-                                break;
-                            }
-                        }
-                        // default fallback
-                        if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFallback) {
-                            const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFallback(ctx);
-                            if (resp instanceof Response) {
-                                response = resp;
-                            }
+                    // default fallback
+                    if (!(response instanceof Response) && __classPrivateFieldGet(this, _Router_config, "f").defaultFallback) {
+                        const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultFallback(ctx);
+                        if (resp instanceof Response) {
+                            response = resp;
                         }
                     }
                 }
@@ -283,7 +256,7 @@ class Router {
                 const error = _error instanceof Error ? _error : Error(String(_error));
                 ctx.error = error;
                 // catchers
-                if ((_e = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _e === void 0 ? void 0 : _e.catcher) {
+                if ((_d = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _d === void 0 ? void 0 : _d.catcher) {
                     const catcherRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").catcher[method], false);
                     found.catcher = catcherRoutes.length;
                     if (catcherRoutes.length > 0) {
@@ -296,7 +269,7 @@ class Router {
                                 const resp = yield handler(ctx);
                                 if (resp instanceof Response) {
                                     response = resp;
-                                    break;
+                                    break away;
                                 }
                                 else if (resp === types_ts_1.Break_Pipe) {
                                     break;
@@ -331,9 +304,9 @@ class Router {
                 response = new Response(response.body, Object.assign(Object.assign({}, response), { status: response.status, statusText: (0, status_ts_1.getHttpStatusText)(response.status), headers: ctx.headers }));
             }
             ctx.response = response;
-            ctx.timestamps.response = Date.now();
+            ctx.timestamps.end = performance.now();
             // afters
-            if ((_f = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _f === void 0 ? void 0 : _f.after) {
+            if ((_e = __classPrivateFieldGet(this, _Router_config, "f").enable) === null || _e === void 0 ? void 0 : _e.after) {
                 const afterRoutes = __classPrivateFieldGet(this, _Router_instances, "m", _Router_getRouteEntries).call(this, pathname, parts, __classPrivateFieldGet(this, _Router_routes, "f").after[method], false);
                 found.after = afterRoutes.length;
                 if (afterRoutes.length > 0) {
@@ -347,7 +320,7 @@ class Router {
                             const resp = yield handler(ctx);
                             if (resp instanceof Response) {
                                 response = resp;
-                                break;
+                                break away;
                             }
                             else if (resp === types_ts_1.Break_Pipe) {
                                 break;
@@ -390,68 +363,83 @@ class Router {
                         let handlersImp;
                         try {
                             handlersImp = (yield (0, utils_node_ts_1.dynamicImport)(node.fullPath));
+                            const importPath = node.path;
                             const processedName = decodeURIComponent(processName(node.name));
                             const pathname = !node.parent
                                 ? `/${processedName}`
                                 : `/${node.parent}/${processedName}`;
                             const path = (0, exports.translateRouteFilePath)(pathname, __classPrivateFieldGet(this, _Router_config, "f").maxPath);
-                            for (const _method of Object.keys(handlersImp)) {
-                                const _definition = handlersImp[_method];
+                            for (const methodHandler of Object.keys(handlersImp)) {
+                                const [method_, handlerType_] = methodHandler.split("_", 2);
+                                const def = handlersImp[methodHandler];
                                 let method;
-                                let upperMethod = _method.toUpperCase();
                                 let handlerType = "handler";
-                                if (exports.HTTP_METHODS_UPPER.has(upperMethod)) {
-                                    method = _method;
+                                const methodUpper = method_.toUpperCase();
+                                if (methodUpper === "ALL") {
+                                    method = "All";
+                                }
+                                else if (methodUpper === "CRUD") {
+                                    method = "Crud";
+                                }
+                                else if (exports.HTTP_METHODS_UPPER.has(methodUpper)) {
+                                    method = (method_.charAt(0).toUpperCase() +
+                                        method_.substring(1).toLowerCase());
                                 }
                                 else {
-                                    const [spMethod, _handlerType] = _method.split("_", 2);
-                                    if (!(spMethod && _handlerType)) {
-                                        continue;
-                                    }
-                                    upperMethod = spMethod.toUpperCase();
-                                    if (exports.HTTP_METHODS_UPPER.has(upperMethod)) {
-                                        method = spMethod;
-                                    }
-                                    else {
-                                        continue;
-                                    }
-                                    if (exports.HANDLER_TYPES.has(_handlerType === null || _handlerType === void 0 ? void 0 : _handlerType.toLowerCase())) {
-                                        handlerType = _handlerType.toLowerCase();
-                                    }
-                                    else {
-                                        continue;
-                                    }
+                                    continue;
                                 }
-                                const definition = Array.isArray(_definition) || typeof _definition === "function"
-                                    ? { pipe: _definition }
-                                    : {
-                                        pipe: _definition.pipe,
-                                        openApi: _definition.openApi,
-                                    };
-                                const pipe = definition.pipe;
-                                const openApi = definition.openApi;
-                                if (openApi != null && handlerType !== "handler") {
-                                    console.warn(`OpenApi definition will be ignored in '${node.path}' ${_method}`);
+                                if (handlerType_ &&
+                                    exports.HANDLER_TYPES.has(handlerType_.toLowerCase())) {
+                                    handlerType = handlerType_.toLowerCase();
+                                }
+                                else {
+                                    continue;
+                                }
+                                const defIsObject = !Array.isArray(def) && typeof def === "object";
+                                // get pipe and any other options
+                                const pipe = defIsObject ? def.pipe : def;
+                                const options = defIsObject ? {} : undefined;
+                                if (options != null) {
+                                    options.openApi = def.openApi;
+                                    options.overwrite = def.overwrite;
+                                }
+                                if ((options === null || options === void 0 ? void 0 : options.openApi) != null && handlerType !== "handler") {
+                                    console.warn(`OpenApi definition will be ignored for \`${methodHandler}\` in '${importPath}'`);
                                 }
                                 if (pipe == null) {
-                                    throw new types_ts_1.RouterError(`Undefined pipe in '${node.path}' ${_method}`);
+                                    throw new types_ts_1.RouterError(`Undefined pipe for \`${methodHandler}\` in '${importPath}'`);
                                 }
-                                if (!Array.isArray(pipe) && typeof pipe !== "function") {
-                                    throw new types_ts_1.RouterError(`Bad pipe type in '${node.path}' ${_method}`);
+                                if (!((Array.isArray(pipe) &&
+                                    pipe.every((h) => typeof h === "function")) ||
+                                    typeof pipe === "function")) {
+                                    throw new types_ts_1.RouterError(`Invalid pipe or handler type for \`${methodHandler}\` in '${importPath}'`);
                                 }
-                                if (openApi != null && typeof openApi !== "object") {
-                                    throw new types_ts_1.RouterError(`Bad openApi type in '${node.path}' ${_method}`);
+                                if ((options === null || options === void 0 ? void 0 : options.openApi) != null &&
+                                    typeof (options === null || options === void 0 ? void 0 : options.openApi) !== "object") {
+                                    throw new types_ts_1.RouterError(`Invalid openApi type for \`${methodHandler}\` in '${importPath}'`);
                                 }
-                                const options = handlerType === "handler" && openApi != null
-                                    ? { openApi }
-                                    : undefined;
-                                if (Array.isArray(pipe) || typeof pipe === "function") {
-                                    this.register(handlerType, `${method} ${path}`, pipe, options);
+                                switch (handlerType) {
+                                    case "filter":
+                                        this[`filter${method}`](pathname, pipe, options);
+                                        break;
+                                    case "handler":
+                                        this[`handle${method}`](pathname, pipe, options);
+                                        break;
+                                    case "fallback":
+                                        this[`fallback${method}`](pathname, pipe, options);
+                                        break;
+                                    case "after":
+                                        this[`after${method}`](pathname, pipe, options);
+                                        break;
+                                    case "catcher":
+                                        this[`catch${method}`](pathname, pipe, options);
+                                        break;
                                 }
+                                this.register(handlerType, `${method} ${path}`, pipe, options);
                             }
                         }
                         catch (error) {
-                            console.error(`Failed to import route at ${node.fullPath}:`, error);
+                            console.error(`Failed to import route at '${node.fullPath}':`, error);
                         }
                     }
                 }
@@ -1288,19 +1276,154 @@ class Router {
         return this.register("catcher", methodPaths, pipe, options);
     }
     filter(methodPaths, pipe, options) {
-        return this.register("filter", methodPaths, pipe, options);
+        const methodPathIsArray = Array.isArray(methodPaths);
+        if (methodPathIsArray &&
+            !methodPaths.slice(1).every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid path type. Allowed [[Methods...], ...Paths]");
+        }
+        const firstElementIsArray = methodPathIsArray && Array.isArray(methodPaths[0]);
+        if (firstElementIsArray &&
+            !methodPaths[0].every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (methodPathIsArray &&
+            !firstElementIsArray &&
+            !methodPaths.every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [...MethodPaths]");
+        }
+        if (!methodPathIsArray &&
+            !firstElementIsArray &&
+            typeof methodPaths !== "string") {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed MethodPath");
+        }
+        const methodPaths_ = methodPathIsArray
+            ? Array.isArray(methodPaths[0])
+                ? methodPaths[0].flatMap((method) => methodPaths
+                    .slice(1)
+                    .map((paths) => `${method} ${paths}`))
+                : methodPaths
+            : methodPaths;
+        return this.register("filter", methodPaths_, pipe, options);
     }
     handle(methodPaths, pipe, options) {
-        return this.register("handler", methodPaths, pipe, options);
+        const methodPathIsArray = Array.isArray(methodPaths);
+        if (methodPathIsArray &&
+            !methodPaths.slice(1).every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid path type. Allowed [[Methods...], ...Paths]");
+        }
+        const firstElementIsArray = methodPathIsArray && Array.isArray(methodPaths[0]);
+        if (firstElementIsArray &&
+            !methodPaths[0].every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (methodPathIsArray &&
+            !firstElementIsArray &&
+            !methodPaths.every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [...MethodPaths]");
+        }
+        if (!methodPathIsArray &&
+            !firstElementIsArray &&
+            typeof methodPaths !== "string") {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed MethodPath");
+        }
+        const methodPaths_ = methodPathIsArray
+            ? Array.isArray(methodPaths[0])
+                ? methodPaths[0].flatMap((method) => methodPaths
+                    .slice(1)
+                    .map((paths) => `${method} ${paths}`))
+                : methodPaths
+            : methodPaths;
+        return this.register("handler", methodPaths_, pipe, options);
     }
     fallback(methodPaths, pipe, options) {
-        return this.register("fallback", methodPaths, pipe, options);
+        const methodPathIsArray = Array.isArray(methodPaths);
+        if (methodPathIsArray &&
+            !methodPaths.slice(1).every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid path type. Allowed [[Methods...], ...Paths]");
+        }
+        const firstElementIsArray = methodPathIsArray && Array.isArray(methodPaths[0]);
+        if (firstElementIsArray &&
+            !methodPaths[0].every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (methodPathIsArray &&
+            !firstElementIsArray &&
+            !methodPaths.every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method-paths type. Allowed [...MethodPaths]");
+        }
+        if (!methodPathIsArray &&
+            !firstElementIsArray &&
+            typeof methodPaths !== "string") {
+            throw new types_ts_1.RouterError("Invalid method-path type. Allowed MethodPath");
+        }
+        const methodPaths_ = methodPathIsArray
+            ? Array.isArray(methodPaths[0])
+                ? methodPaths[0].flatMap((method) => methodPaths
+                    .slice(1)
+                    .map((paths) => `${method} ${paths}`))
+                : methodPaths
+            : methodPaths;
+        return this.register("fallback", methodPaths_, pipe, options);
     }
     after(methodPaths, pipe, options) {
-        return this.register("after", methodPaths, pipe, options);
+        const methodPathIsArray = Array.isArray(methodPaths);
+        if (methodPathIsArray &&
+            !methodPaths.slice(1).every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid path type. Allowed [[Methods...], ...Paths]");
+        }
+        const firstElementIsArray = methodPathIsArray && Array.isArray(methodPaths[0]);
+        if (firstElementIsArray &&
+            !methodPaths[0].every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (methodPathIsArray &&
+            !firstElementIsArray &&
+            !methodPaths.every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [...MethodPaths]");
+        }
+        if (!methodPathIsArray &&
+            !firstElementIsArray &&
+            typeof methodPaths !== "string") {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed MethodPath");
+        }
+        const methodPaths_ = methodPathIsArray
+            ? Array.isArray(methodPaths[0])
+                ? methodPaths[0].flatMap((method) => methodPaths
+                    .slice(1)
+                    .map((paths) => `${method} ${paths}`))
+                : methodPaths
+            : methodPaths;
+        return this.register("after", methodPaths_, pipe, options);
     }
     catch(methodPaths, pipe, options) {
-        return this.register("catcher", methodPaths, pipe, options);
+        const methodPathIsArray = Array.isArray(methodPaths);
+        if (methodPathIsArray &&
+            !methodPaths.slice(1).every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid path type. Allowed [[Methods...], ...Paths]");
+        }
+        const firstElementIsArray = methodPathIsArray && Array.isArray(methodPaths[0]);
+        if (firstElementIsArray &&
+            !methodPaths[0].every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (methodPathIsArray &&
+            !firstElementIsArray &&
+            !methodPaths.every((mp) => typeof mp === "string")) {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed [...MethodPaths]");
+        }
+        if (!methodPathIsArray &&
+            !firstElementIsArray &&
+            typeof methodPaths !== "string") {
+            throw new types_ts_1.RouterError("Invalid method type. Allowed MethodPath");
+        }
+        const methodPaths_ = methodPathIsArray
+            ? Array.isArray(methodPaths[0])
+                ? methodPaths[0].flatMap((method) => methodPaths
+                    .slice(1)
+                    .map((paths) => `${method} ${paths}`))
+                : methodPaths
+            : methodPaths;
+        return this.register("catcher", methodPaths_, pipe, options);
     }
     register(handlerType, methodPaths, pipe, options) {
         const overwrite = (options === null || options === void 0 ? void 0 : options.overwrite) === true;

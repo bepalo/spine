@@ -1,4 +1,5 @@
 "use strict";
+// src/middlewares.ts
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -9,9 +10,105 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cors = exports.limitRate = void 0;
+exports.cors = exports.limitRate = exports.securityHeaders = exports.forceHttps = void 0;
 const helpers_ts_1 = require("./helpers.js");
 const types_ts_1 = require("./types.js");
+/**
+ * Force http into https
+ *
+ * @returns {Handler<ExtendContext>} Middleware function
+ *
+ */
+const forceHttps = (config) => {
+    var _a;
+    const toPort = (_a = config === null || config === void 0 ? void 0 : config.toPort) !== null && _a !== void 0 ? _a : 443;
+    return function ({ url }) {
+        if (url.protocol === "http:") {
+            const newUrl = new URL(url);
+            newUrl.protocol = "https:";
+            newUrl.port = toPort === 443 ? "" : String(toPort);
+            return (0, helpers_ts_1.redirectPermanentPreserve)(newUrl.toString());
+        }
+    };
+};
+exports.forceHttps = forceHttps;
+/**
+ * Set security headers.
+ *   - "X-Content-Type-Options": always "nosniff"
+ *   - "X-Frame-Options": default "DENY"
+ *   - "Referrer-Policy": from parameters
+ *   - "Strict-Transport-Security": from parameters
+ *   - "Content-Security-Policy": from parameters
+ *
+ * @returns {Handler<ExtendContext>} Middleware function
+ *
+ */
+const securityHeaders = (config) => {
+    const { crossOriginOpenerPolicy, crossOriginEmbedderPolicy, crossOriginResourcePolicy, referrerPolicy, xFrameOptions = "DENY", strictTransportSecurity: hsts_, contentSecurityPolicy: csp_, headers, } = config !== null && config !== void 0 ? config : {};
+    const hsts = hsts_ == null
+        ? undefined
+        : typeof hsts_ === "string"
+            ? hsts_
+            : typeof hsts_ === "boolean"
+                ? hsts_
+                    ? (0, helpers_ts_1.buildStrictTransportSecurity)({})
+                    : undefined
+                : (0, helpers_ts_1.buildStrictTransportSecurity)(hsts_);
+    const contentSecurityPolicy = csp_ == null ? undefined : (0, helpers_ts_1.buildContentSecurityPolicy)(csp_);
+    /////////////////////////////////////////////
+    const preparedHeaders = [];
+    if (headers != null) {
+        if (Array.isArray(headers)) {
+            for (const [key, value] of headers) {
+                preparedHeaders.push([key, value]);
+            }
+        }
+        else {
+            for (const key of Object.keys(headers)) {
+                preparedHeaders.push([key, headers[key]]);
+            }
+        }
+    }
+    /////////////////////////////////////////////
+    preparedHeaders.push(["X-Content-Type-Options", "nosniff"]);
+    if (xFrameOptions != null) {
+        preparedHeaders.push(["X-Frame-Options", xFrameOptions]);
+    }
+    if (referrerPolicy != undefined) {
+        preparedHeaders.push(["Referrer-Policy", referrerPolicy]);
+    }
+    if (hsts != null) {
+        preparedHeaders.push(["Strict-Transport-Security", hsts]);
+    }
+    if (contentSecurityPolicy != null) {
+        preparedHeaders.push(["Content-Security-Policy", contentSecurityPolicy]);
+    }
+    if (crossOriginOpenerPolicy != null) {
+        preparedHeaders.push([
+            "Cross-Origin-Opener-Policy",
+            crossOriginOpenerPolicy,
+        ]);
+    }
+    if (crossOriginEmbedderPolicy != null) {
+        preparedHeaders.push([
+            "Cross-Origin-Embedder-Policy",
+            crossOriginEmbedderPolicy,
+        ]);
+    }
+    if (crossOriginResourcePolicy != null) {
+        preparedHeaders.push([
+            "Cross-Origin-Resource-Policy",
+            crossOriginResourcePolicy,
+        ]);
+    }
+    /////////////////////////////////////////////
+    return function ({ headers }) {
+        for (const [key, value] of preparedHeaders) {
+            headers.set(key, value);
+        }
+    };
+};
+exports.securityHeaders = securityHeaders;
 /**
  * Creates a rate limiting middleware using token bucket algorithm.
  * Supports both fixed interval refill and continuous rate-based refill.
@@ -25,7 +122,8 @@ const types_ts_1 = require("./types.js");
  * @param {number} [config.cleanUpInterval] - Interval in seconds for cleanup timer
  * @param {number} [config.cleanUpIdleDelay] - Time in seconds to delay cleanup of filled token buckets
  * @param {boolean} [config.setXRateLimitHeaders=false] - Whether to set X-RateLimit headers in response
- * @returns {Function} Middleware function that enforces rate limits
+ * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @returns {Handler<ExtendContext>} Middleware function that enforces rate limits
  *
  * @example
  * // Fixed interval rate limiting (10 requests per minute)
@@ -45,7 +143,7 @@ const types_ts_1 = require("./types.js");
  *   maxTokens: 100,
  * });
  *
- * @throws {RouterError} If neither refillInterval nor refillRate is provided
+ * @throws {Error} If neither refillInterval nor refillRate is provided
  */
 const limitRate = (config) => {
     var _a;
@@ -158,7 +256,7 @@ const limitRate = (config) => {
             });
         };
     }
-    throw new types_ts_1.RouterError("LIMIT-RATE: `refillInterval` or `refillRate` or both should be set");
+    throw new Error("LIMIT-RATE: `refillInterval` or `refillRate` or both should be set");
 };
 exports.limitRate = limitRate;
 /**
@@ -168,14 +266,16 @@ exports.limitRate = limitRate;
  * @template {Record<string, unknown>} ExtendContext - Extend Router Context
  * @param {Object} [config] - CORS configuration
  * @param {string|string[]|"*"} [config.origins="*"] - Allowed origins (wildcard "*", single origin, or array)
- * @param {HttpMethod[]} [config.methods=["GET","HEAD","PUT","PATCH","POST","DELETE"]] - Allowed HTTP methods
+ * @param {(HttpMethod|HttpMethodUpper|HttpMethodLower)[]} [config.methods=["Get","Head","Put","Patch","Post","Delete"]] - Allowed HTTP methods
  * @param {string[]} [config.allowedHeaders=["Content-Type","Authorization"]] - Allowed request headers
  * @param {string[]} [config.exposedHeaders] - Headers exposed to the browser
  * @param {boolean} [config.credentials=false] - Allow credentials (cookies, authorization headers)
  * @param {number} [config.maxAge=86400] - Maximum age for preflight cache in seconds
- * @param {boolean} [config.varyOrigin=false] - Add Vary: Origin header for caching
- * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
- * @returns {Function} Middleware function that handles CORS headers
+ * @param {boolean} [config.varyOrigin=true] - Add Vary: Origin header for caching
+ * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @returns {Handler<ExtendContext>} Middleware function that handles CORS headers
+ *
+ * @throws {HttpError} If credentials is enabled with wildcard origin ("*")
  *
  * @example
  * // Basic CORS with all defaults
@@ -186,21 +286,16 @@ exports.limitRate = limitRate;
  * const corsMiddleware = cors({
  *   origins: ["https://example.com", "https://api.example.com"],
  *   credentials: true,
- *   methods: ["GET", "POST", "PUT", "DELETE"],
+ *   methods: ["Get", "Post", "Put", "Delete"],
  *   allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"]
  * });
  *
- * @throws {HttpError} If credentials is true with wildcard origin ("*")
  */
 const cors = (config) => {
-    const { origins = "*", methods = ["Get", "Head", "Put", "Patch", "Post", "Delete"], allowedHeaders = ["Content-Type", "Authorization"], exposedHeaders, credentials = false, maxAge = 86400, varyOrigin = false, breakPipeline = false, } = config !== null && config !== void 0 ? config : {};
+    const { origins = "*", methods: methods_ = ["Get", "Head", "Put", "Patch", "Post", "Delete"], allowedHeaders = ["Content-Type", "Authorization"], exposedHeaders, credentials = false, maxAge = 86400, varyOrigin = true, breakPipeline = false, } = config !== null && config !== void 0 ? config : {};
     const globOrigin = origins === "*" ? "*" : null;
-    const originsSet = new Set(typeof origins !== "string" ? origins : origins !== "*" ? [] : [origins]);
-    if (methods != null) {
-        for (let i = 0; i < methods.length; i++) {
-            methods[i] = methods[i].toUpperCase();
-        }
-    }
+    const originsSet = new Set(origins === "*" ? [] : typeof origins === "string" ? [origins] : origins);
+    const methods = methods_ === null || methods_ === void 0 ? void 0 : methods_.map((m) => m.toUpperCase());
     return function (ctx) {
         const { request, headers } = ctx;
         const origin = request.headers.get("origin");
@@ -218,8 +313,9 @@ const cors = (config) => {
             corsOrigin = originsSet.has(origin) ? origin : null;
         }
         if (!corsOrigin) {
-            if (varyOrigin)
-                ctx.headers.append("Vary", "Origin");
+            if (varyOrigin) {
+                headers.append("Vary", "Origin");
+            }
             if (breakPipeline) {
                 return types_ts_1.Break_Pipeline;
             }
@@ -234,13 +330,14 @@ const cors = (config) => {
         if (exposedHeaders && exposedHeaders.length > 0) {
             headers.set("Access-Control-Expose-Headers", exposedHeaders.join(", "));
         }
-        if (varyOrigin) {
+        if (varyOrigin && origins !== "*") {
             headers.append("Vary", "Origin");
         }
         if (request.method === "OPTIONS") {
             if (methods && methods.length > 0) {
                 const requestMethod = request.headers.get("Access-Control-Request-Method");
-                if (requestMethod && !methods.includes(requestMethod)) {
+                if (requestMethod &&
+                    !methods.includes(requestMethod)) {
                     return (0, helpers_ts_1.status)(405, `Method ${requestMethod} not allowed`);
                 }
                 headers.set("Access-Control-Allow-Methods", methods.join(", "));
@@ -248,7 +345,7 @@ const cors = (config) => {
             if (allowedHeaders && allowedHeaders.length > 0) {
                 headers.set("Access-Control-Allow-Headers", allowedHeaders.join(", "));
             }
-            if (maxAge) {
+            if (maxAge != null) {
                 headers.set("Access-Control-Max-Age", maxAge.toString());
             }
             return (0, helpers_ts_1.status)(204, null);

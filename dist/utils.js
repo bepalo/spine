@@ -1,4 +1,5 @@
 "use strict";
+// src/utils.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fromBase64UUID = exports.toBase64UUID = void 0;
 const CCPlus = 43; // "+".charCodeAt(0);

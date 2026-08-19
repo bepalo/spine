@@ -1,4 +1,5 @@
 "use strict";
+// src/types.ts
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -14,8 +15,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HttpError = exports.RouterError = exports.MIME_TYPES = exports.Break_Pipe = exports.Break_Pipeline = void 0;
-// Symbol used to signal breaking from all handler pipeline in queue
+exports.EvictionReason = exports.MissReason = exports.HttpError = exports.RouterError = exports.MIME_TYPES = exports.Break_Pipe = exports.Break_Pipeline = void 0;
+// Symbol used to signal breaking from the current handler pipeline in queue
 exports.Break_Pipeline = Symbol("Break_Pipeline");
 // Symbol used to signal breaking from current handler pipe in queue but not others
 exports.Break_Pipe = Symbol("Break_Pipe");
@@ -121,4 +122,16 @@ class HttpError extends Error {
     }
 }
 exports.HttpError = HttpError;
+var MissReason;
+(function (MissReason) {
+    MissReason[MissReason["Miss"] = 0] = "Miss";
+    MissReason[MissReason["Expired"] = 1] = "Expired";
+})(MissReason || (exports.MissReason = MissReason = {}));
+var EvictionReason;
+(function (EvictionReason) {
+    EvictionReason[EvictionReason["Manual"] = 0] = "Manual";
+    EvictionReason[EvictionReason["LRU"] = 1] = "LRU";
+    EvictionReason[EvictionReason["Expired"] = 2] = "Expired";
+    EvictionReason[EvictionReason["Replaced"] = 3] = "Replaced";
+})(EvictionReason || (exports.EvictionReason = EvictionReason = {}));
 //# sourceMappingURL=types.js.map

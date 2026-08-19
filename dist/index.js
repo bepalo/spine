@@ -1,4 +1,5 @@
 "use strict";
+// src/index.ts
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -26,6 +27,8 @@ __exportStar(require("./parsers.js"), exports);
 __exportStar(require("./auth-middlewares.js"), exports);
 __exportStar(require("./middlewares.js"), exports);
 __exportStar(require("./router.js"), exports);
+__exportStar(require("./cache.js"), exports);
+__exportStar(require("./exp-cache.js"), exports);
 __exportStar(require("./generator.js"), exports);
 const router_ts_1 = __importDefault(require("./router.js"));
 exports.default = router_ts_1.default;

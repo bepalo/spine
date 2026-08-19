@@ -1,3 +1,5 @@
+// mod.ts
+
 export * from "./src/types.ts";
 export * from "./src/utils.ts";
 export * from "./src/utils.deno.ts";
@@ -7,6 +9,8 @@ export * from "./src/parsers.ts";
 export * from "./src/auth-middlewares.ts";
 export * from "./src/middlewares.ts";
 export * from "./src/router.deno.ts";
+export * from "./src/cache.ts";
+export * from "./src/exp-cache.ts";
 export * from "./src/generator.deno.ts";
 
 import Router from "./src/router.ts";

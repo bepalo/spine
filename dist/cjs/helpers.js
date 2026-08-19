@@ -1,4 +1,5 @@
 "use strict";
+// src/helpers.ts
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -9,8 +10,82 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearCookie = exports.setCookie = exports.send = exports.usp = exports.formData = exports.octetStream = exports.blob = exports.json = exports.html = exports.text = exports.forward = exports.redirect = exports.status = void 0;
+exports.clearCookie = exports.setCookie = exports.send = exports.usp = exports.formData = exports.octetStream = exports.blob = exports.json = exports.html = exports.text = exports.forward = exports.redirectPermanentPreserve = exports.redirectTemporaryPreserve = exports.redirectPermanent = exports.redirectTemporary = exports.redirect = exports.status = exports.buildStrictTransportSecurity = exports.buildContentSecurityPolicy = void 0;
 const status_ts_1 = require("./status.js");
+const VALID_CSP_DIRS = new Set([
+    "default-src",
+    "script-src",
+    "style-src",
+    "img-src",
+    "font-src",
+    "connect-src",
+    "media-src",
+    "object-src",
+    "frame-src",
+    "worker-src",
+    "manifest-src",
+    "base-uri",
+    "form-action",
+    "frame-ancestors",
+    "trusted-types",
+]);
+/**
+ * Builds and returns a Content-Security-Policy response header value from params.
+ *
+ * @param {ContentSecurityPolicyParams} policy CSP params
+ * @returns {string} The built Content-Security-Policy value
+ */
+const buildContentSecurityPolicy = (policy) => {
+    const policyIsArray = Array.isArray(policy);
+    const directives = [];
+    const entries = policyIsArray ? policy : Object.entries(policy);
+    for (const [keys_, ...source] of entries) {
+        const keys = keys_.trim();
+        if (keys === "upgrade-insecure-requests") {
+            if (source) {
+                directives.push("upgrade-insecure-requests");
+            }
+            continue;
+        }
+        const splitKeys = keys
+            .split(" ")
+            .filter(Boolean)
+            .map((k) => k.toLowerCase());
+        for (const key of splitKeys) {
+            if (!VALID_CSP_DIRS.has(key)) {
+                throw new Error(`Invalid Content-Security-Policy directive '${key}'`);
+            }
+            directives.push(Array.isArray(source)
+                ? source.length > 0
+                    ? `${key} ${source.join(" ")}`
+                    : key
+                : `${key} ${source}`);
+        }
+    }
+    return directives.join("; ");
+};
+exports.buildContentSecurityPolicy = buildContentSecurityPolicy;
+/**
+ * Builds and returns a Strict-Transport-Security(HSTS) response header value from params.
+ *
+ * @param {StrictTransportSecurityParams} strictTransportSecurity HSTS params
+ * @returns {string} The built Strict-Transport-Security value
+ */
+const buildStrictTransportSecurity = (strictTransportSecurity) => {
+    const { maxAge = 31536000, includeSubDomains, preload, } = strictTransportSecurity;
+    if (!Number.isInteger(maxAge) || maxAge < 0) {
+        throw new RangeError("HSTS maxAge must be a positive whole number");
+    }
+    let hstsVal = `max-age=${maxAge}`;
+    if (includeSubDomains) {
+        hstsVal += "; includeSubDomains";
+    }
+    if (preload) {
+        hstsVal += "; preload";
+    }
+    return hstsVal;
+};
+exports.buildStrictTransportSecurity = buildStrictTransportSecurity;
 /**
  * Creates a Response with the specified status code.
  * Defaults to 'text/plain; charset=utf-8' content-type if not provided in init.headers.
@@ -30,7 +105,8 @@ const status = (status, content, init) => {
     if (content !== null && !headers.has("content-type")) {
         headers.set("content-type", "text/plain; charset=utf-8");
     }
-    return new Response(content !== undefined ? content : statusText, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(content !== undefined ? content : statusText, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.status = status;
@@ -38,7 +114,6 @@ exports.status = status;
  * Creates a redirect Response.
  * Defaults to 302 Found unless another status is provided.
  * @param {string} location - The URL to redirect to
- * @param {number} [code=302] - The HTTP status code (301, 302, 303, 307, 308)
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with Location header
  */
@@ -48,10 +123,81 @@ const redirect = (location, init) => {
     const statusText = (_b = init === null || init === void 0 ? void 0 : init.statusText) !== null && _b !== void 0 ? _b : (0, status_ts_1.getHttpStatusText)(status);
     const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
     headers.set("Location", location);
-    return new Response(null, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(null, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.redirect = redirect;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 302 Found.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status"|"statusText">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+const redirectTemporary = (location, init) => {
+    const status = 302;
+    const statusText = (0, status_ts_1.getHttpStatusText)(status);
+    const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
+    headers.set("Location", location);
+    return new Response(null, Object.assign(Object.assign({}, init), { status,
+        statusText,
+        headers }));
+};
+exports.redirectTemporary = redirectTemporary;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 301 Permanent Redirect.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+const redirectPermanent = (location, init) => {
+    const status = 301;
+    const statusText = (0, status_ts_1.getHttpStatusText)(status);
+    const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
+    headers.set("Location", location);
+    return new Response(null, Object.assign(Object.assign({}, init), { status,
+        statusText,
+        headers }));
+};
+exports.redirectPermanent = redirectPermanent;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 307 Temporary Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+const redirectTemporaryPreserve = (location, init) => {
+    const status = 307;
+    const statusText = (0, status_ts_1.getHttpStatusText)(status);
+    const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
+    headers.set("Location", location);
+    return new Response(null, Object.assign(Object.assign({}, init), { status,
+        statusText,
+        headers }));
+};
+exports.redirectTemporaryPreserve = redirectTemporaryPreserve;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 308 Permanent Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+const redirectPermanentPreserve = (location, init) => {
+    const status = 308;
+    const statusText = (0, status_ts_1.getHttpStatusText)(status);
+    const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
+    headers.set("Location", location);
+    return new Response(null, Object.assign(Object.assign({}, init), { status,
+        statusText,
+        headers }));
+};
+exports.redirectPermanentPreserve = redirectPermanentPreserve;
 /**
  * Forwards the request to another route internally.
  * Does not send a redirect to the client but changes the path and method,
@@ -104,7 +250,8 @@ const text = (content, init) => {
     if (!headers.has("content-type")) {
         headers.set("content-type", "text/plain; charset=utf-8");
     }
-    return new Response(content, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(content, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.text = text;
@@ -126,7 +273,8 @@ const html = (content, init) => {
     if (!headers.has("content-type")) {
         headers.set("content-type", "text/html; charset=utf-8");
     }
-    return new Response(content, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(content, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.html = html;
@@ -149,7 +297,8 @@ const json = (body, init) => {
     if (!headers.has("content-type")) {
         headers.set("content-type", "application/json; charset=utf-8");
     }
-    return Response.json(body, Object.assign(Object.assign({ statusText }, init), { status,
+    return Response.json(body, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.json = json;
@@ -173,7 +322,8 @@ const blob = (blob, init) => {
         headers.set("content-type", blob.type || "application/octet-stream");
     }
     headers.set("content-length", blob.size.toFixed());
-    return new Response(blob, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(blob, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.blob = blob;
@@ -199,7 +349,8 @@ const octetStream = (octet, init) => {
     if (!(octet instanceof ReadableStream)) {
         headers.set("content-length", (octet instanceof Blob ? octet.size : octet.byteLength).toFixed());
     }
-    return new Response(octet, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(octet, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.octetStream = octetStream;
@@ -217,7 +368,8 @@ const formData = (formData, init) => {
     var _a, _b;
     const status = (_a = init === null || init === void 0 ? void 0 : init.status) !== null && _a !== void 0 ? _a : 200;
     const statusText = (_b = init === null || init === void 0 ? void 0 : init.statusText) !== null && _b !== void 0 ? _b : (0, status_ts_1.getHttpStatusText)(status);
-    return new Response(formData, Object.assign(Object.assign({ statusText }, init), { status }));
+    return new Response(formData, Object.assign(Object.assign({}, init), { status,
+        statusText }));
 };
 exports.formData = formData;
 /**
@@ -237,7 +389,8 @@ const usp = (usp, init) => {
     if (!headers.has("content-type")) {
         headers.set("content-type", "application/x-www-form-urlencoded");
     }
-    return new Response(usp, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(usp, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.usp = usp;
@@ -289,10 +442,12 @@ const send = (body, init) => {
         if (isContentTypeNotSet) {
             headers.set("content-type", "application/json; charset=utf-8");
         }
-        return Response.json(body, Object.assign(Object.assign({ status,
-            statusText }, init), { headers }));
+        return Response.json(body, Object.assign(Object.assign({}, init), { status,
+            statusText,
+            headers }));
     }
-    return new Response(body, Object.assign(Object.assign({ statusText }, init), { status,
+    return new Response(body, Object.assign(Object.assign({}, init), { status,
+        statusText,
         headers }));
 };
 exports.send = send;

@@ -1,3 +1,5 @@
+// src/utils.ts
+
 export interface DirWalkNode {
   type: string;
   name: string;

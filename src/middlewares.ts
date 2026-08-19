@@ -1,13 +1,223 @@
-import { status } from "./helpers.ts";
+// src/middlewares.ts
+
 import {
-  Break_Pipeline,
-  HttpError,
+  buildContentSecurityPolicy,
+  buildStrictTransportSecurity,
+  redirectPermanentPreserve,
+  status,
+} from "./helpers.ts";
+import { Break_Pipeline, HttpError } from "./types.ts";
+import type {
+  HttpMethodLower,
   HttpMethodUpper,
-  RouterError,
-  type Context,
-  type Handler,
-  type HttpMethod,
+  Context,
+  Handler,
+  HttpMethod,
+  XFrameOptions,
+  ReferrerPolicy,
+  ContentSecurityPolicyParams,
+  StrictTransportSecurityParams,
+  CrossOriginOpenerPolicy,
+  CrossOriginEmbedderPolicy,
+  CrossOriginResourcePolicy,
+  ContentSecurityPolicyArrayParams,
+  StrictTransportSecurity,
+  ContentSecurityPolicySource,
+  ContentSecurityPolicyFetchDirectiveType,
 } from "./types.ts";
+
+/**
+ * Force http into https
+ *
+ * @returns {Handler<ExtendContext>} Middleware function
+ *
+ */
+export const forceHttps = <
+  ExtendContext extends Record<string, unknown> = {},
+>(config?: {
+  toPort?: number;
+}): Handler<ExtendContext> => {
+  const toPort = config?.toPort ?? 443;
+  return function ({ url }: Context<ExtendContext>) {
+    if (url.protocol === "http:") {
+      const newUrl = new URL(url);
+      newUrl.protocol = "https:";
+      newUrl.port = toPort === 443 ? "" : String(toPort);
+      return redirectPermanentPreserve(newUrl.toString());
+    }
+  };
+};
+
+/**
+ * Set security headers.
+ *   - "X-Content-Type-Options": always "nosniff"
+ *   - "X-Frame-Options": default "DENY"
+ *   - "Referrer-Policy": from parameters
+ *   - "Strict-Transport-Security": from parameters
+ *   - "Content-Security-Policy": from parameters
+ *
+ * @returns {Handler<ExtendContext>} Middleware function
+ *
+ */
+export const securityHeaders = <
+  ExtendContext extends Record<string, unknown> = {},
+>(config?: {
+  referrerPolicy?: ReferrerPolicy | null;
+  xFrameOptions?: XFrameOptions | null;
+  strictTransportSecurity?:
+    | StrictTransportSecurity
+    | StrictTransportSecurityParams
+    | boolean
+    | null;
+  /**
+   * @property [config.contentSecurityPolicy] When using the array version
+   *   please take note of whitespace usage to differentiate between some values.
+   *   NOTE: Custom values require a preceding space.
+   *
+   * @example
+   * contentSecurityPolicy: {
+   *   "default-src": "'self'",
+   *   "object-src": "'none'",
+   *   "frame-ancestors": "'none'",
+   *   "script-src style-src font-src": [
+   *     "'self'",
+   *     "https://unpkg.com",
+   *     "'unsafe-inline'",
+   *   ],
+   *   "script-src": [
+   *     "'self'",
+   *     "'strict-dynamic'",
+   *     `'nonce-${toBase64UUID(crypto.randomUUID())}'`,
+   *     "'unsafe-inline'",
+   *   ],
+   *   "img-src": [ "'self'", "data:" ],
+   *   "upgrade-insecure-requests": true,
+   *   "trusted-types": " type-a type-b",
+   *   // "trusted-types": "'none'",
+   * }
+   *
+   * @example
+   * contentSecurityPolicy: {
+   *   [ "default-src", "'self'" ],
+   *   [ "object-src", "'none'" ],
+   *   [ "frame-ancestors", "'none'" ],
+   *   [
+   *     "script-src style-src font-src",
+   *     "'self'",
+   *     "https://unpkg.com",
+   *     "'unsafe-inline'",
+   *   ],
+   *   [
+   *     "script-src",
+   *     "'self'",
+   *     "'strict-dynamic'",
+   *     `'nonce-${toBase64UUID(crypto.randomUUID())}'`,
+   *     "'unsafe-inline'",
+   *   ],
+   *   [ "img-src", "'self'", "data:" ],
+   *   [ "upgrade-insecure-requests" ],
+   *   [ "trusted-types", " type-a type-b" ],
+   *   // [ "trusted-types", "'none'" ],
+   * }
+   *
+   */
+  contentSecurityPolicy?:
+    | ContentSecurityPolicyArrayParams
+    | ContentSecurityPolicyParams
+    | (ContentSecurityPolicyParams & {
+        [K in string as K extends
+          | keyof ContentSecurityPolicyFetchDirectiveType
+          | "upgrade-insecure-requests"
+          | "trusted-types"
+          ? never
+          : K]: ContentSecurityPolicySource | ContentSecurityPolicySource[];
+      })
+    | null;
+  crossOriginOpenerPolicy?: CrossOriginOpenerPolicy;
+  /**
+   * @property
+   */
+  crossOriginEmbedderPolicy?: CrossOriginEmbedderPolicy;
+  crossOriginResourcePolicy?: CrossOriginResourcePolicy;
+  /**
+   * @property [config.headers] Extra headers to set.
+   */
+  headers?: [string, string][] | Record<string, string>;
+}): Handler<ExtendContext> => {
+  const {
+    crossOriginOpenerPolicy,
+    crossOriginEmbedderPolicy,
+    crossOriginResourcePolicy,
+    referrerPolicy,
+    xFrameOptions = "DENY",
+    strictTransportSecurity: hsts_,
+    contentSecurityPolicy: csp_,
+    headers,
+  } = config ?? {};
+  const hsts =
+    hsts_ == null
+      ? undefined
+      : typeof hsts_ === "string"
+        ? hsts_
+        : typeof hsts_ === "boolean"
+          ? hsts_
+            ? buildStrictTransportSecurity({})
+            : undefined
+          : buildStrictTransportSecurity(hsts_);
+  const contentSecurityPolicy =
+    csp_ == null ? undefined : buildContentSecurityPolicy(csp_);
+  /////////////////////////////////////////////
+  const preparedHeaders: [string, string][] = [];
+  if (headers != null) {
+    if (Array.isArray(headers)) {
+      for (const [key, value] of headers) {
+        preparedHeaders.push([key, value]);
+      }
+    } else {
+      for (const key of Object.keys(headers)) {
+        preparedHeaders.push([key, headers[key]]);
+      }
+    }
+  }
+  /////////////////////////////////////////////
+  preparedHeaders.push(["X-Content-Type-Options", "nosniff"]);
+  if (xFrameOptions != null) {
+    preparedHeaders.push(["X-Frame-Options", xFrameOptions]);
+  }
+  if (referrerPolicy != undefined) {
+    preparedHeaders.push(["Referrer-Policy", referrerPolicy]);
+  }
+  if (hsts != null) {
+    preparedHeaders.push(["Strict-Transport-Security", hsts]);
+  }
+  if (contentSecurityPolicy != null) {
+    preparedHeaders.push(["Content-Security-Policy", contentSecurityPolicy]);
+  }
+  if (crossOriginOpenerPolicy != null) {
+    preparedHeaders.push([
+      "Cross-Origin-Opener-Policy",
+      crossOriginOpenerPolicy,
+    ]);
+  }
+  if (crossOriginEmbedderPolicy != null) {
+    preparedHeaders.push([
+      "Cross-Origin-Embedder-Policy",
+      crossOriginEmbedderPolicy,
+    ]);
+  }
+  if (crossOriginResourcePolicy != null) {
+    preparedHeaders.push([
+      "Cross-Origin-Resource-Policy",
+      crossOriginResourcePolicy,
+    ]);
+  }
+  /////////////////////////////////////////////
+  return function ({ headers }: Context<ExtendContext>) {
+    for (const [key, value] of preparedHeaders) {
+      headers.set(key, value);
+    }
+  };
+};
 
 /**
  * Creates a rate limiting middleware using token bucket algorithm.
@@ -22,7 +232,8 @@ import {
  * @param {number} [config.cleanUpInterval] - Interval in seconds for cleanup timer
  * @param {number} [config.cleanUpIdleDelay] - Time in seconds to delay cleanup of filled token buckets
  * @param {boolean} [config.setXRateLimitHeaders=false] - Whether to set X-RateLimit headers in response
- * @returns {Function} Middleware function that enforces rate limits
+ * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @returns {Handler<ExtendContext>} Middleware function that enforces rate limits
  *
  * @example
  * // Fixed interval rate limiting (10 requests per minute)
@@ -42,10 +253,10 @@ import {
  *   maxTokens: 100,
  * });
  *
- * @throws {RouterError} If neither refillInterval nor refillRate is provided
+ * @throws {Error} If neither refillInterval nor refillRate is provided
  */
 export const limitRate = <
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendContext extends Record<string, unknown> = {},
 >(config: {
   key: (ctx: Context<ExtendContext>) => string | Promise<string>;
   maxTokens: number;
@@ -176,7 +387,7 @@ export const limitRate = <
       }
     };
   }
-  throw new RouterError(
+  throw new Error(
     "LIMIT-RATE: `refillInterval` or `refillRate` or both should be set",
   );
 };
@@ -188,14 +399,16 @@ export const limitRate = <
  * @template {Record<string, unknown>} ExtendContext - Extend Router Context
  * @param {Object} [config] - CORS configuration
  * @param {string|string[]|"*"} [config.origins="*"] - Allowed origins (wildcard "*", single origin, or array)
- * @param {HttpMethod[]} [config.methods=["GET","HEAD","PUT","PATCH","POST","DELETE"]] - Allowed HTTP methods
+ * @param {(HttpMethod|HttpMethodUpper|HttpMethodLower)[]} [config.methods=["Get","Head","Put","Patch","Post","Delete"]] - Allowed HTTP methods
  * @param {string[]} [config.allowedHeaders=["Content-Type","Authorization"]] - Allowed request headers
  * @param {string[]} [config.exposedHeaders] - Headers exposed to the browser
  * @param {boolean} [config.credentials=false] - Allow credentials (cookies, authorization headers)
  * @param {number} [config.maxAge=86400] - Maximum age for preflight cache in seconds
- * @param {boolean} [config.varyOrigin=false] - Add Vary: Origin header for caching
- * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
- * @returns {Function} Middleware function that handles CORS headers
+ * @param {boolean} [config.varyOrigin=true] - Add Vary: Origin header for caching
+ * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @returns {Handler<ExtendContext>} Middleware function that handles CORS headers
+ *
+ * @throws {HttpError} If credentials is enabled with wildcard origin ("*")
  *
  * @example
  * // Basic CORS with all defaults
@@ -206,17 +419,16 @@ export const limitRate = <
  * const corsMiddleware = cors({
  *   origins: ["https://example.com", "https://api.example.com"],
  *   credentials: true,
- *   methods: ["GET", "POST", "PUT", "DELETE"],
+ *   methods: ["Get", "Post", "Put", "Delete"],
  *   allowedHeaders: ["Content-Type", "Authorization", "X-Custom-Header"]
  * });
  *
- * @throws {HttpError} If credentials is true with wildcard origin ("*")
  */
 export const cors = <
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendContext extends Record<string, unknown> = {},
 >(config?: {
   origins: "*" | string | string[];
-  methods?: HttpMethod[] | null;
+  methods?: (HttpMethod | HttpMethodUpper | HttpMethodLower)[] | null;
   allowedHeaders?: string[] | null;
   exposedHeaders?: string[] | null;
   credentials?: boolean | null;
@@ -226,23 +438,19 @@ export const cors = <
 }): Handler<ExtendContext> => {
   const {
     origins = "*",
-    methods = ["Get", "Head", "Put", "Patch", "Post", "Delete"],
+    methods: methods_ = ["Get", "Head", "Put", "Patch", "Post", "Delete"],
     allowedHeaders = ["Content-Type", "Authorization"],
     exposedHeaders,
     credentials = false,
     maxAge = 86400,
-    varyOrigin = false,
+    varyOrigin = true,
     breakPipeline = false,
   } = config ?? {};
   const globOrigin = origins === "*" ? "*" : null;
   const originsSet = new Set(
-    typeof origins !== "string" ? origins : origins !== "*" ? [] : [origins],
+    origins === "*" ? [] : typeof origins === "string" ? [origins] : origins,
   );
-  if (methods != null) {
-    for (let i = 0; i < methods.length; i++) {
-      (methods as any)[i] = methods[i].toUpperCase() as HttpMethodUpper;
-    }
-  }
+  const methods = methods_?.map((m) => m.toUpperCase()) as HttpMethodUpper[];
   return function (ctx: Context<ExtendContext>) {
     const { request, headers } = ctx;
     const origin = request.headers.get("origin");
@@ -259,7 +467,9 @@ export const cors = <
       corsOrigin = originsSet.has(origin) ? origin : null;
     }
     if (!corsOrigin) {
-      if (varyOrigin) ctx.headers.append("Vary", "Origin");
+      if (varyOrigin) {
+        headers.append("Vary", "Origin");
+      }
       if (breakPipeline) {
         return Break_Pipeline;
       }
@@ -277,7 +487,7 @@ export const cors = <
     if (exposedHeaders && exposedHeaders.length > 0) {
       headers.set("Access-Control-Expose-Headers", exposedHeaders.join(", "));
     }
-    if (varyOrigin) {
+    if (varyOrigin && origins !== "*") {
       headers.append("Vary", "Origin");
     }
     if (request.method === "OPTIONS") {
@@ -285,7 +495,10 @@ export const cors = <
         const requestMethod = request.headers.get(
           "Access-Control-Request-Method",
         );
-        if (requestMethod && !methods.includes(requestMethod as HttpMethod)) {
+        if (
+          requestMethod &&
+          !methods.includes(requestMethod as HttpMethodUpper)
+        ) {
           return status(405, `Method ${requestMethod} not allowed`);
         }
         headers.set("Access-Control-Allow-Methods", methods.join(", "));
@@ -293,7 +506,7 @@ export const cors = <
       if (allowedHeaders && allowedHeaders.length > 0) {
         headers.set("Access-Control-Allow-Headers", allowedHeaders.join(", "));
       }
-      if (maxAge) {
+      if (maxAge != null) {
         headers.set("Access-Control-Max-Age", maxAge.toString());
       }
       return status(204, null);

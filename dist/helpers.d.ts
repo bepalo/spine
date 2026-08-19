@@ -1,5 +1,19 @@
 import Router from "./router.ts";
-import type { Handler, HttpMethod } from "./types.ts";
+import type { ContentSecurityPolicyArrayParams, ContentSecurityPolicyFetchDirectiveType, ContentSecurityPolicyParams, ContentSecurityPolicySource, Handler, HttpMethod, StrictTransportSecurityParams } from "./types.ts";
+/**
+ * Builds and returns a Content-Security-Policy response header value from params.
+ *
+ * @param {ContentSecurityPolicyParams} policy CSP params
+ * @returns {string} The built Content-Security-Policy value
+ */
+export declare const buildContentSecurityPolicy: (policy: ContentSecurityPolicyArrayParams | ContentSecurityPolicyParams | (ContentSecurityPolicyParams & { [K in string as K extends keyof ContentSecurityPolicyFetchDirectiveType | "upgrade-insecure-requests" | "trusted-types" ? never : K]: ContentSecurityPolicySource | ContentSecurityPolicySource[]; })) => string;
+/**
+ * Builds and returns a Strict-Transport-Security(HSTS) response header value from params.
+ *
+ * @param {StrictTransportSecurityParams} strictTransportSecurity HSTS params
+ * @returns {string} The built Strict-Transport-Security value
+ */
+export declare const buildStrictTransportSecurity: (strictTransportSecurity: StrictTransportSecurityParams) => string;
 /**
  * Creates a Response with the specified status code.
  * Defaults to 'text/plain; charset=utf-8' content-type if not provided in init.headers.
@@ -17,11 +31,44 @@ export declare const status: (status: number, content?: string | null, init?: Re
  * Creates a redirect Response.
  * Defaults to 302 Found unless another status is provided.
  * @param {string} location - The URL to redirect to
- * @param {number} [code=302] - The HTTP status code (301, 302, 303, 307, 308)
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with Location header
  */
 export declare const redirect: (location: string, init?: ResponseInit) => Response;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 302 Found.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status"|"statusText">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export declare const redirectTemporary: (location: string, init?: Omit<ResponseInit, "status" | "statusText">) => Response;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 301 Permanent Redirect.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export declare const redirectPermanent: (location: string, init?: Omit<ResponseInit, "status" | "statusText">) => Response;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 307 Temporary Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export declare const redirectTemporaryPreserve: (location: string, init?: Omit<ResponseInit, "status" | "statusText">) => Response;
+/**
+ * Creates a redirect Response.
+ * Forces a status of 308 Permanent Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export declare const redirectPermanentPreserve: (location: string, init?: Omit<ResponseInit, "status" | "statusText">) => Response;
 /**
  * Forwards the request to another route internally.
  * Does not send a redirect to the client but changes the path and method,

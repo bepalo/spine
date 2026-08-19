@@ -79,8 +79,8 @@ Average       10.05k        8.13k         7.65k    ┌────────�
 
 ## 📑 Table of Contents
 
-- [What is new?](#what-is-new)
 - [Quick Start](#quick-start)
+- [Real World Usecase Example](#real-world-usecase-example)
 - [Routing](#routing)
   - [Parameters](#parameters)
   - [Alternatives](#alternatives)
@@ -182,6 +182,537 @@ const response = await spine.respond(request);
 ```
 
 This makes the spine easy to embed into servers, frameworks, workers, and custom runtimes.
+
+## Sneek peek of what is possible
+
+### `src/utils/generate.ts`
+
+<details open>
+
+<summary> Generator utilities to watch for changes and generate static-routes-imports and static-assets-manifest.</summary>
+
+```ts
+// src/utils/generate.ts
+import {
+  generateStaticAssetsManifestWatcher,
+  generateStaticRoutesWatcher,
+} from "@bepalo/spine";
+import { writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+
+const abortController = new AbortController();
+
+// setTimeout(() => abortController.abort(), 10000);
+
+generateStaticRoutesWatcher({
+  routesPath: "./routes",
+  importRoot: "./routes/",
+  output: "./routes.ts",
+  read: (filepath) => readFile(filepath, { encoding: "utf-8" }),
+  write: (filepath, content) =>
+    writeFile(filepath, content, { encoding: "utf-8" }),
+  abortSignal: abortController.signal,
+  // generateDelay: 1000,
+});
+
+generateStaticAssetsManifestWatcher({
+  assetsPath: "./public",
+  output: "./static-assets.json",
+  abortSignal: abortController.signal,
+  sortOrder: 1,
+  // exclude: ({ name, ext }) => !name || ext === ".env",
+  read: (filepath) => readFile(filepath, { encoding: "utf-8" }),
+  write: (filepath, content) =>
+    writeFile(filepath, content, { encoding: "utf-8" }),
+  // generateDelay: 1000,
+});
+```
+
+</details>
+
+### Static assets
+
+#### `404.html`
+
+<details>
+<summary>404.html</summary>
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <h1>404 Page not found!</h1>
+    <p>We couldn't locate the page you were looking for</p>
+  </body>
+</html>
+```
+
+</details>
+
+#### `500.html`
+
+</details>
+
+<details>
+<summary>500.html</summary>
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <h1>{{STATUS}} {{STATUS_TEXT}}</h1>
+    <p><strong>{{ERROR}}!</strong></p>
+  </body>
+</html>
+```
+
+</details>
+
+#### `Swagger`
+
+<details>
+<summary> public/openapi/index.html</summary>
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="SwaggerUI" />
+    <title>SwaggerUI</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css"
+    />
+  </head>
+
+  <body>
+    <div id="swagger-ui"></div>
+    <script
+      src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"
+      crossorigin
+    ></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: "/openapi/doc.json",
+          dom_id: "#swagger-ui",
+        });
+      };
+    </script>
+  </body>
+</html>
+```
+
+</details>
+
+### Source Codes
+
+### `/user/:id Route`
+
+<details>
+<summary>src/routes/users/[id].ts</summary>
+
+```ts
+// src/routes/user/[id].ts
+
+import {
+  json,
+  parseBody,
+  type CTBody,
+  type CTParams,
+  type HandlerDef,
+  type PipeDef,
+} from "@bepalo/spine";
+import { ArkErrors, type } from "arktype";
+
+export const get_filter: HandlerDef = [
+  ({ params }) => {
+    // valdate params
+    const r = type({
+      id: "3 <= string.numeric <= 5",
+    }).assert(params);
+    if (r instanceof ArkErrors) {
+      return json({ error: r.toJSON() }, { status: 400 });
+    }
+  },
+];
+
+export const get: PipeDef<CTParams<"id">> = {
+  pipe: ({ params: { id } }) => {
+    return parseInt(id) < 0
+      ? json({ error: "User not found" })
+      : json({ user: { name: `user-${id}` } });
+  },
+
+  openApi: {
+    summary: "Get user by ID",
+    responses: {
+      "200": {
+        description: "Successfull response",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                user: {
+                  type: "object",
+                  properties: {
+                    name: {
+                      type: "string",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "404": {
+        description: "User not found",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                error: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      },
+      "400": {
+        description: "Bad request",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                error: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+export const post_filter: HandlerDef<CTBody> = [parseBody({ maxSize: 1024 })];
+
+export const post: HandlerDef<CTBody> = ({
+  url: { pathname },
+  params,
+  body,
+}) => {
+  return json({ pathname, params, body });
+};
+```
+
+</details>
+
+#### `Main`
+
+<details>
+<summary>src/index.ts</summary>
+
+```ts
+import type { Path, StaticAssetsManifestFile } from "@bepalo/spine";
+import {
+  Router,
+  ExpCache,
+  HttpError,
+  Status,
+  json,
+  cors,
+  limitRate,
+  getHttpStatusText,
+  status,
+  securityHeaders,
+  Break_Pipeline,
+} from "@bepalo/spine";
+import { readFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+// Import generated static routes imports
+import setRoutes from "./routes";
+// Import generated static assets manifest
+import staticAssetsManifest from "./static-assets.json";
+
+const {
+  "/404": notFoundAsset,
+  "/500": serverErrorAsset,
+  ...staticAssets
+} = staticAssetsManifest.files;
+
+// lru-exp cache for static assets
+const assetsCache: ExpCache<string, Buffer<ArrayBuffer>> = new ExpCache({
+  maxMemory: 32 * 1024 * 1024, // 32Mb
+  onMiss(key, entry, reason, cache) {
+    if (!(key in staticAssetsManifest.files)) return;
+    const asset = (staticAssetsManifest.files as any)[key];
+    // Read from file into cache because it is missing.
+    // You only have to call `assetsCache.get` elsewhere
+    //   as this will automatically load it on cache-miss.
+    cache.set(
+      key,
+      readFileSync(asset.path, { encoding: undefined }),
+      asset.size,
+      {
+        ttl: 3_600_000, // 1 hour
+      },
+    );
+    return true;
+  },
+});
+
+// Static assets cache cleanup timer.
+// You could also setup a cron api.
+setInterval(() => {
+  console.log("Cleared ", assetsCache.evictExpired());
+}, 3_600_000);
+
+export type CTMain = { clientIP: string };
+
+// Create router instance
+export const spine = new Router<CTMain>({
+  maxPath: 10,
+});
+
+// Serve
+const server = Bun.serve({
+  port: 3000,
+  fetch: (request, server) =>
+    spine.respond(request, {
+      clientIP: server.requestIP(request)?.address || "anonymous",
+    }),
+});
+console.log(`Listening on ${server.url}`);
+
+//////////////////////////////////////////////
+
+// Set generated dynamic-routes' static-imports
+setRoutes(spine);
+
+// Security Headers, CORS, Rate Limiting, ... for /**
+spine.filterAll("/**", [
+  // forceHttps({ toPort: server.port }),
+  limitRate<CTMain>({
+    key: ({ clientIP }) => clientIP,
+    maxTokens: 100,
+    refillInterval: 60 * 1000, // every minute
+    // refillRate:
+    setXRateLimitHeaders: process.env.NODE_ENV !== "production",
+  }),
+  securityHeaders({
+    headers: {
+      "Reporting-Endpoints": `coep-endpoint="${server.url.origin + "/coep"}"`,
+    },
+    crossOriginEmbedderPolicy: 'credentialless; report-to="coep-endpoint"',
+    crossOriginResourcePolicy: "same-site",
+    crossOriginOpenerPolicy: "same-origin-allow-popups",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    xFrameOptions: "DENY",
+    contentSecurityPolicy: [
+      ["default-src", "'self'"],
+      ["object-src", "'none'"],
+      ["frame-ancestors", "'none'"],
+      [
+        "script-src style-src font-src",
+        "'self'",
+        "https://unpkg.com",
+        "'unsafe-inline'",
+      ],
+      ["script-src", "'self'", "'strict-dynamic'", "'unsafe-inline'"],
+      ["img-src", "'self'", "data:", "'unsafe-inline'"],
+      ["upgrade-insecure-requests"],
+    ],
+  }),
+  cors({
+    origins: ["https://example.com", server.url.origin],
+    methods: ["Get", "Head", "Options"],
+    allowedHeaders: ["Authorization", "X-API-Key"],
+    credentials: true,
+    maxAge: 60 * 60,
+  }),
+]);
+
+// Security Headers, CORS, Rate Limiting, ... for /api/**
+spine.filterAll("/api/**", [
+  // forceHttps({ toPort: server.port }),
+  limitRate<CTMain>({
+    key: ({ clientIP }) => clientIP,
+    maxTokens: 300,
+    refillInterval: 60 * 1000, // every minute
+    refillRate: 100, // 100 tokens every minute
+    setXRateLimitHeaders: process.env.NODE_ENV !== "production",
+  }),
+  securityHeaders({
+    // crossOriginResourcePolicy: "same-site",
+    // referrerPolicy: "strict-origin-when-cross-origin",
+    xFrameOptions: "DENY",
+    contentSecurityPolicy: [["upgrade-insecure-requests"]],
+  }),
+  cors({
+    origins: ["https://example.com", server.url.origin],
+    methods: ["Get", "Post", "Put", "Patch", "Delete", "Head", "Options"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+    credentials: true,
+    maxAge: 60 * 60,
+  }),
+  // do not bubble to other matching filters such as /**
+  () => Break_Pipeline,
+]);
+
+// Handle Options for all /** to return no content
+spine.handleOptions("/**", () => status(204, null));
+
+// Handler get and head of static assets using generated manifest
+spine.handle(
+  [["Head", "Get"], ...(Object.keys(staticAssets) as Path[])],
+  ({ url, request, headers }) => {
+    const asset: StaticAssetsManifestFile = (staticAssets as any)[url.pathname];
+    headers.set("Content-Type", asset.contentType);
+    headers.set("Content-Length", asset.size.toFixed());
+    const fileContent = assetsCache.get(asset.pathname);
+    if (request.method === "HEAD") {
+      return status(200, null);
+    }
+    return new Response(fileContent);
+  },
+);
+
+// Handle fallbacks of get /** using 404.html static page
+spine.fallback([["Head", "Get"], "/**"], ({ url, request, headers }) => {
+  const asset: StaticAssetsManifestFile = notFoundAsset;
+  headers.set("Content-Type", asset.contentType);
+  headers.set("Content-Length", asset.size.toFixed());
+  if (request.method === "HEAD") {
+    return status(200, null);
+  }
+  const fileContent = assetsCache.get(notFoundAsset.pathname);
+  return new Response(fileContent, { status: 404 });
+});
+
+// Set error handler of All /**
+// Note: The string replacement is just for demonstration.
+//       You are probably going to use a framework like
+//       pug, react, Nextjs or others.
+spine.catchAll("/**", ({ error, request, headers }) => {
+  // process.env.NODE_ENV !== "production" && console.error(error);
+  const statusCode = (error as HttpError).status || 500;
+  const asset: StaticAssetsManifestFile = serverErrorAsset;
+  headers.set("Content-Type", asset.contentType);
+  headers.set("Content-Length", asset.size.toFixed());
+  if (request.method === "HEAD") {
+    return status(200, null);
+  }
+  const fileContent = assetsCache.get(asset.pathname);
+  const vars = {
+    STATUS: String(statusCode),
+    STATUS_TEXT: getHttpStatusText(statusCode),
+    ERROR: error.message,
+  };
+  return new Response(
+    fileContent!
+      .toString()
+      .replace(/(\\)?\{\{(.+?)\}\}/g, (match, escape, id) =>
+        escape ? match : ((vars as any)[id] ?? match),
+      ),
+    { status: statusCode },
+  );
+});
+
+// Set error handler of All /api/**
+// Takes precedence over /**
+spine.catchAll("/api/**", ({ error }) => {
+  process.env.NODE_ENV !== "production" && console.error(error);
+  const status = (error as HttpError).status || 500;
+  return json({ error: error.message }, { status });
+});
+
+// Set fallback handler of (Get,Post,Put,Patch,Delete) /api/**
+spine.fallbackCrud("/api/**", () =>
+  json({ error: "Not found" }, { status: 404 }),
+);
+
+// Error test
+spine.get(["/error", "/api/error"], () => {
+  throw new HttpError(Status._503_ServiceUnavailable, "Come back tomorrow");
+});
+
+// Stats
+spine.get("/api/stats", () => json({ staticAssetsCache: assetsCache.stats }));
+
+spine.afterAll(
+  "/**",
+  ({
+    request: { method },
+    response: { status, statusText, headers, body },
+    url,
+    timestamps,
+  }) => {
+    const { request, start, end } = timestamps;
+    const size = ["OPTIONS", "HEAD"].includes(method)
+      ? 0
+      : Number(headers.get("Content-Length") || "0");
+    const kbSize = ((size ?? 0) / 1024).toFixed(2).padStart(5);
+    const time = (end - start).toFixed(3).padStart(6);
+    let logstr = `[${new Date(request).toISOString()}]`;
+    logstr += `[${status}]`;
+    logstr += ` ${time}ms ${kbSize}KB`;
+    logstr += ` -- ${method} ${url.pathname} ${url.search}`;
+    logstr += ` -- ${statusText}`;
+    console.log(logstr);
+  },
+);
+
+//////////////////////////////////////////
+
+// generate public/openapi/doc.json
+spine
+  .generateOpenAPI(
+    {
+      title: "@bepalo/spine Demo",
+      version: "1.0.0",
+      // ...
+    },
+    {
+      pick: ({ path }) => path.startsWith("/api"),
+      // autoTag: false,
+      // autoSummary: false,
+      includeOperationId: true,
+      sortTagsOrder: 1,
+      sortPathnameOrder: 1,
+      sortMethodOrder: 1,
+    },
+  )
+  .then(async (openapi) => {
+    const output = "./public/openapi/doc.json";
+    const content = JSON.stringify(openapi, null, 2);
+    await writeFile(output, content, { encoding: "utf-8" });
+  });
+```
+
+</details>
+
+---
 
 ## Routing
 

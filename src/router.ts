@@ -1,3 +1,5 @@
+// src/router.ts
+
 import { getHttpStatusText } from "./status.ts";
 import {
   Break_Pipe,
@@ -130,7 +132,6 @@ export class Router<
       maxPath: config?.maxPath ?? 24,
       enable: {
         filter: config?.enable?.filter ?? true,
-        handler: config?.enable?.handler ?? true,
         fallback: config?.enable?.fallback ?? true,
         after: config?.enable?.after ?? true,
         catcher: config?.enable?.catcher ?? true,
@@ -143,6 +144,7 @@ export class Router<
     request: Request,
     ctxInit?: Omit<RespondContext<ExtendContext>, "router">,
   ): Promise<Response> {
+    const startTimestamp = performance.now();
     const requestTimestamp = Date.now();
     const method = request.method as HttpMethod;
     const url = new URL(request.url);
@@ -168,7 +170,8 @@ export class Router<
       ...ctxInit,
       timestamps: {
         request: requestTimestamp,
-        response: requestTimestamp,
+        start: startTimestamp,
+        end: startTimestamp,
         ...(ctxInit as any)?.timestamps,
       },
     } as Context<ExtendContext>;
@@ -196,7 +199,42 @@ export class Router<
       catcher: 0,
     } as Record<HandlerType, number>;
     try {
-      // get handlers first to check if any exist before filtering
+      // filters
+      if (this.#config.enable?.filter) {
+        const filterRoutes = this.#getRouteEntries(
+          pathname,
+          parts,
+          this.#routes.filter[method as HttpMethodUpper],
+          false,
+        );
+        found.filter = filterRoutes.length;
+        if (filterRoutes.length > 0) {
+          away: for (const routeEntry of filterRoutes) {
+            // parse params
+            const params = routeEntry.parseParams(pathname, parts);
+            ctx.params = params ?? EMPTY_PARAMS;
+            // call request handlers
+            for (const handler of routeEntry.pipe) {
+              const resp = await handler.apply(this, [ctx]);
+              if (resp instanceof Response) {
+                response = resp;
+                break away;
+              } else if (resp === Break_Pipe) {
+                break;
+              } else if (resp === Break_Pipeline) {
+                break away;
+              }
+            }
+          }
+        }
+        // default filter
+        if (!(response instanceof Response) && this.#config.defaultFilter) {
+          const resp = await this.#config.defaultFilter(ctx);
+          if (resp instanceof Response) {
+            response = resp;
+          }
+        }
+      }
       const handlerRoutes = this.#getRouteEntries(
         pathname,
         parts,
@@ -204,128 +242,60 @@ export class Router<
         true,
       );
       found.handler = handlerRoutes.length;
-      // for optmization, load fallbacks here only if necesasry
-      //   i.e. no handlers have been found or defaultFallback not set.
-      // if fallback routes have not been loaded now then they will be lazy
-      //   loaded later.
-      let handlerOrFallbackFound =
-        this.#config.defaultFallback != null || found.handler > 0;
-      let fallbacksLoaded = false;
-      // get fallbacks if handlers have not been found
-      let fallbackRoutes: RouteEntry<ExtendContext>[] = [];
-      if (!handlerOrFallbackFound && this.#config.enable?.fallback) {
-        fallbackRoutes = this.#getRouteEntries(
+      // handlers
+      if (handlerRoutes.length > 0 && !(response instanceof Response)) {
+        away: for (const routeEntry of handlerRoutes) {
+          // parse params
+          const params = routeEntry.parseParams(pathname, parts);
+          ctx.params = params ?? EMPTY_PARAMS;
+          // call request handlers
+          for (const handler of routeEntry.pipe) {
+            const resp = await handler(ctx);
+            if (resp instanceof Response) {
+              response = resp;
+              break away;
+            } else if (resp === Break_Pipe) {
+              break;
+            } else if (resp === Break_Pipeline) {
+              break away;
+            }
+          }
+        }
+      }
+      // fallbacks
+      if (this.#config.enable?.fallback && !(response instanceof Response)) {
+        const fallbackRoutes = this.#getRouteEntries(
           pathname,
           parts,
           this.#routes.fallback[method as HttpMethodUpper],
           false,
         );
-        found.fallback = fallbackRoutes.length;
-        handlerOrFallbackFound = found.fallback > 0;
-        fallbacksLoaded = true;
-      }
-      if (handlerOrFallbackFound) {
-        // filters
-        if (this.#config.enable?.filter) {
-          const filterRoutes = this.#getRouteEntries(
-            pathname,
-            parts,
-            this.#routes.filter[method as HttpMethodUpper],
-            false,
-          );
-          found.filter = filterRoutes.length;
-          if (filterRoutes.length > 0) {
-            away: for (const routeEntry of filterRoutes) {
-              // parse params
-              const params = routeEntry.parseParams(pathname, parts);
-              ctx.params = params ?? EMPTY_PARAMS;
-              // call request handlers
-              for (const handler of routeEntry.pipe) {
-                const resp = await handler.apply(this, [ctx]);
-                if (resp instanceof Response) {
-                  response = resp;
-                  break;
-                } else if (resp === Break_Pipe) {
-                  break;
-                } else if (resp === Break_Pipeline) {
-                  break away;
-                }
-              }
-              if (response instanceof Response) {
-                break;
-              }
-            }
-          }
-          // default filter
-          if (!(response instanceof Response) && this.#config.defaultFilter) {
-            const resp = await this.#config.defaultFilter(ctx);
+        away: for (const routeEntry of fallbackRoutes) {
+          // parse params
+          const params = routeEntry.parseParams(pathname, parts);
+          ctx.params = params ?? EMPTY_PARAMS;
+          // call request handlers
+          for (const handler of routeEntry.pipe) {
+            const resp = await handler(ctx);
             if (resp instanceof Response) {
               response = resp;
+              break away;
+            } else if (resp === Break_Pipe) {
+              break;
+            } else if (resp === Break_Pipeline) {
+              break away;
             }
           }
         }
-        // handlers
-        if (handlerRoutes.length > 0 && !(response instanceof Response)) {
-          away: for (const routeEntry of handlerRoutes) {
-            // parse params
-            const params = routeEntry.parseParams(pathname, parts);
-            ctx.params = params ?? EMPTY_PARAMS;
-            // call request handlers
-            for (const handler of routeEntry.pipe) {
-              const resp = await handler(ctx);
-              if (resp instanceof Response) {
-                response = resp;
-                break;
-              } else if (resp === Break_Pipe) {
-                break;
-              } else if (resp === Break_Pipeline) {
-                break away;
-              }
-            }
-            if (response instanceof Response) {
-              break;
-            }
-          }
-        }
-        // fallbacks
-        if (this.#config.enable?.fallback && !(response instanceof Response)) {
-          if (!fallbacksLoaded) {
-            fallbackRoutes = this.#getRouteEntries(
-              pathname,
-              parts,
-              this.#routes.fallback[method as HttpMethodUpper],
-              false,
-            );
-          }
-          away: for (const routeEntry of fallbackRoutes) {
-            // parse params
-            const params = routeEntry.parseParams(pathname, parts);
-            ctx.params = params ?? EMPTY_PARAMS;
-            // call request handlers
-            for (const handler of routeEntry.pipe) {
-              const resp = await handler(ctx);
-              if (resp instanceof Response) {
-                response = resp;
-                break;
-              } else if (resp === Break_Pipe) {
-                break;
-              } else if (resp === Break_Pipeline) {
-                break away;
-              }
-            }
-            if (response instanceof Response) {
-              break;
-            }
-          }
-          // default fallback
-          if (!(response instanceof Response) && this.#config.defaultFallback) {
-            const resp = await this.#config.defaultFallback(ctx);
-            if (resp instanceof Response) {
-              response = resp;
-            }
+        // default fallback
+        if (!(response instanceof Response) && this.#config.defaultFallback) {
+          const resp = await this.#config.defaultFallback(ctx);
+          if (resp instanceof Response) {
+            response = resp;
           }
         }
       }
+
       // append headers
       if (response?.headers != null) {
         for (const [k, v] of response.headers) {
@@ -375,7 +345,7 @@ export class Router<
               const resp = await handler(ctx);
               if (resp instanceof Response) {
                 response = resp;
-                break;
+                break away;
               } else if (resp === Break_Pipe) {
                 break;
               } else if (resp === Break_Pipeline) {
@@ -414,7 +384,7 @@ export class Router<
       });
     }
     (ctx as Context<CTResponse & ExtendContext>).response = response;
-    ctx.timestamps.response = Date.now();
+    ctx.timestamps.end = performance.now();
     // afters
     if (this.#config.enable?.after) {
       const afterRoutes = this.#getRouteEntries(
@@ -435,7 +405,7 @@ export class Router<
             const resp = await handler(ctx);
             if (resp instanceof Response) {
               response = resp;
-              break;
+              break away;
             } else if (resp === Break_Pipe) {
               break;
             } else if (resp === Break_Pipeline) {
@@ -484,81 +454,115 @@ export class Router<
           handlersImp = (await dynamicImport(
             node.fullPath,
           )) as unknown as Record<string, unknown>;
+          const importPath = node.path;
           const processedName = decodeURIComponent(processName(node.name));
           const pathname = !node.parent
             ? `/${processedName}`
             : `/${node.parent}/${processedName}`;
           const path = translateRouteFilePath(pathname, this.#config.maxPath);
-          for (const _method of Object.keys(handlersImp)) {
-            const _definition = handlersImp[_method];
-            let method: HttpMethod;
-            let upperMethod = _method.toUpperCase() as HttpMethodUpper;
+          for (const methodHandler of Object.keys(handlersImp)) {
+            const [method_, handlerType_] = methodHandler.split("_", 2);
+            const def = handlersImp[methodHandler];
+            let method: HttpMethod | "All" | "Crud";
             let handlerType: HandlerType = "handler";
-            if (HTTP_METHODS_UPPER.has(upperMethod)) {
-              method = _method as HttpMethod;
+            const methodUpper = method_.toUpperCase() as
+              | HttpMethodUpper
+              | "ALL"
+              | "CRUD";
+            if (methodUpper === "ALL") {
+              method = "All";
+            } else if (methodUpper === "CRUD") {
+              method = "Crud";
+            } else if (HTTP_METHODS_UPPER.has(methodUpper)) {
+              method = (method_.charAt(0).toUpperCase() +
+                method_.substring(1).toLowerCase()) as HttpMethod;
             } else {
-              const [spMethod, _handlerType] = _method.split("_", 2);
-              if (!(spMethod && _handlerType)) {
-                continue;
-              }
-              upperMethod = spMethod.toUpperCase() as HttpMethodUpper;
-              if (HTTP_METHODS_UPPER.has(upperMethod)) {
-                method = spMethod as HttpMethod;
-              } else {
-                continue;
-              }
-              if (
-                HANDLER_TYPES.has(_handlerType?.toLowerCase() as HandlerType)
-              ) {
-                handlerType = _handlerType.toLowerCase() as HandlerType;
-              } else {
-                continue;
-              }
+              continue;
             }
-            const definition =
-              Array.isArray(_definition) || typeof _definition === "function"
-                ? { pipe: _definition }
-                : {
-                    pipe: (_definition as Record<string, unknown>).pipe,
-                    openApi: (_definition as Record<string, unknown>).openApi,
-                  };
-            const pipe = definition.pipe;
-            const openApi = definition.openApi;
-            if (openApi != null && handlerType !== "handler") {
+            if (
+              handlerType_ &&
+              HANDLER_TYPES.has(handlerType_.toLowerCase() as HandlerType)
+            ) {
+              handlerType = handlerType_.toLowerCase() as HandlerType;
+            } else {
+              continue;
+            }
+            const defIsObject = !Array.isArray(def) && typeof def === "object";
+            // get pipe and any other options
+            const pipe = defIsObject ? (def as any).pipe : def;
+            const options: HandlerRegisterPiplineOptions | undefined =
+              defIsObject ? {} : undefined;
+            if (options != null) {
+              options.openApi = (def as any).openApi;
+              options.overwrite = (def as any).overwrite;
+            }
+            if (options?.openApi != null && handlerType !== "handler") {
               console.warn(
-                `OpenApi definition will be ignored in '${node.path}' ${_method}`,
+                `OpenApi definition will be ignored for \`${methodHandler}\` in '${importPath}'`,
               );
             }
             if (pipe == null) {
               throw new RouterError(
-                `Undefined pipe in '${node.path}' ${_method}`,
+                `Undefined pipe for \`${methodHandler}\` in '${importPath}'`,
               );
             }
-            if (!Array.isArray(pipe) && typeof pipe !== "function") {
+            if (
+              !(
+                (Array.isArray(pipe) &&
+                  pipe.every((h) => typeof h === "function")) ||
+                typeof pipe === "function"
+              )
+            ) {
               throw new RouterError(
-                `Bad pipe type in '${node.path}' ${_method}`,
+                `Invalid pipe or handler type for \`${methodHandler}\` in '${importPath}'`,
               );
             }
-            if (openApi != null && typeof openApi !== "object") {
+            if (
+              options?.openApi != null &&
+              typeof options?.openApi !== "object"
+            ) {
               throw new RouterError(
-                `Bad openApi type in '${node.path}' ${_method}`,
+                `Invalid openApi type for \`${methodHandler}\` in '${importPath}'`,
               );
             }
-            const options =
-              handlerType === "handler" && openApi != null
-                ? { openApi }
-                : undefined;
-            if (Array.isArray(pipe) || typeof pipe === "function") {
-              this.register(
-                handlerType,
-                `${method as HttpMethod} ${path as `/${string}`}`,
-                pipe as Pipe<ExtendContext> | Handler<ExtendContext>,
-                options as HandlerRegisterPiplineOptions,
-              );
+            switch (handlerType) {
+              case "filter":
+                this[`filter${method}`](
+                  pathname as Path,
+                  pipe as Pipe,
+                  options,
+                );
+                break;
+              case "handler":
+                this[`handle${method}`](
+                  pathname as Path,
+                  pipe as Pipe,
+                  options,
+                );
+                break;
+              case "fallback":
+                this[`fallback${method}`](
+                  pathname as Path,
+                  pipe as Pipe,
+                  options,
+                );
+                break;
+              case "after":
+                this[`after${method}`](pathname as Path, pipe as Pipe, options);
+                break;
+              case "catcher":
+                this[`catch${method}`](pathname as Path, pipe as Pipe, options);
+                break;
             }
+            this.register(
+              handlerType,
+              `${method as HttpMethod} ${path as `/${string}`}`,
+              pipe as Pipe<ExtendContext> | Handler<ExtendContext>,
+              options as HandlerRegisterPiplineOptions,
+            );
           }
         } catch (error) {
-          console.error(`Failed to import route at ${node.fullPath}:`, error);
+          console.error(`Failed to import route at '${node.fullPath}':`, error);
         }
       }
     }
@@ -2850,67 +2854,252 @@ export class Router<
   }
 
   filter<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths:
+      | MethodPath
+      | Array<MethodPath>
+      | [Array<HttpMethod>, ...Array<Path>],
     pipe:
       | Handler<ExtendContext & ExtendContextMore>
       | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
+    const methodPathIsArray = Array.isArray(methodPaths);
+    if (
+      methodPathIsArray &&
+      !methodPaths.slice(1).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid path type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    const firstElementIsArray =
+      methodPathIsArray && Array.isArray(methodPaths[0]);
+    if (
+      firstElementIsArray &&
+      !(methodPaths[0] as HttpMethod[]).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    if (
+      methodPathIsArray &&
+      !firstElementIsArray &&
+      !methodPaths.every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError("Invalid method type. Allowed [...MethodPaths]");
+    }
+    if (
+      !methodPathIsArray &&
+      !firstElementIsArray &&
+      typeof methodPaths !== "string"
+    ) {
+      throw new RouterError("Invalid method type. Allowed MethodPath");
+    }
+    const methodPaths_ = methodPathIsArray
+      ? Array.isArray(methodPaths[0])
+        ? (methodPaths[0].flatMap((method) =>
+            methodPaths
+              .slice(1)
+              .map((paths) => `${method} ${paths}` as MethodPath),
+          ) as MethodPath[])
+        : (methodPaths as MethodPath[])
+      : methodPaths;
     return this.register(
       "filter",
-      methodPaths,
+      methodPaths_,
       pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   handle<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths:
+      | MethodPath
+      | Array<MethodPath>
+      | [Array<HttpMethod>, ...Array<Path>],
     pipe:
       | Handler<ExtendContext & ExtendContextMore>
       | Pipe<ExtendContext & ExtendContextMore>,
     options?: HandlerRegisterPiplineOptions,
   ): Router<ExtendContext> {
+    const methodPathIsArray = Array.isArray(methodPaths);
+    if (
+      methodPathIsArray &&
+      !methodPaths.slice(1).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid path type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    const firstElementIsArray =
+      methodPathIsArray && Array.isArray(methodPaths[0]);
+    if (
+      firstElementIsArray &&
+      !(methodPaths[0] as HttpMethod[]).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    if (
+      methodPathIsArray &&
+      !firstElementIsArray &&
+      !methodPaths.every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError("Invalid method type. Allowed [...MethodPaths]");
+    }
+    if (
+      !methodPathIsArray &&
+      !firstElementIsArray &&
+      typeof methodPaths !== "string"
+    ) {
+      throw new RouterError("Invalid method type. Allowed MethodPath");
+    }
+    const methodPaths_ = methodPathIsArray
+      ? Array.isArray(methodPaths[0])
+        ? (methodPaths[0].flatMap((method) =>
+            methodPaths
+              .slice(1)
+              .map((paths) => `${method} ${paths}` as MethodPath),
+          ) as MethodPath[])
+        : (methodPaths as MethodPath[])
+      : methodPaths;
     return this.register(
       "handler",
-      methodPaths,
+      methodPaths_,
       pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   fallback<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths:
+      | MethodPath
+      | Array<MethodPath>
+      | [Array<HttpMethod>, ...Array<Path>],
     pipe:
       | Handler<ExtendContext & ExtendContextMore>
       | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
+    const methodPathIsArray = Array.isArray(methodPaths);
+    if (
+      methodPathIsArray &&
+      !methodPaths.slice(1).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid path type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    const firstElementIsArray =
+      methodPathIsArray && Array.isArray(methodPaths[0]);
+    if (
+      firstElementIsArray &&
+      !(methodPaths[0] as HttpMethod[]).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    if (
+      methodPathIsArray &&
+      !firstElementIsArray &&
+      !methodPaths.every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method-paths type. Allowed [...MethodPaths]",
+      );
+    }
+    if (
+      !methodPathIsArray &&
+      !firstElementIsArray &&
+      typeof methodPaths !== "string"
+    ) {
+      throw new RouterError("Invalid method-path type. Allowed MethodPath");
+    }
+    const methodPaths_ = methodPathIsArray
+      ? Array.isArray(methodPaths[0])
+        ? (methodPaths[0].flatMap((method) =>
+            methodPaths
+              .slice(1)
+              .map((paths) => `${method} ${paths}` as MethodPath),
+          ) as MethodPath[])
+        : (methodPaths as MethodPath[])
+      : methodPaths;
     return this.register(
       "fallback",
-      methodPaths,
+      methodPaths_,
       pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   after<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths:
+      | MethodPath
+      | Array<MethodPath>
+      | [Array<HttpMethod>, ...Array<Path>],
     pipe:
       | Handler<ExtendContext & ExtendContextMore>
       | Pipe<ExtendContext & ExtendContextMore>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
+    const methodPathIsArray = Array.isArray(methodPaths);
+    if (
+      methodPathIsArray &&
+      !methodPaths.slice(1).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid path type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    const firstElementIsArray =
+      methodPathIsArray && Array.isArray(methodPaths[0]);
+    if (
+      firstElementIsArray &&
+      !(methodPaths[0] as HttpMethod[]).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    if (
+      methodPathIsArray &&
+      !firstElementIsArray &&
+      !methodPaths.every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError("Invalid method type. Allowed [...MethodPaths]");
+    }
+    if (
+      !methodPathIsArray &&
+      !firstElementIsArray &&
+      typeof methodPaths !== "string"
+    ) {
+      throw new RouterError("Invalid method type. Allowed MethodPath");
+    }
+    const methodPaths_ = methodPathIsArray
+      ? Array.isArray(methodPaths[0])
+        ? (methodPaths[0].flatMap((method) =>
+            methodPaths
+              .slice(1)
+              .map((paths) => `${method} ${paths}` as MethodPath),
+          ) as MethodPath[])
+        : (methodPaths as MethodPath[])
+      : methodPaths;
     return this.register(
       "after",
-      methodPaths,
+      methodPaths_,
       pipe as Handler<ExtendContext> | Pipe<ExtendContext>,
       options,
     );
   }
 
   catch<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths:
+      | MethodPath
+      | Array<MethodPath>
+      | [Array<HttpMethod>, ...Array<Path>],
     pipe:
       | Handler<
           ExtendContext & ExtendContextMore & { error: Error | HttpError }
@@ -2918,9 +3107,51 @@ export class Router<
       | Pipe<ExtendContext & ExtendContextMore & { error: Error | HttpError }>,
     options?: RegisterPiplineOptions,
   ): Router<ExtendContext> {
+    const methodPathIsArray = Array.isArray(methodPaths);
+    if (
+      methodPathIsArray &&
+      !methodPaths.slice(1).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid path type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    const firstElementIsArray =
+      methodPathIsArray && Array.isArray(methodPaths[0]);
+    if (
+      firstElementIsArray &&
+      !(methodPaths[0] as HttpMethod[]).every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError(
+        "Invalid method type. Allowed [[Methods...], ...Paths]",
+      );
+    }
+    if (
+      methodPathIsArray &&
+      !firstElementIsArray &&
+      !methodPaths.every((mp) => typeof mp === "string")
+    ) {
+      throw new RouterError("Invalid method type. Allowed [...MethodPaths]");
+    }
+    if (
+      !methodPathIsArray &&
+      !firstElementIsArray &&
+      typeof methodPaths !== "string"
+    ) {
+      throw new RouterError("Invalid method type. Allowed MethodPath");
+    }
+    const methodPaths_ = methodPathIsArray
+      ? Array.isArray(methodPaths[0])
+        ? (methodPaths[0].flatMap((method) =>
+            methodPaths
+              .slice(1)
+              .map((paths) => `${method} ${paths}` as MethodPath),
+          ) as MethodPath[])
+        : (methodPaths as MethodPath[])
+      : methodPaths;
     return this.register(
       "catcher",
-      methodPaths,
+      methodPaths_,
       pipe as
         | Handler<ExtendContext & { error: Error | HttpError }>
         | Pipe<ExtendContext & { error: Error | HttpError }>,

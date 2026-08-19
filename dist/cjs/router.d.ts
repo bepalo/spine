@@ -19,7 +19,6 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
     #private;
     get maxPath(): number;
     get enable(): {
-        handler?: boolean | undefined;
         filter?: boolean | undefined;
         fallback?: boolean | undefined;
         after?: boolean | undefined;
@@ -189,11 +188,11 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
     catchOptions<ExtendContextMore extends Record<string, unknown> = EmptyRecord, P extends Path = Path>(paths: Path | Array<Path>, pipe: Handler<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore> | Pipe<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
     catchTrace<ExtendContextMore extends Record<string, unknown> = EmptyRecord, P extends Path = Path>(paths: Path | Array<Path>, pipe: Handler<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore> | Pipe<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
     catchConnect<ExtendContextMore extends Record<string, unknown> = EmptyRecord, P extends Path = Path>(paths: Path | Array<Path>, pipe: Handler<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore> | Pipe<CTParams<ExtractParams<P>> & CTError & ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
-    filter<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath>, pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
-    handle<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath>, pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: HandlerRegisterPiplineOptions): Router<ExtendContext>;
-    fallback<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath>, pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
-    after<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath>, pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
-    catch<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath>, pipe: Handler<ExtendContext & ExtendContextMore & {
+    filter<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath> | [Array<HttpMethod>, ...Array<Path>], pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
+    handle<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath> | [Array<HttpMethod>, ...Array<Path>], pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: HandlerRegisterPiplineOptions): Router<ExtendContext>;
+    fallback<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath> | [Array<HttpMethod>, ...Array<Path>], pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
+    after<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath> | [Array<HttpMethod>, ...Array<Path>], pipe: Handler<ExtendContext & ExtendContextMore> | Pipe<ExtendContext & ExtendContextMore>, options?: RegisterPiplineOptions): Router<ExtendContext>;
+    catch<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(methodPaths: MethodPath | Array<MethodPath> | [Array<HttpMethod>, ...Array<Path>], pipe: Handler<ExtendContext & ExtendContextMore & {
         error: Error | HttpError;
     }> | Pipe<ExtendContext & ExtendContextMore & {
         error: Error | HttpError;

@@ -1,6 +1,112 @@
+// src/helpers.ts
+
 import Router from "./router.ts";
 import { getHttpStatusText } from "./status.ts";
-import type { Context, Handler, HttpMethod } from "./types.ts";
+import type {
+  ContentSecurityPolicyArrayParams,
+  ContentSecurityPolicyFetchDirectiveType,
+  ContentSecurityPolicyParams,
+  ContentSecurityPolicySource,
+  Context,
+  Handler,
+  HttpMethod,
+  StrictTransportSecurityParams,
+} from "./types.ts";
+
+const VALID_CSP_DIRS = new Set([
+  "default-src",
+  "script-src",
+  "style-src",
+  "img-src",
+  "font-src",
+  "connect-src",
+  "media-src",
+  "object-src",
+  "frame-src",
+  "worker-src",
+  "manifest-src",
+  "base-uri",
+  "form-action",
+  "frame-ancestors",
+  "trusted-types",
+]);
+
+/**
+ * Builds and returns a Content-Security-Policy response header value from params.
+ *
+ * @param {ContentSecurityPolicyParams} policy CSP params
+ * @returns {string} The built Content-Security-Policy value
+ */
+export const buildContentSecurityPolicy = (
+  policy:
+    | ContentSecurityPolicyArrayParams
+    | ContentSecurityPolicyParams
+    | (ContentSecurityPolicyParams & {
+        [K in string as K extends
+          | keyof ContentSecurityPolicyFetchDirectiveType
+          | "upgrade-insecure-requests"
+          | "trusted-types"
+          ? never
+          : K]: ContentSecurityPolicySource | ContentSecurityPolicySource[];
+      }),
+): string => {
+  const policyIsArray = Array.isArray(policy);
+  const directives: string[] = [];
+  const entries = policyIsArray ? policy : Object.entries(policy);
+  for (const [keys_, ...source] of entries) {
+    const keys = keys_.trim();
+    if (keys === "upgrade-insecure-requests") {
+      if (source) {
+        directives.push("upgrade-insecure-requests");
+      }
+      continue;
+    }
+    const splitKeys = keys
+      .split(" ")
+      .filter(Boolean)
+      .map((k) => k.toLowerCase());
+    for (const key of splitKeys) {
+      if (!VALID_CSP_DIRS.has(key)) {
+        throw new Error(`Invalid Content-Security-Policy directive '${key}'`);
+      }
+      directives.push(
+        Array.isArray(source)
+          ? source.length > 0
+            ? `${key} ${source.join(" ")}`
+            : key
+          : `${key} ${source}`,
+      );
+    }
+  }
+  return directives.join("; ");
+};
+
+/**
+ * Builds and returns a Strict-Transport-Security(HSTS) response header value from params.
+ *
+ * @param {StrictTransportSecurityParams} strictTransportSecurity HSTS params
+ * @returns {string} The built Strict-Transport-Security value
+ */
+export const buildStrictTransportSecurity = (
+  strictTransportSecurity: StrictTransportSecurityParams,
+): string => {
+  const {
+    maxAge = 31536000,
+    includeSubDomains,
+    preload,
+  } = strictTransportSecurity;
+  if (!Number.isInteger(maxAge) || maxAge < 0) {
+    throw new RangeError("HSTS maxAge must be a positive whole number");
+  }
+  let hstsVal = `max-age=${maxAge}`;
+  if (includeSubDomains) {
+    hstsVal += "; includeSubDomains";
+  }
+  if (preload) {
+    hstsVal += "; preload";
+  }
+  return hstsVal;
+};
 
 /**
  * Creates a Response with the specified status code.
@@ -25,9 +131,9 @@ export const status = (
     headers.set("content-type", "text/plain; charset=utf-8");
   }
   return new Response(content !== undefined ? content : statusText, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -36,7 +142,6 @@ export const status = (
  * Creates a redirect Response.
  * Defaults to 302 Found unless another status is provided.
  * @param {string} location - The URL to redirect to
- * @param {number} [code=302] - The HTTP status code (301, 302, 303, 307, 308)
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with Location header
  */
@@ -46,9 +151,103 @@ export const redirect = (location: string, init?: ResponseInit): Response => {
   const headers = new Headers(init?.headers);
   headers.set("Location", location);
   return new Response(null, {
-    statusText,
     ...init,
     status,
+    statusText,
+    headers,
+  });
+};
+
+/**
+ * Creates a redirect Response.
+ * Forces a status of 302 Found.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status"|"statusText">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export const redirectTemporary = (
+  location: string,
+  init?: Omit<ResponseInit, "status" | "statusText">,
+): Response => {
+  const status = 302;
+  const statusText = getHttpStatusText(status);
+  const headers = new Headers(init?.headers);
+  headers.set("Location", location);
+  return new Response(null, {
+    ...init,
+    status,
+    statusText,
+    headers,
+  });
+};
+
+/**
+ * Creates a redirect Response.
+ * Forces a status of 301 Permanent Redirect.
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export const redirectPermanent = (
+  location: string,
+  init?: Omit<ResponseInit, "status" | "statusText">,
+): Response => {
+  const status = 301;
+  const statusText = getHttpStatusText(status);
+  const headers = new Headers(init?.headers);
+  headers.set("Location", location);
+  return new Response(null, {
+    ...init,
+    status,
+    statusText,
+    headers,
+  });
+};
+
+/**
+ * Creates a redirect Response.
+ * Forces a status of 307 Temporary Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export const redirectTemporaryPreserve = (
+  location: string,
+  init?: Omit<ResponseInit, "status" | "statusText">,
+): Response => {
+  const status = 307;
+  const statusText = getHttpStatusText(status);
+  const headers = new Headers(init?.headers);
+  headers.set("Location", location);
+  return new Response(null, {
+    ...init,
+    status,
+    statusText,
+    headers,
+  });
+};
+
+/**
+ * Creates a redirect Response.
+ * Forces a status of 308 Permanent Redirect with preserved method and body.
+ *
+ * @param {string} location - The URL to redirect to
+ * @param {Omit<ResponseInit,"status">} [init] - Additional response initialization options
+ * @returns {Response} A Response object with Location header
+ */
+export const redirectPermanentPreserve = (
+  location: string,
+  init?: Omit<ResponseInit, "status" | "statusText">,
+): Response => {
+  const status = 308;
+  const statusText = getHttpStatusText(status);
+  const headers = new Headers(init?.headers);
+  headers.set("Location", location);
+  return new Response(null, {
+    ...init,
+    status,
+    statusText,
     headers,
   });
 };
@@ -110,9 +309,9 @@ export const text = (content: string, init?: ResponseInit): Response => {
     headers.set("content-type", "text/plain; charset=utf-8");
   }
   return new Response(content, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -135,9 +334,9 @@ export const html = (content: string, init?: ResponseInit): Response => {
     headers.set("content-type", "text/html; charset=utf-8");
   }
   return new Response(content, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -161,9 +360,9 @@ export const json = (body: any, init?: ResponseInit): Response => {
     headers.set("content-type", "application/json; charset=utf-8");
   }
   return Response.json(body, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -188,9 +387,9 @@ export const blob = (blob: Blob, init?: ResponseInit): Response => {
   }
   headers.set("content-length", blob.size.toFixed());
   return new Response(blob, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -223,9 +422,9 @@ export const octetStream = (
     );
   }
   return new Response(octet, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -247,9 +446,9 @@ export const formData = (
   const status = init?.status ?? 200;
   const statusText = init?.statusText ?? getHttpStatusText(status);
   return new Response(formData, {
-    statusText,
     ...init,
     status,
+    statusText,
   });
 };
 
@@ -270,9 +469,9 @@ export const usp = (usp?: URLSearchParams, init?: ResponseInit): Response => {
     headers.set("content-type", "application/x-www-form-urlencoded");
   }
   return new Response(usp, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };
@@ -325,16 +524,16 @@ export const send = (
       headers.set("content-type", "application/json; charset=utf-8");
     }
     return Response.json(body, {
+      ...init,
       status,
       statusText,
-      ...init,
       headers,
     });
   }
   return new Response(body, {
-    statusText,
     ...init,
     status,
+    statusText,
     headers,
   });
 };

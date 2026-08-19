@@ -1,10 +1,24 @@
+// src/types.ts
+
 import { OpenApiDesc } from "./types.openapi.ts";
 
-// Symbol used to signal breaking from all handler pipeline in queue
+// Symbol used to signal breaking from the current handler pipeline in queue
 export const Break_Pipeline = Symbol("Break_Pipeline");
 // Symbol used to signal breaking from current handler pipe in queue but not others
 export const Break_Pipe = Symbol("Break_Pipe");
 export * from "./types.openapi.ts";
+
+export type HashType =
+  | "md5" // 128 bits	Legacy, not secure
+  | "sha1" // 160 bits	Legacy, not secure
+  | "sha256" // 256 bits	Secure, recommended
+  | "sha384" // 384 bits	Secure
+  | "sha512" // 512 bits	Secure, slower
+  | "sha3-256" // 256 bits	SHA-3 standard
+  | "sha3-384" // 384 bits	SHA-3 standard
+  | "sha3-512" // 512 bits	SHA-3 standard
+  | "blake2b512" // 512 bits	Modern, fast
+  | "blake2s256"; // 256 bits	Modern, fast
 
 export type HttpMethod =
   | "Head"
@@ -45,6 +59,275 @@ export type HandlerType =
   | "fallback"
   | "after"
   | "catcher";
+
+export type CrossOriginOpenerPolicy =
+  | "unsafe-none"
+  | "same-origin-allow-popups"
+  | "same-origin"
+  | "noopener-allow-popups";
+
+export type CrossOriginEmbedderPolicyToken =
+  | "unsafe-none"
+  | "require-corp"
+  | "credentialless";
+
+export type CrossOriginEmbedderPolicy =
+  | CrossOriginEmbedderPolicyToken
+  | `${CrossOriginEmbedderPolicyToken}; report-to="`
+  | `${CrossOriginEmbedderPolicyToken}; report-to="${string}"`;
+
+export type CrossOriginResourcePolicy =
+  | "same-site"
+  | "same-origin"
+  | "cross-origin";
+
+export type ReferrerPolicy =
+  | "no-referrer"
+  | "no-referrer-when-downgrade"
+  | "origin"
+  | "origin-when-cross-origin"
+  | "same-origin"
+  | "strict-origin"
+  | "strict-origin-when-cross-origin"
+  | "unsafe-url";
+
+export type XFrameOptions = "DENY" | "SAMEORIGIN";
+
+type ContentSecurityPolicyCommonSource =
+  | "'self'"
+  | "'none'"
+  | "https:"
+  | "http:"
+  | "data:"
+  | "blob:"
+  | "*"
+  | `${string}://${string}`
+  | `${string}://*.${string}`;
+
+type ContentSecurityPolicyScriptStyleSource =
+  | ContentSecurityPolicyCommonSource
+  | "'unsafe-inline'"
+  | "'unsafe-eval'"
+  | "'strict-dynamic'"
+  | "'report-sample'"
+  | "'wasm-unsafe-eval'"
+  | "'inline-speculation-rules'"
+  | `'nonce-${string}'`
+  | `'sha256-${string}'`
+  | `'sha384-${string}'`
+  | `'sha512-${string}'`;
+
+type ContentSecurityPolicyScriptSource = ContentSecurityPolicyScriptStyleSource;
+
+type ContentSecurityPolicyStyleSource =
+  | ContentSecurityPolicyCommonSource
+  | "'unsafe-inline'"
+  | "'report-sample'"
+  | `'nonce-${string}'`
+  | `'sha256-${string}'`
+  | `'sha384-${string}'`
+  | `'sha512-${string}'`;
+
+type ContentSecurityPolicyConnectSource =
+  | "'self'"
+  | "'none'"
+  | "https:"
+  | "http:"
+  | "ws:"
+  | "wss:"
+  | `${string}://${string}`
+  | `${string}://*.${string}`;
+
+type ContentSecurityPolicyFontSource = ContentSecurityPolicyCommonSource;
+
+type ContentSecurityPolicyImgSource =
+  | ContentSecurityPolicyCommonSource
+  | "data:"
+  | "blob:"
+  | "'unsafe-inline'";
+
+type ContentSecurityPolicyMediaSource = ContentSecurityPolicyCommonSource;
+
+type ContentSecurityPolicyFrameSource =
+  | ContentSecurityPolicyCommonSource
+  | "data:"
+  | "blob:";
+
+type ContentSecurityPolicyWorkerSource =
+  | ContentSecurityPolicyCommonSource
+  | "blob:"
+  | "data:";
+
+type ContentSecurityPolicyManifestSource = ContentSecurityPolicyCommonSource;
+
+type ContentSecurityPolicyObjectSource =
+  | "'none'"
+  | "'self'"
+  | "https:"
+  | "http:"
+  | `${string}://${string}`;
+
+type ContentSecurityPolicyBaseUriSource =
+  | "'none'"
+  | "'self'"
+  | `${string}://${string}`;
+
+type ContentSecurityPolicyFormActionSource =
+  | "'none'"
+  | "'self'"
+  | "https:"
+  | "http:"
+  | `${string}://${string}`;
+
+type ContentSecurityPolicyFrameAncestorsSource =
+  | "'none'"
+  | "'self'"
+  | `${string}://${string}`;
+
+export type ContentSecurityPolicySource =
+  | "'self'"
+  | "'none'"
+  | "'unsafe-inline'"
+  | "'unsafe-eval'"
+  | "'strict-dynamic'"
+  | "'report-sample'"
+  | "'wasm-unsafe-eval'"
+  | "'inline-speculation-rules'"
+  | "data:"
+  | "blob:"
+  | "https:"
+  | "http:"
+  | "ws:"
+  | "wss:"
+  | "*"
+  | `'${"nonce" | "sha256" | "sha384" | "sha512"}'`
+  | `'${"nonce-" | "sha256-" | "sha384-" | "sha512-"}${string}'`
+  | `${"data:/" | "blob:/" | "https:/" | "http:/"}`
+  | `${"data://" | "blob://" | "https://" | "http://"}${string}`;
+
+export type ContentSecurityPolicyFetchDirectiveType =
+  | "default-src"
+  | "script-src"
+  | "style-src"
+  | "img-src"
+  | "font-src"
+  | "connect-src"
+  | "media-src"
+  | "object-src"
+  | "frame-src"
+  | "worker-src"
+  | "manifest-src"
+  | "base-uri"
+  | "form-action"
+  | "frame-ancestors";
+
+export type ContentSecurityPolicyFetchDirectives =
+  | `${ContentSecurityPolicyFetchDirectiveType} `
+  | `${ContentSecurityPolicyFetchDirectiveType} ${ContentSecurityPolicySource}`
+  | `${ContentSecurityPolicyFetchDirectiveType} `
+  | `${ContentSecurityPolicyFetchDirectiveType}  ${string & {}}`;
+
+export type ContentSecurityPolicyArrayParams = (
+  | ["default-src", ...ContentSecurityPolicyCommonSource[]]
+  | ["script-src", ...ContentSecurityPolicyScriptSource[]]
+  | ["style-src", ...ContentSecurityPolicyStyleSource[]]
+  | ["img-src", ...ContentSecurityPolicyImgSource[]]
+  | ["font-src", ...ContentSecurityPolicyFontSource[]]
+  | ["connect-src", ...ContentSecurityPolicyConnectSource[]]
+  | ["media-src", ...ContentSecurityPolicyMediaSource[]]
+  | ["object-src", ...ContentSecurityPolicyObjectSource[]]
+  | ["frame-src", ...ContentSecurityPolicyFrameSource[]]
+  | ["worker-src", ...ContentSecurityPolicyWorkerSource[]]
+  | ["manifest-src", ...ContentSecurityPolicyManifestSource[]]
+  | ["base-uri", ...ContentSecurityPolicyBaseUriSource[]]
+  | ["form-action", ...ContentSecurityPolicyFormActionSource[]]
+  | ["frame-ancestors", ...ContentSecurityPolicyFrameAncestorsSource[]]
+  | ["upgrade-insecure-requests"]
+  | [
+      "trusted-types",
+      "'none'" | ` ${string}` | ` ${string} ${string} 'allow-duplicates'`,
+    ]
+  | [string, ...ContentSecurityPolicySource[]]
+)[];
+
+export type ContentSecurityPolicyParams = {
+  "default-src"?:
+    | ContentSecurityPolicyCommonSource
+    | ContentSecurityPolicyCommonSource[];
+
+  "script-src"?:
+    | ContentSecurityPolicyScriptSource
+    | ContentSecurityPolicyScriptSource[];
+
+  "style-src"?:
+    | ContentSecurityPolicyStyleSource
+    | ContentSecurityPolicyStyleSource[];
+
+  "img-src"?: ContentSecurityPolicyImgSource | ContentSecurityPolicyImgSource[];
+
+  "font-src"?:
+    | ContentSecurityPolicyFontSource
+    | ContentSecurityPolicyFontSource[];
+
+  "connect-src"?:
+    | ContentSecurityPolicyConnectSource
+    | ContentSecurityPolicyConnectSource[];
+
+  "media-src"?:
+    | ContentSecurityPolicyMediaSource
+    | ContentSecurityPolicyMediaSource[];
+
+  "object-src"?:
+    | ContentSecurityPolicyObjectSource
+    | ContentSecurityPolicyObjectSource[];
+
+  "frame-src"?:
+    | ContentSecurityPolicyFrameSource
+    | ContentSecurityPolicyFrameSource[];
+
+  "worker-src"?:
+    | ContentSecurityPolicyWorkerSource
+    | ContentSecurityPolicyWorkerSource[];
+
+  "manifest-src"?:
+    | ContentSecurityPolicyManifestSource
+    | ContentSecurityPolicyManifestSource[];
+
+  "base-uri"?:
+    | ContentSecurityPolicyBaseUriSource
+    | ContentSecurityPolicyBaseUriSource[];
+
+  "form-action"?:
+    | ContentSecurityPolicyFormActionSource
+    | ContentSecurityPolicyFormActionSource[];
+
+  "frame-ancestors"?:
+    | ContentSecurityPolicyFrameAncestorsSource
+    | ContentSecurityPolicyFrameAncestorsSource[];
+
+  "upgrade-insecure-requests"?: boolean;
+  "trusted-types"?:
+    | "'none'"
+    | ` ${string}`
+    | ` ${string} ${string} 'allow-duplicates'`;
+};
+
+export type StrictTransportSecurity =
+  `max-age=${31536000}${"; includeSubDomains" | "; includeSubDomains; preload" | ""}`;
+
+export interface StrictTransportSecurityParams {
+  /**
+   * @default 31536000 1 year
+   */
+  maxAge?: number;
+  includeSubDomains?: boolean;
+  /**
+   * @property {boolean} [preload] Include the preload directive.
+   * Only enable this when the domain satisfies the requirements for HSTS
+   * preload submission.
+   */
+  preload?: boolean;
+}
 
 export type MimeType =
   | "audio/aac"
@@ -272,7 +555,11 @@ export type BaseContext = {
   params: Record<string, string>;
   pathname: string;
   $pathname: string[];
-  timestamps: { request: number; response: number };
+  timestamps: {
+    request: number;
+    start: number;
+    end: number;
+  };
 };
 
 export type Context<
@@ -290,7 +577,7 @@ export type RouterConfig<
   ExtendContext extends Record<string, unknown> = Record<string, never>,
 > = {
   maxPath: number;
-  enable?: Partial<Record<Exclude<HandlerType, "handlers">, boolean>>;
+  enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
   defaultFilter?: Handler<Context<ExtendContext>>;
   defaultFallback?: Handler<Context<ExtendContext>>;
   defaultCatcher?: Handler<Context<CTError & ExtendContext>>;
@@ -384,4 +671,16 @@ export class HttpError extends Error {
   ) {
     super(message, options);
   }
+}
+
+export enum MissReason {
+  Miss = 0,
+  Expired = 1,
+}
+
+export enum EvictionReason {
+  Manual = 0,
+  LRU = 1,
+  Expired = 2,
+  Replaced = 3,
 }
