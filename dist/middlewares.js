@@ -10,8 +10,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cors = exports.limitRate = exports.securityHeaders = exports.forceHttps = void 0;
+exports.validate = exports.cors = exports.limitRate = exports.securityHeaders = exports.forceHttps = void 0;
 const helpers_ts_1 = require("./helpers.js");
+const parsers_ts_1 = require("./parsers.js");
+const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
 /**
  * Force http into https
@@ -113,16 +115,17 @@ exports.securityHeaders = securityHeaders;
  * Creates a rate limiting middleware using token bucket algorithm.
  * Supports both fixed interval refill and continuous rate-based refill.
  *
- * @template {Record<string, unknown>} ExtendContext - Extend Router Context
- * @param {Object} config - Rate limiting configuration
- * @param {Function} [config.key] - Function to generate cache key from request and context
- * @param {number} [config.maxTokens] - Maximum number of tokens in the bucket
- * @param {number} [config.refillInterval] - Fixed interval in seconds for token refill
- * @param {number} [config.refillRate] - Continuous refill rate in tokens per second
- * @param {number} [config.cleanUpInterval] - Interval in seconds for cleanup timer
- * @param {number} [config.cleanUpIdleDelay] - Time in seconds to delay cleanup of filled token buckets
- * @param {boolean} [config.setXRateLimitHeaders=false] - Whether to set X-RateLimit headers in response
- * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @template {Record<string, unknown>} ExtendContext Extend Router Context
+ * @property {Object} config Rate limiting configuration
+ * @property {Function} [config.key] Function to generate cache key from request and context
+ * @property {number} [config.maxTokens] Maximum number of tokens in the bucket
+ * @property {number} [config.refillInterval] Fixed interval in seconds for token refill
+ * @property {number} [config.refillRate] Continuous refill rate in tokens per second
+ * @property {number} [config.cleanUpInterval] Interval in seconds for cleanup timer
+ * @property {number} [config.cleanUpIdleDelay] Time in seconds to delay cleanup of filled token buckets
+ * @property {boolean} [config.setXRateLimitHeaders=false] Whether to set X-RateLimit headers in response
+ * @property {boolean} [config.breakPipeline=false] If true, returns Break_Pipeline
+ * @property {"status"|"text"|"json"} [config.responseType="text"] Response type
  * @returns {Handler<ExtendContext>} Middleware function that enforces rate limits
  *
  * @example
@@ -147,7 +150,12 @@ exports.securityHeaders = securityHeaders;
  */
 const limitRate = (config) => {
     var _a;
-    const { key, maxTokens, refillInterval, refillRate, cleanUpInterval, setXRateLimitHeaders = false, breakPipeline = false, } = config;
+    const { key, maxTokens, refillInterval, refillRate, cleanUpInterval, setXRateLimitHeaders = false, breakPipeline = false, responseType = "text", } = config;
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
     const cleanUpIdleDelay = -((_a = config.cleanUpIdleDelay) !== null && _a !== void 0 ? _a : 0);
     const rateLimits = new Map();
     const now = () => performance.now() / 1000;
@@ -215,7 +223,7 @@ const limitRate = (config) => {
                 }
                 if (entry.tokens <= 0) {
                     ctx.headers.set("Retry-After", Math.ceil(refillInterval - timeElapsed).toFixed());
-                    return (0, helpers_ts_1.status)(429);
+                    return respond(status_ts_1.Status._429_TooManyRequests, "Rate Limited", "message", "rate-limit");
                 }
                 else {
                     entry.tokens--;
@@ -241,7 +249,7 @@ const limitRate = (config) => {
                 entry.lastRefill = now();
                 if (entry.tokens <= 0) {
                     ctx.headers.set("Retry-After", Math.ceil(1 / refillRate).toFixed());
-                    return (0, helpers_ts_1.status)(429);
+                    return respond(status_ts_1.Status._429_TooManyRequests, "Rate Limited", "message", "rate-limit");
                 }
                 else {
                     entry.tokens--;
@@ -263,16 +271,17 @@ exports.limitRate = limitRate;
  * Creates a CORS (Cross-Origin Resource Sharing) middleware.
  * Supports preflight requests and configurable CORS headers.
  *
- * @template {Record<string, unknown>} ExtendContext - Extend Router Context
- * @param {Object} [config] - CORS configuration
- * @param {string|string[]|"*"} [config.origins="*"] - Allowed origins (wildcard "*", single origin, or array)
- * @param {(HttpMethod|HttpMethodUpper|HttpMethodLower)[]} [config.methods=["Get","Head","Put","Patch","Post","Delete"]] - Allowed HTTP methods
- * @param {string[]} [config.allowedHeaders=["Content-Type","Authorization"]] - Allowed request headers
- * @param {string[]} [config.exposedHeaders] - Headers exposed to the browser
- * @param {boolean} [config.credentials=false] - Allow credentials (cookies, authorization headers)
- * @param {number} [config.maxAge=86400] - Maximum age for preflight cache in seconds
- * @param {boolean} [config.varyOrigin=true] - Add Vary: Origin header for caching
- * @param {boolean} [config.breakPipeline=false] - If true, returns Break_Pipeline
+ * @template {Record<string, unknown>} ExtendContext Extend Router Context
+ * @param {Object} [config] CORS configuration
+ * @param {string|string[]|"*"} [config.origins="*"] Allowed origins (wildcard "*", single origin, or array)
+ * @param {(HttpMethod|HttpMethodUpper|HttpMethodLower)[]} [config.methods=["Get","Head","Put","Patch","Post","Delete"]] Allowed HTTP methods
+ * @param {string[]} [config.allowedHeaders=["Content-Type","Authorization"]] Allowed request headers
+ * @param {string[]} [config.exposedHeaders] Headers exposed to the browser
+ * @param {boolean} [config.credentials=false] Allow credentials (cookies, authorization headers)
+ * @param {number} [config.maxAge=86400] Maximum age for preflight cache in seconds
+ * @param {boolean} [config.varyOrigin=true] Add Vary: Origin header for caching
+ * @param {boolean} [config.breakPipeline=false] If true, returns Break_Pipeline
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  * @returns {Handler<ExtendContext>} Middleware function that handles CORS headers
  *
  * @throws {HttpError} If credentials is enabled with wildcard origin ("*")
@@ -292,7 +301,12 @@ exports.limitRate = limitRate;
  *
  */
 const cors = (config) => {
-    const { origins = "*", methods: methods_ = ["Get", "Head", "Put", "Patch", "Post", "Delete"], allowedHeaders = ["Content-Type", "Authorization"], exposedHeaders, credentials = false, maxAge = 86400, varyOrigin = true, breakPipeline = false, } = config !== null && config !== void 0 ? config : {};
+    const { origins = "*", methods: methods_ = ["Get", "Head", "Put", "Patch", "Post", "Delete"], allowedHeaders = ["Content-Type", "Authorization"], exposedHeaders, credentials = false, maxAge = 86400, varyOrigin = true, breakPipeline = false, responseType = "text", } = config !== null && config !== void 0 ? config : {};
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
     const globOrigin = origins === "*" ? "*" : null;
     const originsSet = new Set(origins === "*" ? [] : typeof origins === "string" ? [origins] : origins);
     const methods = methods_ === null || methods_ === void 0 ? void 0 : methods_.map((m) => m.toUpperCase());
@@ -324,7 +338,7 @@ const cors = (config) => {
         headers.set("Access-Control-Allow-Origin", corsOrigin);
         if (credentials) {
             if (corsOrigin === "*")
-                throw new types_ts_1.HttpError(403, "CORS: Cannot use credentials with wildcard origin");
+                throw new types_ts_1.HttpError(status_ts_1.Status._403_Forbidden, "CORS: Cannot use credentials with wildcard origin");
             headers.set("Access-Control-Allow-Credentials", "true");
         }
         if (exposedHeaders && exposedHeaders.length > 0) {
@@ -338,7 +352,7 @@ const cors = (config) => {
                 const requestMethod = request.headers.get("Access-Control-Request-Method");
                 if (requestMethod &&
                     !methods.includes(requestMethod)) {
-                    return (0, helpers_ts_1.status)(405, `Method ${requestMethod} not allowed`);
+                    return respond(status_ts_1.Status._405_MethodNotAllowed, `Method ${requestMethod} not allowed`, "error", "CORS");
                 }
                 headers.set("Access-Control-Allow-Methods", methods.join(", "));
             }
@@ -348,7 +362,7 @@ const cors = (config) => {
             if (maxAge != null) {
                 headers.set("Access-Control-Max-Age", maxAge.toString());
             }
-            return (0, helpers_ts_1.status)(204, null);
+            return (0, helpers_ts_1.status)(status_ts_1.Status._204_NoContent, null);
         }
         if (breakPipeline) {
             return types_ts_1.Break_Pipeline;
@@ -356,4 +370,590 @@ const cors = (config) => {
     };
 };
 exports.cors = cors;
+/**
+ * Creates a request params, query and body validator middleware function
+ *
+ * @param {Validator<Record<string, string>,ExtendContext>} [config.params] Parameters validator
+ * @param {CustomErrorType} [config.paramsErrors] Parameters validator's expected error instance types other than Error derivatives
+ * @param {boolean|ValidateQueryParser<ExtendContext>} [config.queryParse] Parse query before validation. 'true' for default parser or provide a custom parser
+ * @param {Validator<Record<string, string>,ExtendContext>} [config.query] Query validator
+ * @param {CustomErrorType} [config.queryErrors] Query validator's expected error instance types other than Error derivatives
+ * @param {boolean|ValidateCookieParser<ExtendContext>} [config.cookieParse] Parse cookie before validation. 'true' for default parser or provide a custom parser
+ * @param {Validator<Record<string, string>,ExtendContext>} [config.cookie] Cookie validator
+ * @param {CustomErrorType} [config.cookieErrors] Cookie validator's expected error instance types other than Error derivatives
+ * @param {ParseBodyOptions} [config.bodyParseOptions] Body parser options
+ * @param {boolean|ValidateBodyParser<ExtendContext>} [config.bodyParse] Parse body before validation. 'true' for default parser or provide a custom parser
+ * @param {ValidatorFnIt<ParsedBody,ExtendContext>|Array<ValidatorIt<ParsedBody,ExtendContext>>} [config.body] Body validator
+ * @param {CustomErrorType} [config.bodyErrors] Body validator's expected error instance types other than Error derivatives
+ * @param {Array<CustomErrorType>} [config.errors] All validator's expected error instance types other than Error derivatives. Can be overridden.
+ * @param {boolean} [config.paramsMutation] Modify object with validated return value of the params validator function
+ * @param {boolean} [config.queryMutation] Modify object with validated return value of the query validator function
+ * @param {boolean} [config.cookieMutation] Modify object with validated return value of the cookie validator function
+ * @param {boolean} [config.bodyMutation] Modify object with validated return value of the body validator function
+ * @param {boolean|{<Target extends Record<string, unknown>>(target: Target,key: string,):void|any;}} [config.strangeParams] Handle strange or unexpected properties.
+ *     - If false excludes strange properties from the mutated object.
+ * @param {boolean|{<Target extends Record<string, unknown>>(target: Target,key: string,):void|any;}} [config.strangeQuery] Handle strange or unexpected properties.
+ *     - If false excludes strange properties from the mutated object.
+ * @param {boolean|{<Target extends Record<string, unknown>>(target: Target,key: string,):void|any;}} [config.strangeCookie] Handle strange or unexpected properties.
+ *     - If false excludes strange properties from the mutated object.
+ * @param {boolean|{<Target extends Record<string, unknown>>(target: Target,key: string,):void|any;}} [config.strangeBody] Handle strange or unexpected properties.
+ *     - If false excludes strange properties from the mutated object.
+ * @param {boolean|{<Target extends Record<string, unknown>>(target: Target,key: string,):void|any;}} [config.strange] A default common option to handle strange or unexpected properties.
+ *     - If false excludes strange properties from the mutated object.
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type.
+ *     - Note: 'status' type will omit content
+ * @param {boolean} [config.breakPipeline=false] If true, returns Break_Pipeline
+ * @returns {HandlerReturn}
+ */
+const validate = ({ responseType = "text", errors, paramsMutation = false, params: paramsValidator, paramsErrors, strangeParams, queryParse, queryMutation = false, query: queryValidator, queryErrors, strangeQuery, cookieParse, cookieMutation = false, cookie: cookieValidator, cookieErrors, strangeCookie, bodyParse, bodyParseOptions, bodyMutation = false, body: bodyValidator, bodyErrors, strangeBody, strange, breakPipeline = false, }) => {
+    paramsErrors = paramsErrors !== null && paramsErrors !== void 0 ? paramsErrors : errors;
+    queryErrors = queryErrors !== null && queryErrors !== void 0 ? queryErrors : errors;
+    cookieErrors = cookieErrors !== null && cookieErrors !== void 0 ? cookieErrors : errors;
+    bodyErrors = bodyErrors !== null && bodyErrors !== void 0 ? bodyErrors : errors;
+    const errorMatches = (target, errors) => {
+        for (const error of errors) {
+            if (target instanceof error) {
+                return true;
+            }
+        }
+        return false;
+    };
+    // Validate error instance types
+    if (errors) {
+        for (let i = 0; i < errors.length; i++) {
+            const error = errors[i];
+            if (!(typeof error === "function")) {
+                throw new TypeError(`Validator errors type at index ${i} is invalid`);
+            }
+        }
+    }
+    if (paramsErrors) {
+        for (let i = 0; i < paramsErrors.length; i++) {
+            const error = paramsErrors[i];
+            if (!(typeof error === "function")) {
+                throw new TypeError(`Validator paramsErrors type at index ${i} is invalid`);
+            }
+        }
+    }
+    if (queryErrors) {
+        for (let i = 0; i < queryErrors.length; i++) {
+            const error = queryErrors[i];
+            if (!(typeof error === "function")) {
+                throw new TypeError(`Validator queryErrors type at index ${i} is invalid`);
+            }
+        }
+    }
+    if (cookieErrors) {
+        for (let i = 0; i < cookieErrors.length; i++) {
+            const error = cookieErrors[i];
+            if (!(typeof error === "function")) {
+                throw new TypeError(`Validator cookieErrors type at index ${i} is invalid`);
+            }
+        }
+    }
+    if (bodyErrors) {
+        for (let i = 0; i < bodyErrors.length; i++) {
+            const error = bodyErrors[i];
+            if (!(typeof error === "function")) {
+                throw new TypeError(`Validator bodyErrors type at index ${i} is invalid`);
+            }
+        }
+    }
+    //
+    strangeParams = strangeParams !== null && strangeParams !== void 0 ? strangeParams : strange;
+    strangeQuery = strangeQuery !== null && strangeQuery !== void 0 ? strangeQuery : strange;
+    strangeCookie = strangeCookie !== null && strangeCookie !== void 0 ? strangeCookie : strange;
+    strangeBody = strangeBody !== null && strangeBody !== void 0 ? strangeBody : strange;
+    // Validate strangeParams
+    if (strangeParams != undefined &&
+        typeof strangeParams !== "boolean" &&
+        typeof strangeParams !== "function") {
+        throw new TypeError("Validator strangeParams type must be either boolean, undefined or a function");
+    }
+    // Validate strangeQuery
+    if (strangeQuery != undefined &&
+        typeof strangeQuery !== "boolean" &&
+        typeof strangeQuery !== "function") {
+        throw new TypeError("Validator strangeQuery type must be either boolean, undefined or a function");
+    }
+    // Validate strangeCookie
+    if (strangeCookie != undefined &&
+        typeof strangeCookie !== "boolean" &&
+        typeof strangeCookie !== "function") {
+        throw new TypeError("Validator strangeCookie type must be either boolean, undefined or a function");
+    }
+    // Validate strangeBody
+    if (strangeBody != undefined &&
+        typeof strangeBody !== "boolean" &&
+        typeof strangeBody !== "function") {
+        throw new TypeError("Validator strangeBody type must be either boolean, undefined or a function");
+    }
+    // Validate query parser
+    if (queryParse != undefined &&
+        typeof queryParse !== "boolean" &&
+        typeof queryParse !== "function") {
+        throw new TypeError("Validator queryParse type must be either boolean, undefined or a function");
+    }
+    // Validate cookie parser
+    if (cookieParse != undefined &&
+        typeof cookieParse !== "boolean" &&
+        typeof cookieParse !== "function") {
+        throw new TypeError("Validator cookieParse type must be either boolean, undefined or a function");
+    }
+    // Validate body parser
+    if (bodyParse != undefined &&
+        typeof bodyParse !== "boolean" &&
+        typeof bodyParse !== "function") {
+        throw new TypeError("Validator bodyParse type must be either boolean, undefined or a function");
+    }
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
+    //
+    // Prepare parsers
+    //
+    const queryParser = queryParse === true
+        ? ((ctx) => {
+            if (ctx.query == null) {
+                ctx.query = {};
+            }
+            const searchParams = ctx.url.searchParams;
+            for (const key of searchParams.keys()) {
+                const values = searchParams.getAll(key);
+                ctx.query[key] =
+                    values.length > 1 ? values[values.length - 1] : values[0];
+            }
+        })
+        : queryParse || undefined;
+    const cookieParser = cookieParse === true
+        ? ((ctx) => {
+            if (ctx.cookie == null) {
+                ctx.cookie = {};
+            }
+            (0, parsers_ts_1.parseCookieFromRequest)(ctx.request, ctx.cookie);
+        })
+        : cookieParse || undefined;
+    const bodyParser = bodyParse === true
+        ? (0, parsers_ts_1.parseBody)(bodyParseOptions)
+        : bodyParse || undefined;
+    ///////////////////////////////////////////////////////////////////////////
+    // Validate params validators
+    const paramsValidatorIsFunction = typeof paramsValidator === "function";
+    const paramsValidatorIsObject = typeof paramsValidator === "object" && !Array.isArray(paramsValidator);
+    if (paramsValidator) {
+        if (!paramsValidatorIsFunction && !paramsValidatorIsObject) {
+            throw new TypeError("Params validator type must be function or object");
+        }
+        else if (paramsValidatorIsObject) {
+            for (const key of Object.keys(paramsValidator)) {
+                if (typeof paramsValidator[key] !== "function") {
+                    throw new TypeError(`Params validator property type must be function at '${key}'`);
+                }
+            }
+        }
+    }
+    // Validate query validators
+    const queryValidatorIsFunction = typeof queryValidator === "function";
+    const queryValidatorIsObject = typeof queryValidator === "object" && !Array.isArray(queryValidator);
+    if (queryValidator) {
+        if (!queryValidatorIsFunction && !queryValidatorIsObject) {
+            throw new TypeError("Query validator type must be function or object");
+        }
+        else if (queryValidatorIsObject) {
+            for (const key of Object.keys(queryValidator)) {
+                if (typeof queryValidator[key] !== "function") {
+                    throw new TypeError(`Query validator property type must be function at '${key}'`);
+                }
+            }
+        }
+    }
+    // Validate cookie validators
+    const cookieValidatorIsFunction = typeof cookieValidator === "function";
+    const cookieValidatorIsObject = typeof cookieValidator === "object" && !Array.isArray(cookieValidator);
+    if (cookieValidator) {
+        if (!cookieValidatorIsFunction && !cookieValidatorIsObject) {
+            throw new TypeError("Cookie validator type must be function or object");
+        }
+        else if (cookieValidatorIsObject) {
+            for (const key of Object.keys(cookieValidator)) {
+                if (typeof cookieValidator[key] !== "function") {
+                    throw new TypeError(`Cookie validator property type must be function at '${key}'`);
+                }
+            }
+        }
+    }
+    // Validate body validators
+    const bodyValidatorIsFunction = typeof bodyValidator === "function";
+    const bodyValidatorIsArray = Array.isArray(bodyValidator);
+    const bodyValidatorIsObject = typeof bodyValidator === "object" && !bodyValidatorIsArray;
+    const bodyValidators = bodyValidator
+        ? Array.isArray(bodyValidator)
+            ? bodyValidator
+            : [bodyValidator]
+        : undefined;
+    if (bodyValidators) {
+        if (!bodyValidatorIsFunction &&
+            !bodyValidatorIsObject &&
+            !bodyValidatorIsArray) {
+            throw new TypeError("Body validator type must be function or object or array of objects");
+        }
+        else if (bodyValidatorIsArray && bodyValidators.length === 0) {
+            throw new TypeError("Body validator must not be an empty array");
+        }
+        for (let i = 0; i < bodyValidators.length; i++) {
+            const validator = bodyValidators[i];
+            const bodyValidatorIsFunction = typeof validator === "function";
+            const validatorIsObject = typeof validator === "object" && !Array.isArray(validator);
+            if (!bodyValidatorIsFunction && !validatorIsObject) {
+                throw new TypeError(bodyValidators.length > 0
+                    ? `Body validator must be a valid function or object at ${i}`
+                    : "Body validator must be a valid function or object");
+            }
+            else if (validatorIsObject) {
+                for (const key of Object.keys(validator)) {
+                    if (typeof validator[key] !== "function") {
+                        throw new TypeError(bodyValidatorIsArray
+                            ? `Body validator property type must be function at index ${i} '${key}'`
+                            : `Body validator property type must be function at '${key}'`);
+                    }
+                }
+            }
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////
+    return (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+        const params = ctx.params;
+        // Validate Params
+        if (paramsValidatorIsFunction) {
+            const result = paramsValidator.bind
+                ? paramsValidator.bind(ctx)(params)
+                : paramsValidator(params);
+            if (result instanceof Error) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "params-validator");
+            }
+            else if (paramsErrors && errorMatches(result, paramsErrors)) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "params-validator");
+            }
+            else if (result instanceof Response ||
+                result === types_ts_1.Break_Pipe ||
+                result === types_ts_1.Break_Pipeline) {
+                return result;
+            }
+            else if (paramsMutation) {
+                ctx.params = result;
+            }
+        }
+        else if (paramsValidator) {
+            const keys = Object.keys(paramsValidator);
+            for (const key of Object.keys(params)) {
+                if (!(key in paramsValidator)) {
+                    keys.push(key);
+                }
+            }
+            for (const key of keys) {
+                const validator = paramsValidator[key];
+                if (validator == null && !strangeParams) {
+                    continue;
+                }
+                const result = validator == null
+                    ? typeof strangeParams === "function"
+                        ? strangeParams(key, params)
+                        : params[key]
+                    : validator.bind
+                        ? validator.bind(ctx)(params[key])
+                        : validator(params[key]);
+                if (result instanceof Error) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "params-validator");
+                }
+                else if (paramsErrors && errorMatches(result, paramsErrors)) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "params-validator");
+                }
+                else if (result instanceof Response ||
+                    result === types_ts_1.Break_Pipe ||
+                    result === types_ts_1.Break_Pipeline) {
+                    return result;
+                }
+                else if (paramsMutation) {
+                    params[key] = result;
+                }
+            }
+        }
+        // Parse query
+        if (queryParser) {
+            yield queryParser(ctx);
+        }
+        const query = ctx.query;
+        // Validate Query
+        if (queryValidatorIsFunction) {
+            const result = queryValidator.bind
+                ? queryValidator.bind(ctx)(query)
+                : queryValidator(query);
+            if (result instanceof Error) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "query-validator");
+            }
+            else if (queryErrors && errorMatches(result, queryErrors)) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "query-validator");
+            }
+            else if (result instanceof Response ||
+                result === types_ts_1.Break_Pipe ||
+                result === types_ts_1.Break_Pipeline) {
+                return result;
+            }
+            else if (queryMutation) {
+                ctx.query = result;
+            }
+        }
+        else if (queryValidator) {
+            const keys = Object.keys(queryValidator);
+            for (const key of Object.keys(query)) {
+                if (!(key in queryValidator)) {
+                    keys.push(key);
+                }
+            }
+            for (const key of keys) {
+                const validator = queryValidator[key];
+                if (validator == null && !strangeQuery) {
+                    continue;
+                }
+                const result = validator == null
+                    ? typeof strangeQuery === "function"
+                        ? strangeQuery(key, query)
+                        : query[key]
+                    : validator.bind
+                        ? validator.bind(ctx)(query[key])
+                        : validator(query[key]);
+                if (result instanceof Error) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "query-validator");
+                }
+                else if (queryErrors && errorMatches(result, queryErrors)) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "query-validator");
+                }
+                else if (result instanceof Response ||
+                    result === types_ts_1.Break_Pipe ||
+                    result === types_ts_1.Break_Pipeline) {
+                    return result;
+                }
+                else if (queryMutation) {
+                    query[key] = result;
+                }
+            }
+        }
+        // Parse cookie
+        if (cookieParser) {
+            yield cookieParser(ctx);
+        }
+        const cookie = ctx.cookie;
+        // Validate Cookie
+        if (cookieValidatorIsFunction) {
+            const result = cookieValidator.bind
+                ? cookieValidator.bind(ctx)(cookie)
+                : cookieValidator(cookie);
+            if (result instanceof Error) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "cookie-validator");
+            }
+            else if (cookieErrors && errorMatches(result, cookieErrors)) {
+                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "cookie-validator");
+            }
+            else if (result instanceof Response ||
+                result === types_ts_1.Break_Pipe ||
+                result === types_ts_1.Break_Pipeline) {
+                return result;
+            }
+            else if (cookieMutation) {
+                ctx.cookie = result;
+            }
+        }
+        else if (cookieValidator) {
+            const keys = Object.keys(cookieValidator);
+            for (const key of Object.keys(cookie)) {
+                if (!(key in cookieValidator)) {
+                    keys.push(key);
+                }
+            }
+            for (const key of keys) {
+                const validator = cookieValidator[key];
+                if (validator == null && !strangeCookie) {
+                    continue;
+                }
+                const result = validator == null
+                    ? typeof strangeCookie === "function"
+                        ? strangeCookie(key, cookie)
+                        : cookie[key]
+                    : validator.bind
+                        ? validator.bind(ctx)(cookie[key])
+                        : validator(cookie[key]);
+                if (result instanceof Error) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "cookie-validator");
+                }
+                else if (cookieErrors && errorMatches(result, cookieErrors)) {
+                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "cookie-validator");
+                }
+                else if (result instanceof Response ||
+                    result === types_ts_1.Break_Pipe ||
+                    result === types_ts_1.Break_Pipeline) {
+                    return result;
+                }
+                else if (cookieMutation) {
+                    cookie[key] = result;
+                }
+            }
+        }
+        // Parse body
+        if (bodyParser) {
+            yield bodyParser(ctx);
+        }
+        const body = ctx.body;
+        // Validate Body
+        if (bodyValidators) {
+            const bodyIsArray = Array.isArray(body);
+            if (bodyValidatorIsArray && !bodyIsArray) {
+                return respond(status_ts_1.Status._400_BadRequest, "array body type expected", "error", "body-validator");
+            }
+            else if (!bodyValidatorIsArray && bodyIsArray) {
+                return respond(status_ts_1.Status._400_BadRequest, "object body type expected", "error", "body-validator");
+            }
+            if (bodyIsArray) {
+                for (let i = 0; i < body.length; i++) {
+                    const validator = bodyValidators[i % bodyValidators.length];
+                    const activeBody = body[i];
+                    if (typeof validator === "function") {
+                        const result = validator.bind
+                            ? validator.bind(ctx)(activeBody, i)
+                            : validator(activeBody, i);
+                        if (result instanceof Error) {
+                            return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                        }
+                        else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                            return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                        }
+                        else if (result instanceof Response ||
+                            result === types_ts_1.Break_Pipe ||
+                            result === types_ts_1.Break_Pipeline) {
+                            return result;
+                        }
+                        else if (bodyMutation) {
+                            body[i] = result;
+                        }
+                    }
+                    else if (validator) {
+                        if (activeBody &&
+                            typeof activeBody === "object" &&
+                            !Array.isArray(activeBody)) {
+                            const keys = Object.keys(validator);
+                            for (const key of Object.keys(activeBody)) {
+                                if (!(key in validator)) {
+                                    keys.push(key);
+                                }
+                            }
+                            for (const key of keys) {
+                                const propValidator = validator[key];
+                                if (propValidator == null && !strangeBody) {
+                                    if (bodyMutation) {
+                                        delete activeBody[key];
+                                    }
+                                    continue;
+                                }
+                                const result = propValidator == null
+                                    ? typeof strangeBody === "function"
+                                        ? strangeBody(key, activeBody, i)
+                                        : activeBody[key]
+                                    : propValidator.bind
+                                        ? propValidator.bind(ctx)(activeBody[key], i)
+                                        : propValidator(activeBody[key], i);
+                                if (result instanceof Error) {
+                                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                                }
+                                else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                                }
+                                else if (result instanceof Response ||
+                                    result === types_ts_1.Break_Pipe ||
+                                    result === types_ts_1.Break_Pipeline) {
+                                    return result;
+                                }
+                                else if (bodyMutation) {
+                                    activeBody[key] = result;
+                                }
+                            }
+                        }
+                        else {
+                            return respond(status_ts_1.Status._400_BadRequest, `Invalid body type at index ${i}`, "error", "body-validator");
+                        }
+                    }
+                }
+            }
+            else {
+                const validator = bodyValidators[0];
+                if (typeof validator === "function") {
+                    const result = validator.bind
+                        ? validator.bind(ctx)(body)
+                        : validator(body);
+                    if (result instanceof Error) {
+                        return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                    }
+                    else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                        return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                    }
+                    else if (result instanceof Response ||
+                        result === types_ts_1.Break_Pipe ||
+                        result === types_ts_1.Break_Pipeline) {
+                        return result;
+                    }
+                    else if (bodyMutation) {
+                        ctx.body = result;
+                    }
+                }
+                else if (validator) {
+                    if (body && typeof body === "object" && !Array.isArray(body)) {
+                        const keys = Object.keys(validator);
+                        for (const key of Object.keys(body)) {
+                            if (!(key in validator)) {
+                                keys.push(key);
+                            }
+                        }
+                        for (const key of keys) {
+                            const propValidator = validator[key];
+                            if (propValidator == null && !strangeBody) {
+                                if (bodyMutation) {
+                                    delete body[key];
+                                }
+                                continue;
+                            }
+                            const result = propValidator == null
+                                ? typeof strangeBody === "function"
+                                    ? strangeBody(key, body)
+                                    : body[key]
+                                : propValidator.bind
+                                    ? propValidator.bind(ctx)(body[key])
+                                    : propValidator(body[key]);
+                            if (result instanceof Error) {
+                                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                            }
+                            else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                            }
+                            else if (result instanceof Response ||
+                                result === types_ts_1.Break_Pipe ||
+                                result === types_ts_1.Break_Pipeline) {
+                                return result;
+                            }
+                            else if (bodyMutation) {
+                                body[key] = result;
+                            }
+                        }
+                    }
+                    else {
+                        return respond(status_ts_1.Status._400_BadRequest, "Invalid body type", "error", "body-validator");
+                    }
+                }
+            }
+        }
+        if (breakPipeline) {
+            return types_ts_1.Break_Pipeline;
+        }
+    });
+};
+exports.validate = validate;
 //# sourceMappingURL=middlewares.js.map

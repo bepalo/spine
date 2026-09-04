@@ -1,6 +1,7 @@
 // src/utils.node.ts
 
 import { DirWalkNode } from "./utils.ts";
+import { stat } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,15 +19,43 @@ export async function* walk(
     const path = join(dir, name).replace(/\\/g, "/");
     const fullPath = resolve(dir, name).replace(/\\/g, "/");
     const relativePath = relative(rootPath, path).replace(/\\/g, "/");
+    const { mtimeMs } = await stat(fullPath);
     if (entry.isDirectory()) {
-      yield { type: "dir", name, path, parent, fullPath, relativePath };
+      yield {
+        type: "dir",
+        name,
+        path,
+        parent,
+        fullPath,
+        relativePath,
+        mtimeMs,
+      };
       yield* walk(path, rootPath);
     } else {
-      yield { type: "file", name, path, parent, fullPath, relativePath };
+      yield {
+        type: "file",
+        name,
+        path,
+        parent,
+        fullPath,
+        relativePath,
+        mtimeMs,
+      };
     }
   }
 }
 
-export const dynamicImport = async (fullPath: string): Promise<unknown> => {
-  return await import(pathToFileURL(fullPath).href);
-};
+export const dynamicImport =
+  "Bun" in globalThis
+    ? async (fullPath: string, refreshQuery?: string): Promise<unknown> => {
+        return await import(
+          refreshQuery ? `${fullPath}?${refreshQuery}` : fullPath
+        );
+      }
+    : async (fullPath: string, refreshQuery?: string): Promise<unknown> => {
+        return await import(
+          refreshQuery
+            ? `${pathToFileURL(fullPath).href}?${refreshQuery}`
+            : pathToFileURL(fullPath).href
+        );
+      };

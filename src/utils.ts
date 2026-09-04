@@ -7,6 +7,7 @@ export interface DirWalkNode {
   parent: string;
   fullPath: string;
   relativePath: string;
+  mtimeMs: number;
 }
 
 const CCPlus = 43; // "+".charCodeAt(0);

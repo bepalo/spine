@@ -1,4 +1,4 @@
-// src/router.ts
+// src/router.deno.ts
 
 import { getHttpStatusText } from "./status.ts";
 import {
@@ -453,6 +453,7 @@ export class Router<
         try {
           handlersImp = (await dynamicImport(
             node.fullPath,
+            `v=${node.mtimeMs}`,
           )) as unknown as Record<string, unknown>;
           const importPath = node.path;
           const processedName = decodeURIComponent(processName(node.name));

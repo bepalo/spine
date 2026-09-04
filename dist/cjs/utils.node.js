@@ -71,12 +71,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.dynamicImport = void 0;
 exports.walk = walk;
 const promises_1 = require("node:fs/promises");
+const promises_2 = require("node:fs/promises");
 const node_path_1 = require("node:path");
 const node_url_1 = require("node:url");
 function walk(dir, rootPath) {
     return __asyncGenerator(this, arguments, function* walk_1() {
         rootPath = rootPath || dir;
-        for (const entry of yield __await((0, promises_1.readdir)(dir, {
+        for (const entry of yield __await((0, promises_2.readdir)(dir, {
             withFileTypes: true,
         }))) {
             const name = entry.name;
@@ -84,18 +85,40 @@ function walk(dir, rootPath) {
             const path = (0, node_path_1.join)(dir, name).replace(/\\/g, "/");
             const fullPath = (0, node_path_1.resolve)(dir, name).replace(/\\/g, "/");
             const relativePath = (0, node_path_1.relative)(rootPath, path).replace(/\\/g, "/");
+            const { mtimeMs } = yield __await((0, promises_1.stat)(fullPath));
             if (entry.isDirectory()) {
-                yield yield __await({ type: "dir", name, path, parent, fullPath, relativePath });
+                yield yield __await({
+                    type: "dir",
+                    name,
+                    path,
+                    parent,
+                    fullPath,
+                    relativePath,
+                    mtimeMs,
+                });
                 yield __await(yield* __asyncDelegator(__asyncValues(walk(path, rootPath))));
             }
             else {
-                yield yield __await({ type: "file", name, path, parent, fullPath, relativePath });
+                yield yield __await({
+                    type: "file",
+                    name,
+                    path,
+                    parent,
+                    fullPath,
+                    relativePath,
+                    mtimeMs,
+                });
             }
         }
     });
 }
-const dynamicImport = (fullPath) => __awaiter(void 0, void 0, void 0, function* () {
-    return yield Promise.resolve(`${(0, node_url_1.pathToFileURL)(fullPath).href}`).then(s => __importStar(require(s)));
-});
-exports.dynamicImport = dynamicImport;
+exports.dynamicImport = "Bun" in globalThis
+    ? (fullPath, refreshQuery) => __awaiter(void 0, void 0, void 0, function* () {
+        return yield Promise.resolve(`${refreshQuery ? `${fullPath}?${refreshQuery}` : fullPath}`).then(s => __importStar(require(s)));
+    })
+    : (fullPath, refreshQuery) => __awaiter(void 0, void 0, void 0, function* () {
+        return yield Promise.resolve(`${refreshQuery
+            ? `${(0, node_url_1.pathToFileURL)(fullPath).href}?${refreshQuery}`
+            : (0, node_url_1.pathToFileURL)(fullPath).href}`).then(s => __importStar(require(s)));
+    });
 //# sourceMappingURL=utils.node.js.map

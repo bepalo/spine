@@ -1,6 +1,6 @@
 {
   "name": "@bepalo/spine",
-  "version": "2.6.18",
+  "version": "2.7.19",
   "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
   "author": "Natnael Eshetu",
   "license": "MIT",
@@ -50,7 +50,11 @@
     "fast",
     "efficient",
     "modern",
-    "feature-rich"
+    "framework",
+    "bun",
+    "node",
+    "deno",
+    "workers"
   ],
   "dependencies": {
     "@bepalo/rjson": "^2.2.12"

@@ -240,7 +240,10 @@ export const generateStaticRoutes = async ({
                 "_",
               ));
         const importPath = importRoot + pureRelativePath + extension;
-        const module = (await dynamicImport(fullPath)) as object;
+        const module = (await dynamicImport(
+          fullPath,
+          `v=${node.mtimeMs}`,
+        )) as object;
         const routeDef =
           "  " +
           getRouteLoaders(

@@ -10,11 +10,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseUpload = exports.parseMultipart = exports.defaultFieldParser = exports.parseHeaders = exports.parseBody = exports.SUPPORTED_MEDIA_TYPES_LIST = exports.SUPPORTED_MEDIA_TYPES = exports.parseCookie = exports.parseCookieFromRequest = exports.parseQuery = void 0;
+exports.parseUpload = exports.parseMultipart = exports.defaultFieldParser = exports.parseRawHeaders = exports.parseBody = exports.SUPPORTED_MEDIA_TYPES_LIST = exports.SUPPORTED_MEDIA_TYPES = exports.parseCookie = exports.parseCookieFromRequest = exports.parseQuery = void 0;
 const rjson_1 = require("@bepalo/rjson");
 const types_ts_1 = require("./types.js");
 const helpers_ts_1 = require("./helpers.js");
 const utils_ts_1 = require("./utils.js");
+const status_ts_1 = require("./status.js");
 const CCColon = 58; // ":".charCodeAt(0);
 const CCSemiColon = 59; // ";".charCodeAt(0);
 const CCDQuote = 34; // '"'.charCodeAt(0);
@@ -115,10 +116,11 @@ exports.SUPPORTED_MEDIA_TYPES_LIST = Object.freeze(Array.from(exports.SUPPORTED_
  * @param {Object} [options] - Configuration options for body parsing
  * @param {SupportedBodyMediaTypes|SupportedBodyMediaTypes[]} [options.accept] - Media types to accept (defaults to all supported)
  * @param {number} [options.maxSize] - Maximum body size in bytes (defaults to 1MB)
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  * @param {number} [options.once] - Do not parse if parsed already. checks `ctx.body`
  * @param {number} [options.clone] - Clone request before parsing it. Useful for forwarding.
  * @returns {Function} A middleware function that adds parsed body to context.body
- * @returns {Response} Returns a 415 response if content-type is not accepted
+ * @returns {Response} Returns a Status._415_UnsupportedMediaType response if content-type is not accepted
  * @returns {Response} Returns a 413 response if body exceeds maxSize
  * @returns {Response} Returns a 400 response if body is malformed
  */
@@ -132,6 +134,13 @@ const parseBody = (options) => {
     const maxSize = (_a = options === null || options === void 0 ? void 0 : options.maxSize) !== null && _a !== void 0 ? _a : 1024 * 1024; // Default 1MB
     const once = options === null || options === void 0 ? void 0 : options.once;
     const clone = options === null || options === void 0 ? void 0 : options.clone;
+    const responseType = (options === null || options === void 0 ? void 0 : options.responseType) || "text";
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
+    //////////////////////////////////////////////////////////////////////
     return (ctx) => __awaiter(void 0, void 0, void 0, function* () {
         var _a, _b, _c, _d, _e, _f;
         if (once && ctx.body)
@@ -140,7 +149,7 @@ const parseBody = (options) => {
         const contentType = (_a = request.headers.get("content-type")) === null || _a === void 0 ? void 0 : _a.split(";", 2)[0];
         if (!(contentType && accept.has(contentType))) {
             yield ((_b = request.body) === null || _b === void 0 ? void 0 : _b.cancel().catch(() => { }));
-            return (0, helpers_ts_1.status)(415);
+            return respond(status_ts_1.Status._415_UnsupportedMediaType, "Unsupported media type", "error", "body-parser");
         }
         const req = clone ? request.clone() : request;
         try {
@@ -156,7 +165,7 @@ const parseBody = (options) => {
                 yield ((_c = request.body) === null || _c === void 0 ? void 0 : _c.cancel().catch(() => { }));
                 if (clone)
                     yield ((_d = req.body) === null || _d === void 0 ? void 0 : _d.cancel().catch(() => { }));
-                return (0, helpers_ts_1.status)(413);
+                return respond(status_ts_1.Status._413_PayloadTooLarge, "Payload too large", "error", "body-parser");
             }
             switch (contentType) {
                 case "application/x-www-form-urlencoded": {
@@ -185,7 +194,7 @@ const parseBody = (options) => {
             yield ((_e = request.body) === null || _e === void 0 ? void 0 : _e.cancel().catch(() => { }));
             if (clone)
                 yield ((_f = req.body) === null || _f === void 0 ? void 0 : _f.cancel().catch(() => { }));
-            return (0, helpers_ts_1.status)(400, "Malformed Payload");
+            return respond(status_ts_1.Status._400_BadRequest, "Malformed Payload", "error", "body-parser");
         }
     });
 };
@@ -197,7 +206,7 @@ var ParseHeaderState;
     ParseHeaderState[ParseHeaderState["FindingValueStart"] = 2] = "FindingValueStart";
     ParseHeaderState[ParseHeaderState["FindingValueEnd"] = 3] = "FindingValueEnd";
 })(ParseHeaderState || (ParseHeaderState = {}));
-const parseHeaders = (rawHeaders, contentDisposition) => {
+const parseRawHeaders = (rawHeaders, contentDisposition) => {
     const headers = new Headers();
     if (rawHeaders.length > 0) {
         const len_1 = rawHeaders.length - 1;
@@ -230,7 +239,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                             }
                             case CCCR:
                             case CCNL:
-                                throw new types_ts_1.HttpError(400, "Invalid header");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid header");
                             default:
                                 keyStartIdx = i;
                                 parseHeaderState = ParseHeaderState.FindingKeyEnd;
@@ -261,7 +270,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                             }
                             case CCCR:
                             case CCNL:
-                                throw new types_ts_1.HttpError(400, "Invalid header");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid header");
                             default:
                                 keyEndIdx = i + 1;
                                 break;
@@ -300,7 +309,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                                 value = textDecoder.decode(valueChunk);
                                 parseHeaderState = ParseHeaderState.FindingKeyStart;
                                 if (key.length === 0) {
-                                    throw new types_ts_1.HttpError(400, "Invalid header");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid header");
                                 }
                                 headers.append(key, value);
                                 // advance to new line
@@ -338,7 +347,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
             value = textDecoder.decode(valueChunk);
             parseHeaderState = ParseHeaderState.FindingKeyStart;
             if (key.length === 0) {
-                throw new types_ts_1.HttpError(400, "Invalid header");
+                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid header");
             }
             headers.append(key, value);
         }
@@ -370,7 +379,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                             mode = 2;
                             break;
                         default:
-                            throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                     }
                     break;
                 case CCDQuote:
@@ -384,7 +393,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                             mode = 5;
                             break;
                         default:
-                            throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                     }
                     break;
                 case CCSemiColon:
@@ -398,7 +407,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                             break;
                         case 4:
                         default:
-                            throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                     }
                     break;
                 case CCSpace:
@@ -406,7 +415,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                     break;
                 case CCCR:
                 case CCNL:
-                    throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                 default:
                     switch (mode) {
                         case 0:
@@ -422,12 +431,12 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
                         case 4:
                             break;
                         default:
-                            throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                     }
             }
             if (mode === 5) {
                 if (keyIdx0 < 0 || keyIdx1 < 0 || valueIdx0 < 0 || valueIdx1 < 0) {
-                    throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                 }
                 mode = 0;
                 const key = dispositionHeader.substring(keyIdx0, keyIdx1);
@@ -438,7 +447,7 @@ const parseHeaders = (rawHeaders, contentDisposition) => {
     }
     return headers;
 };
-exports.parseHeaders = parseHeaders;
+exports.parseRawHeaders = parseRawHeaders;
 const defaultFieldParser = (field, contentType) => {
     switch (contentType) {
         case "application/x-www-form-urlencoded": {
@@ -467,12 +476,27 @@ var ParseMultipartState;
     ParseMultipartState[ParseMultipartState["ParsingChunk"] = 5] = "ParsingChunk";
     ParseMultipartState[ParseMultipartState["Done"] = 6] = "Done";
 })(ParseMultipartState || (ParseMultipartState = {}));
-const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
+/**
+ * Parses multipart formdata in chunks.
+ *
+ * NOTE: minimum chunk size acceptable is 5 bytes but it is not recommended.
+ * @param {} options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
+const parseMultipart = ({ responseType = "text", dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
     const prefix = new TextEncoder().encode("--");
     const crlfPrefix = new TextEncoder().encode("\r\n--");
     const endSuffix = new TextEncoder().encode("--");
     const crlf1 = new Uint8Array(new TextEncoder().encode("\r\n"));
     const crlf2 = new Uint8Array(new TextEncoder().encode("\r\n\r\n"));
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
+    //////////////////////////////////////////////////////////////////
     return (ctx) => __awaiter(void 0, void 0, void 0, function* () {
         var _a;
         const { request } = ctx;
@@ -485,7 +509,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
         let response = undefined;
         try {
             if (request.body == null) {
-                throw new types_ts_1.HttpError(400, "Empty body");
+                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Empty body");
             }
             if (
             // error == null &&
@@ -493,7 +517,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                 !(contentTypeHedaer.length === 19
                     ? contentTypeHedaer.startsWith("multipart/form-data")
                     : contentTypeHedaer.startsWith("multipart/form-data;"))) {
-                throw new types_ts_1.HttpError(415, "Invalid header");
+                throw new types_ts_1.HttpError(status_ts_1.Status._415_UnsupportedMediaType, "Invalid header");
             }
             if (contentTypeHedaer != null) {
                 const separatorIndex = contentTypeHedaer.indexOf(";");
@@ -504,7 +528,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                     equalsIndex > -1 &&
                     boundaryHeader.substring(equalsIndex + 1).trim();
                 if (!boundaryStr) {
-                    throw new types_ts_1.HttpError(415, "Invalid boundary");
+                    throw new types_ts_1.HttpError(status_ts_1.Status._415_UnsupportedMediaType, "Invalid boundary");
                 }
                 else {
                     const boundaryBytes = new TextEncoder().encode(boundaryStr);
@@ -684,7 +708,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                                 response = yield onFileSizeLimit(ctx, info);
                             }
                             if (response == null) {
-                                throw new types_ts_1.HttpError(413, "File too large");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._413_PayloadTooLarge, "File too large");
                                 // return undefined;
                             }
                         }
@@ -696,7 +720,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                                 response = yield onFieldSizeLimit(ctx, info);
                             }
                             if (response == null) {
-                                throw new types_ts_1.HttpError(413, "Field too large");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._413_PayloadTooLarge, "Field too large");
                                 // return undefined;
                             }
                         }
@@ -707,7 +731,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             response = yield onTotalSizeLimit(ctx, info);
                         }
                         if (response == null) {
-                            throw new types_ts_1.HttpError(413, "Payload too large");
+                            throw new types_ts_1.HttpError(status_ts_1.Status._413_PayloadTooLarge, "Payload too large");
                             // return undefined;
                         }
                     }
@@ -731,7 +755,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                         case ParseMultipartState.FindingBoundary: {
                             if (activeChunk == null) {
                                 if (!streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                 }
                                 break away;
                             }
@@ -745,7 +769,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                                 break away;
                             }
                             if (!initializationStepDone && boundaryStart < 0) {
-                                throw new types_ts_1.HttpError(400, "Invalid body");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                 // break away;
                             }
                             // check for leftOverBoundary
@@ -795,7 +819,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             // keep looking if not found
                             if (boundaryStart < 0) {
                                 if (streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                     // break away;
                                 }
                                 if (initializationStepDone && activeBodyStart != -1) {
@@ -821,7 +845,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             // keep looking for the boundaryEnd in the next chunk
                             if (boundaryEnd < 0) {
                                 if (streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                     // break away;
                                 }
                                 if (leftOverBoundary != null && boundaryStart !== -1) {
@@ -873,7 +897,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                         case ParseMultipartState.FindingCRLF: {
                             if (activeChunk == null) {
                                 if (!streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                 }
                                 break away;
                             }
@@ -896,7 +920,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             // keep looking if not found
                             if (crlfStart < 0) {
                                 if (streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                     break away;
                                 }
                                 const headerChunk = activeChunk.subarray(activeHeaderStart, activeChunk.length);
@@ -912,7 +936,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             // keep looking for the crlfEnd in the next chunk
                             if (crlfEnd < 0) {
                                 if (streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                     // break away;
                                 }
                                 if (leftOverHeader != null) {
@@ -945,7 +969,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                         case ParseMultipartState.ParsingHeaders: {
                             if (activeChunk == null) {
                                 if (!streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                 }
                                 break away;
                             }
@@ -968,9 +992,9 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                             headersChunks = [];
                             leftOverHeader = undefined;
                             const contentDisposition = {};
-                            activeHeaders = (0, exports.parseHeaders)(new Uint8Array(buffer), contentDisposition);
+                            activeHeaders = (0, exports.parseRawHeaders)(new Uint8Array(buffer), contentDisposition);
                             if (contentDisposition["name"] == null) {
-                                throw new types_ts_1.HttpError(400, "Invalid Content-Disposition header");
+                                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid Content-Disposition header");
                             }
                             // intialize for formdata part
                             activeName = contentDisposition.name;
@@ -1024,8 +1048,8 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                                         }
                                     }
                                     else {
-                                        throw new types_ts_1.HttpError(413, "Too many files");
-                                        break away;
+                                        throw new types_ts_1.HttpError(status_ts_1.Status._413_PayloadTooLarge, "Too many files");
+                                        // break away;
                                     }
                                 }
                             }
@@ -1043,8 +1067,8 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                                         }
                                     }
                                     else {
-                                        throw new types_ts_1.HttpError(413, "Too many fields");
-                                        break away;
+                                        throw new types_ts_1.HttpError(status_ts_1.Status._413_PayloadTooLarge, "Too many fields");
+                                        // break away;
                                     }
                                 }
                             }
@@ -1067,7 +1091,7 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                         case ParseMultipartState.ParsingChunk: {
                             if (activeChunk == null) {
                                 if (!streamIsDone) {
-                                    throw new types_ts_1.HttpError(400, "Invalid body");
+                                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid body");
                                 }
                                 break away;
                             }
@@ -1122,12 +1146,12 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
                 }
                 return response instanceof Response
                     ? response
-                    : (0, helpers_ts_1.status)(error.status || 500, error.message);
+                    : respond(error.status || status_ts_1.Status._500_InternalServerError, error.message, "error", "multipart-parser");
             }
         }
         // handle complete and return a response
         if (onEnd != null) {
-            const status = response instanceof Response ? response.status : 200;
+            const status = response instanceof Response ? response.status : status_ts_1.Status._200_OK;
             response = yield onEnd(ctx, {
                 success: status >= 200 && status < 400,
             });
@@ -1141,16 +1165,30 @@ const parseMultipart = ({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileS
         else if (response === types_ts_1.Break_Pipeline) {
             return types_ts_1.Break_Pipeline;
         }
-        return (0, helpers_ts_1.status)(200);
+        return respond(status_ts_1.Status._200_OK, "success", "message", "multipart-parser");
     });
 };
 exports.parseMultipart = parseMultipart;
-const parseUpload = ({ path, fileHandle, write, end, parseField = exports.defaultFieldParser, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement = 10, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
+/**
+ * An abstraction of parse multipart to parse file uploads in chunks.
+ *
+ * @param options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
+const parseUpload = ({ responseType = "text", path, fileHandle, write, end, parseField = exports.defaultFieldParser, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement = 10, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }) => {
     const getUploadPath = (id, file) => __awaiter(void 0, void 0, void 0, function* () {
         return typeof path === "function"
             ? yield path(id, file)
             : path + "/" + id + file.name.substring(file.name.lastIndexOf("."));
     });
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
+    //////////////////////////////////////////////////////////////////////
     return (0, exports.parseMultipart)({
         maxFields,
         maxFiles,
@@ -1273,10 +1311,9 @@ const parseUpload = ({ path, fileHandle, write, end, parseField = exports.defaul
                 return yield onEnd(ctx, info);
             }
             if (!info.success) {
-                // console.error("[Upload](onEnd)", info.error);
-                return (0, helpers_ts_1.status)(500, ((_a = info.error) === null || _a === void 0 ? void 0 : _a.message) || "Error while parsing upload");
+                return respond(status_ts_1.Status._500_InternalServerError, ((_a = info.error) === null || _a === void 0 ? void 0 : _a.message) || "Error while parsing upload", "error", "upload-parser");
             }
-            return (0, helpers_ts_1.status)(200);
+            return respond(status_ts_1.Status._200_OK, "success", "message", "upload-parser");
         }),
         onFileSizeLimit: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
             if (end != null) {

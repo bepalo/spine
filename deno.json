@@ -1,11 +1,11 @@
 {
   "name": "@bepalo/spine",
-  "version": "2.6.18",
+  "version": "2.7.19",
   "exports": {
     ".": "./mod.ts",
     "./mod.ts": "./mod.ts"
   },
-  "description": "A fast and feature-rich router for JavaScript runtimes.",
+  "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
   "license": "MIT",
   "homepage": "https://github.com/bepalo/spine",
   "repository": {
@@ -45,6 +45,10 @@
     "fast",
     "efficient",
     "modern",
-    "feature-rich"
+    "framework",
+    "bun",
+    "node",
+    "deno",
+    "workers"
   ]
 }

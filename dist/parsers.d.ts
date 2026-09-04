@@ -107,6 +107,13 @@ export declare const SUPPORTED_MEDIA_TYPES: Readonly<Set<string>>;
  * Fronzen Array of supported media types for request body parsing.
  */
 export declare const SUPPORTED_MEDIA_TYPES_LIST: readonly string[];
+export interface ParseBodyOptions {
+    accept?: SupportedBodyMediaTypes | SupportedBodyMediaTypes[];
+    maxSize?: number;
+    responseType?: "text" | "status" | "json";
+    once?: boolean;
+    clone?: boolean;
+}
 /**
  * Creates middleware that parses the request body based on Content-Type.
  * Supports url-encoded forms, JSON, RJSON, and plain text.
@@ -115,20 +122,16 @@ export declare const SUPPORTED_MEDIA_TYPES_LIST: readonly string[];
  * @param {Object} [options] - Configuration options for body parsing
  * @param {SupportedBodyMediaTypes|SupportedBodyMediaTypes[]} [options.accept] - Media types to accept (defaults to all supported)
  * @param {number} [options.maxSize] - Maximum body size in bytes (defaults to 1MB)
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  * @param {number} [options.once] - Do not parse if parsed already. checks `ctx.body`
  * @param {number} [options.clone] - Clone request before parsing it. Useful for forwarding.
  * @returns {Function} A middleware function that adds parsed body to context.body
- * @returns {Response} Returns a 415 response if content-type is not accepted
+ * @returns {Response} Returns a Status._415_UnsupportedMediaType response if content-type is not accepted
  * @returns {Response} Returns a 413 response if body exceeds maxSize
  * @returns {Response} Returns a 400 response if body is malformed
  */
-export declare const parseBody: <ExtendContext extends Record<string, unknown> = EmptyRecord>(options?: {
-    accept?: SupportedBodyMediaTypes | SupportedBodyMediaTypes[];
-    maxSize?: number;
-    once?: boolean;
-    clone?: boolean;
-}) => Handler<ExtendContext & CTBody>;
-export declare const parseHeaders: (rawHeaders: Uint8Array, contentDisposition?: object) => Headers;
+export declare const parseBody: <ExtendContext extends Record<string, unknown> = EmptyRecord>(options?: ParseBodyOptions) => Handler<ExtendContext & CTBody>;
+export declare const parseRawHeaders: (rawHeaders: Uint8Array, contentDisposition?: object) => Headers;
 export declare const defaultFieldParser: (field: string, contentType?: string) => any;
 export type ParsedFormDataFile<ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord> = {
     name: string;
@@ -149,7 +152,17 @@ export type ParseMultipartInfo<ExtendParsedFormDataFile extends Record<string, u
     filename?: string;
     file?: ParsedFormDataFile<ExtendParsedFormDataFile>;
 };
-export declare const parseMultipart: <ExtendContext extends Record<string, unknown> = EmptyRecord, ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>>({ dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+/**
+ * Parses multipart formdata in chunks.
+ *
+ * NOTE: minimum chunk size acceptable is 5 bytes but it is not recommended.
+ * @param {} options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
+export declare const parseMultipart: <ExtendContext extends Record<string, unknown> = EmptyRecord, ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>>({ responseType, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, idGenerator, onStart, onEnd, onHeader, onData, onDataComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+    responseType?: "text" | "status" | "json";
     dontCatch?: boolean;
     maxFields?: number;
     maxFiles?: number;
@@ -181,7 +194,16 @@ export type ParseUploadFileExtension<FileHandle = unknown> = {
     _prevProgress: number;
     progress: number;
 };
-export declare const parseUpload: <ExtendContext extends Record<string, unknown> = {}, FileHandle = unknown, ExtendParsedFormDataFile extends Record<string, unknown> & ParseUploadFileExtension<FileHandle> = ParseUploadFileExtension<FileHandle>, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>, CTParseUpload = Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>>({ path, fileHandle, write, end, parseField, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+/**
+ * An abstraction of parse multipart to parse file uploads in chunks.
+ *
+ * @param options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
+export declare const parseUpload: <ExtendContext extends Record<string, unknown> = {}, FileHandle = unknown, ExtendParsedFormDataFile extends Record<string, unknown> & ParseUploadFileExtension<FileHandle> = ParseUploadFileExtension<FileHandle>, Info extends ParseMultipartInfo<ExtendParsedFormDataFile> = ParseMultipartInfo<ExtendParsedFormDataFile>, FieldInfo extends Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file"> = Omit<ParseMultipartInfo<ExtendParsedFormDataFile>, "filename" | "file">, FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> = Required<ParseMultipartInfo<ExtendParsedFormDataFile>>, CTParseUpload = Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>>({ responseType, path, fileHandle, write, end, parseField, dontCatch, maxFields, maxFiles, maxFieldSize, maxFileSize, maxTotalSize, progressIncrement, idGenerator, onStart, onEnd, onHeader, onFieldHeader, onFileHeader, onFileData, onFileDataSpy, onFieldData, onFieldDataSpy, onFileProgress, onFieldComplete, onFileComplete, onComplete, onFileLimit, onFieldLimit, onFileSizeLimit, onFieldSizeLimit, onTotalSizeLimit, }: {
+    responseType?: "text" | "status" | "json";
     path: string | {
         (id: string, file: ParsedFormDataFile<ExtendParsedFormDataFile>): Promise<string> | string;
     };

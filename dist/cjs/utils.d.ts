@@ -5,6 +5,7 @@ export interface DirWalkNode {
     parent: string;
     fullPath: string;
     relativePath: string;
+    mtimeMs: number;
 }
 export declare const toBase64UUID: (u: string) => string;
 export declare const fromBase64UUID: (cuuid: string) => string;

@@ -10,8 +10,9 @@ import {
   type Handler,
   type MimeType,
 } from "./types.ts";
-import { status } from "./helpers.ts";
+import { json, status, text } from "./helpers.ts";
 import { toBase64UUID } from "./utils.ts";
+import { Status } from "./status.ts";
 
 const CCColon = 58; // ":".charCodeAt(0);
 const CCSemiColon = 59; // ";".charCodeAt(0);
@@ -241,6 +242,14 @@ export const SUPPORTED_MEDIA_TYPES_LIST = Object.freeze(
   Array.from(SUPPORTED_MEDIA_TYPES.keys()),
 );
 
+export interface ParseBodyOptions {
+  accept?: SupportedBodyMediaTypes | SupportedBodyMediaTypes[]; // defaults to all
+  maxSize?: number; // in bytes
+  responseType?: "text" | "status" | "json";
+  once?: boolean;
+  clone?: boolean;
+}
+
 /**
  * Creates middleware that parses the request body based on Content-Type.
  * Supports url-encoded forms, JSON, RJSON, and plain text.
@@ -249,21 +258,19 @@ export const SUPPORTED_MEDIA_TYPES_LIST = Object.freeze(
  * @param {Object} [options] - Configuration options for body parsing
  * @param {SupportedBodyMediaTypes|SupportedBodyMediaTypes[]} [options.accept] - Media types to accept (defaults to all supported)
  * @param {number} [options.maxSize] - Maximum body size in bytes (defaults to 1MB)
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  * @param {number} [options.once] - Do not parse if parsed already. checks `ctx.body`
  * @param {number} [options.clone] - Clone request before parsing it. Useful for forwarding.
  * @returns {Function} A middleware function that adds parsed body to context.body
- * @returns {Response} Returns a 415 response if content-type is not accepted
+ * @returns {Response} Returns a Status._415_UnsupportedMediaType response if content-type is not accepted
  * @returns {Response} Returns a 413 response if body exceeds maxSize
  * @returns {Response} Returns a 400 response if body is malformed
  */
 export const parseBody = <
   ExtendContext extends Record<string, unknown> = EmptyRecord,
->(options?: {
-  accept?: SupportedBodyMediaTypes | SupportedBodyMediaTypes[]; // defaults to all
-  maxSize?: number; // in bytes
-  once?: boolean;
-  clone?: boolean;
-}): Handler<ExtendContext & CTBody> => {
+>(
+  options?: ParseBodyOptions,
+): Handler<ExtendContext & CTBody> => {
   const accept = new Set(
     options?.accept
       ? Array.isArray(options.accept)
@@ -274,13 +281,45 @@ export const parseBody = <
   const maxSize = options?.maxSize ?? 1024 * 1024; // Default 1MB
   const once = options?.once;
   const clone = options?.clone;
+  const responseType = options?.responseType || "text";
+  const respond =
+    responseType === "json"
+      ? (
+          code: number,
+          content: string,
+          key: string,
+          tag: string,
+          init?: ResponseInit,
+        ) =>
+          json({ [key]: `${tag}: ${content}`, tag }, { ...init, status: code })
+      : responseType === "text"
+        ? (
+            code: number,
+            content: string,
+            key: string,
+            tag: string,
+            init?: ResponseInit,
+          ) => text(`[${key}] ${tag}: ${content}`, { ...init, status: code })
+        : (
+            code: number,
+            _content: string | undefined | null,
+            _key: string,
+            _tag: string,
+            init?: ResponseInit,
+          ) => status(code, null, init);
+  //////////////////////////////////////////////////////////////////////
   return async (ctx: Context<ExtendContext & CTBody>) => {
     if (once && ctx.body) return;
     const { request } = ctx;
     const contentType = request.headers.get("content-type")?.split(";", 2)[0];
     if (!(contentType && accept.has(contentType))) {
       await request.body?.cancel().catch(() => {});
-      return status(415);
+      return respond(
+        Status._415_UnsupportedMediaType,
+        "Unsupported media type",
+        "error",
+        "body-parser",
+      );
     }
     const req = clone ? request.clone() : request;
     try {
@@ -295,7 +334,12 @@ export const parseBody = <
       if (contentLength !== undefined && contentLength > maxSize) {
         await request.body?.cancel().catch(() => {});
         if (clone) await req.body?.cancel().catch(() => {});
-        return status(413);
+        return respond(
+          Status._413_PayloadTooLarge,
+          "Payload too large",
+          "error",
+          "body-parser",
+        );
       }
       switch (contentType) {
         case "application/x-www-form-urlencoded": {
@@ -322,7 +366,12 @@ export const parseBody = <
     } catch {
       await request.body?.cancel().catch(() => {});
       if (clone) await req.body?.cancel().catch(() => {});
-      return status(400, "Malformed Payload");
+      return respond(
+        Status._400_BadRequest,
+        "Malformed Payload",
+        "error",
+        "body-parser",
+      );
     }
   };
 };
@@ -334,7 +383,7 @@ enum ParseHeaderState {
   FindingValueEnd = 3,
 }
 
-export const parseHeaders = (
+export const parseRawHeaders = (
   rawHeaders: Uint8Array,
   contentDisposition?: object,
 ): Headers => {
@@ -370,7 +419,7 @@ export const parseHeaders = (
               }
               case CCCR:
               case CCNL:
-                throw new HttpError(400, "Invalid header");
+                throw new HttpError(Status._400_BadRequest, "Invalid header");
               default:
                 keyStartIdx = i;
                 parseHeaderState = ParseHeaderState.FindingKeyEnd;
@@ -401,7 +450,7 @@ export const parseHeaders = (
               }
               case CCCR:
               case CCNL:
-                throw new HttpError(400, "Invalid header");
+                throw new HttpError(Status._400_BadRequest, "Invalid header");
               default:
                 keyEndIdx = i + 1;
                 break;
@@ -443,7 +492,7 @@ export const parseHeaders = (
                 value = textDecoder.decode(valueChunk);
                 parseHeaderState = ParseHeaderState.FindingKeyStart;
                 if (key.length === 0) {
-                  throw new HttpError(400, "Invalid header");
+                  throw new HttpError(Status._400_BadRequest, "Invalid header");
                 }
                 headers.append(key, value);
                 // advance to new line
@@ -483,7 +532,7 @@ export const parseHeaders = (
       value = textDecoder.decode(valueChunk);
       parseHeaderState = ParseHeaderState.FindingKeyStart;
       if (key.length === 0) {
-        throw new HttpError(400, "Invalid header");
+        throw new HttpError(Status._400_BadRequest, "Invalid header");
       }
       headers.append(key, value);
     }
@@ -515,7 +564,10 @@ export const parseHeaders = (
               mode = 2;
               break;
             default:
-              throw new HttpError(400, "Invalid Content-Disposition header");
+              throw new HttpError(
+                Status._400_BadRequest,
+                "Invalid Content-Disposition header",
+              );
           }
           break;
         case CCDQuote:
@@ -529,7 +581,10 @@ export const parseHeaders = (
               mode = 5;
               break;
             default:
-              throw new HttpError(400, "Invalid Content-Disposition header");
+              throw new HttpError(
+                Status._400_BadRequest,
+                "Invalid Content-Disposition header",
+              );
           }
           break;
         case CCSemiColon:
@@ -543,7 +598,10 @@ export const parseHeaders = (
               break;
             case 4:
             default:
-              throw new HttpError(400, "Invalid Content-Disposition header");
+              throw new HttpError(
+                Status._400_BadRequest,
+                "Invalid Content-Disposition header",
+              );
           }
           break;
         case CCSpace:
@@ -551,7 +609,10 @@ export const parseHeaders = (
           break;
         case CCCR:
         case CCNL:
-          throw new HttpError(400, "Invalid Content-Disposition header");
+          throw new HttpError(
+            Status._400_BadRequest,
+            "Invalid Content-Disposition header",
+          );
         default:
           switch (mode) {
             case 0:
@@ -567,12 +628,18 @@ export const parseHeaders = (
             case 4:
               break;
             default:
-              throw new HttpError(400, "Invalid Content-Disposition header");
+              throw new HttpError(
+                Status._400_BadRequest,
+                "Invalid Content-Disposition header",
+              );
           }
       }
       if (mode === 5) {
         if (keyIdx0 < 0 || keyIdx1 < 0 || valueIdx0 < 0 || valueIdx1 < 0) {
-          throw new HttpError(400, "Invalid Content-Disposition header");
+          throw new HttpError(
+            Status._400_BadRequest,
+            "Invalid Content-Disposition header",
+          );
         }
         mode = 0;
         const key = dispositionHeader.substring(keyIdx0, keyIdx1);
@@ -646,6 +713,15 @@ enum ParseMultipartState {
   Done = 6,
 }
 
+/**
+ * Parses multipart formdata in chunks.
+ *
+ * NOTE: minimum chunk size acceptable is 5 bytes but it is not recommended.
+ * @param {} options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
 export const parseMultipart = <
   ExtendContext extends Record<string, unknown> = EmptyRecord,
   ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord,
@@ -658,6 +734,7 @@ export const parseMultipart = <
   FileInfo extends Required<ParseMultipartInfo<ExtendParsedFormDataFile>> =
     Required<ParseMultipartInfo<ExtendParsedFormDataFile>>,
 >({
+  responseType = "text",
   dontCatch,
   maxFields,
   maxFiles,
@@ -676,6 +753,8 @@ export const parseMultipart = <
   onFieldSizeLimit,
   onTotalSizeLimit,
 }: {
+  responseType?: "text" | "status" | "json";
+
   dontCatch?: boolean;
   maxFields?: number;
   maxFiles?: number;
@@ -747,7 +826,32 @@ export const parseMultipart = <
   const endSuffix = new TextEncoder().encode("--");
   const crlf1 = new Uint8Array(new TextEncoder().encode("\r\n"));
   const crlf2 = new Uint8Array(new TextEncoder().encode("\r\n\r\n"));
-
+  const respond =
+    responseType === "json"
+      ? (
+          code: number,
+          content: string,
+          key: string,
+          tag: string,
+          init?: ResponseInit,
+        ) =>
+          json({ [key]: `${tag}: ${content}`, tag }, { ...init, status: code })
+      : responseType === "text"
+        ? (
+            code: number,
+            content: string,
+            key: string,
+            tag: string,
+            init?: ResponseInit,
+          ) => text(`[${key}] ${tag}: ${content}`, { ...init, status: code })
+        : (
+            code: number,
+            _content: string | undefined | null,
+            _key: string,
+            _tag: string,
+            init?: ResponseInit,
+          ) => status(code, null, init);
+  //////////////////////////////////////////////////////////////////
   return async (
     ctx: Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
   ) => {
@@ -762,7 +866,7 @@ export const parseMultipart = <
       undefined;
     try {
       if (request.body == null) {
-        throw new HttpError(400, "Empty body");
+        throw new HttpError(Status._400_BadRequest, "Empty body");
       }
       if (
         // error == null &&
@@ -771,7 +875,7 @@ export const parseMultipart = <
           ? contentTypeHedaer.startsWith("multipart/form-data")
           : contentTypeHedaer.startsWith("multipart/form-data;"))
       ) {
-        throw new HttpError(415, "Invalid header");
+        throw new HttpError(Status._415_UnsupportedMediaType, "Invalid header");
       }
       if (contentTypeHedaer != null) {
         const separatorIndex = contentTypeHedaer.indexOf(";");
@@ -784,7 +888,10 @@ export const parseMultipart = <
           equalsIndex > -1 &&
           boundaryHeader.substring(equalsIndex + 1).trim();
         if (!boundaryStr) {
-          throw new HttpError(415, "Invalid boundary");
+          throw new HttpError(
+            Status._415_UnsupportedMediaType,
+            "Invalid boundary",
+          );
         } else {
           const boundaryBytes = new TextEncoder().encode(boundaryStr);
           const boundaryLen = boundaryBytes.length;
@@ -973,7 +1080,10 @@ export const parseMultipart = <
                 );
               }
               if (response == null) {
-                throw new HttpError(413, "File too large");
+                throw new HttpError(
+                  Status._413_PayloadTooLarge,
+                  "File too large",
+                );
                 // return undefined;
               }
             }
@@ -987,7 +1097,10 @@ export const parseMultipart = <
                 );
               }
               if (response == null) {
-                throw new HttpError(413, "Field too large");
+                throw new HttpError(
+                  Status._413_PayloadTooLarge,
+                  "Field too large",
+                );
                 // return undefined;
               }
             }
@@ -1000,7 +1113,10 @@ export const parseMultipart = <
               response = await onTotalSizeLimit(ctx, info);
             }
             if (response == null) {
-              throw new HttpError(413, "Payload too large");
+              throw new HttpError(
+                Status._413_PayloadTooLarge,
+                "Payload too large",
+              );
               // return undefined;
             }
           }
@@ -1024,7 +1140,7 @@ export const parseMultipart = <
             case ParseMultipartState.FindingBoundary: {
               if (activeChunk == null) {
                 if (!streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                 }
                 break away;
               }
@@ -1049,7 +1165,7 @@ export const parseMultipart = <
                 break away;
               }
               if (!initializationStepDone && boundaryStart < 0) {
-                throw new HttpError(400, "Invalid body");
+                throw new HttpError(Status._400_BadRequest, "Invalid body");
                 // break away;
               }
               // check for leftOverBoundary
@@ -1098,7 +1214,7 @@ export const parseMultipart = <
               // keep looking if not found
               if (boundaryStart < 0) {
                 if (streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                   // break away;
                 }
                 if (initializationStepDone && activeBodyStart != -1) {
@@ -1127,7 +1243,7 @@ export const parseMultipart = <
               // keep looking for the boundaryEnd in the next chunk
               if (boundaryEnd < 0) {
                 if (streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                   // break away;
                 }
                 if (leftOverBoundary != null && boundaryStart !== -1) {
@@ -1189,7 +1305,7 @@ export const parseMultipart = <
             case ParseMultipartState.FindingCRLF: {
               if (activeChunk == null) {
                 if (!streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                 }
                 break away;
               }
@@ -1214,7 +1330,7 @@ export const parseMultipart = <
               // keep looking if not found
               if (crlfStart < 0) {
                 if (streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                   break away;
                 }
                 const headerChunk = activeChunk.subarray(
@@ -1233,7 +1349,7 @@ export const parseMultipart = <
               // keep looking for the crlfEnd in the next chunk
               if (crlfEnd < 0) {
                 if (streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                   // break away;
                 }
                 if (leftOverHeader != null) {
@@ -1273,7 +1389,7 @@ export const parseMultipart = <
             case ParseMultipartState.ParsingHeaders: {
               if (activeChunk == null) {
                 if (!streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                 }
                 break away;
               }
@@ -1297,12 +1413,15 @@ export const parseMultipart = <
               headersChunks = [];
               leftOverHeader = undefined;
               const contentDisposition: Record<string, string> = {};
-              activeHeaders = parseHeaders(
+              activeHeaders = parseRawHeaders(
                 new Uint8Array(buffer!),
                 contentDisposition,
               );
               if (contentDisposition["name"] == null) {
-                throw new HttpError(400, "Invalid Content-Disposition header");
+                throw new HttpError(
+                  Status._400_BadRequest,
+                  "Invalid Content-Disposition header",
+                );
               }
               // intialize for formdata part
               activeName = contentDisposition.name;
@@ -1356,8 +1475,11 @@ export const parseMultipart = <
                       break away;
                     }
                   } else {
-                    throw new HttpError(413, "Too many files");
-                    break away;
+                    throw new HttpError(
+                      Status._413_PayloadTooLarge,
+                      "Too many files",
+                    );
+                    // break away;
                   }
                 }
               } else {
@@ -1373,8 +1495,11 @@ export const parseMultipart = <
                       break away;
                     }
                   } else {
-                    throw new HttpError(413, "Too many fields");
-                    break away;
+                    throw new HttpError(
+                      Status._413_PayloadTooLarge,
+                      "Too many fields",
+                    );
+                    // break away;
                   }
                 }
               }
@@ -1397,7 +1522,7 @@ export const parseMultipart = <
             case ParseMultipartState.ParsingChunk: {
               if (activeChunk == null) {
                 if (!streamIsDone) {
-                  throw new HttpError(400, "Invalid body");
+                  throw new HttpError(Status._400_BadRequest, "Invalid body");
                 }
                 break away;
               }
@@ -1453,12 +1578,18 @@ export const parseMultipart = <
         }
         return response instanceof Response
           ? response
-          : status((error as HttpError).status || 500, error.message);
+          : respond(
+              (error as HttpError).status || Status._500_InternalServerError,
+              error.message,
+              "error",
+              "multipart-parser",
+            );
       }
     }
     // handle complete and return a response
     if (onEnd != null) {
-      const status = response instanceof Response ? response.status : 200;
+      const status =
+        response instanceof Response ? response.status : Status._200_OK;
       response = await onEnd(ctx, {
         success: status >= 200 && status < 400,
       });
@@ -1470,7 +1601,7 @@ export const parseMultipart = <
     } else if (response === Break_Pipeline) {
       return Break_Pipeline;
     }
-    return status(200);
+    return respond(Status._200_OK, "success", "message", "multipart-parser");
   };
 };
 
@@ -1481,6 +1612,14 @@ export type ParseUploadFileExtension<FileHandle = unknown> = {
   progress: number;
 };
 
+/**
+ * An abstraction of parse multipart to parse file uploads in chunks.
+ *
+ * @param options
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
+ * @returns {Response} Returns a 413 response if form-data exceeds max limits
+ * @returns {Response} Returns a 400 response if form-data is malformed
+ */
 export const parseUpload = <
   ExtendContext extends Record<string, unknown> = {},
   FileHandle = unknown,
@@ -1496,6 +1635,7 @@ export const parseUpload = <
     Required<ParseMultipartInfo<ExtendParsedFormDataFile>>,
   CTParseUpload = Context<CTFormData<ExtendParsedFormDataFile> & ExtendContext>,
 >({
+  responseType = "text",
   path,
   fileHandle,
   write,
@@ -1528,6 +1668,7 @@ export const parseUpload = <
   onFieldSizeLimit,
   onTotalSizeLimit,
 }: {
+  responseType?: "text" | "status" | "json";
   // upload path
   // if string is provided then path + "/" id + <file-extension> is used
   path:
@@ -1674,7 +1815,33 @@ export const parseUpload = <
     typeof path === "function"
       ? await path(id, file)
       : path + "/" + id + file.name.substring(file.name.lastIndexOf("."));
+  const respond =
+    responseType === "json"
+      ? (
+          code: number,
+          content: string,
+          key: string,
+          tag: string,
+          init?: ResponseInit,
+        ) =>
+          json({ [key]: `${tag}: ${content}`, tag }, { ...init, status: code })
+      : responseType === "text"
+        ? (
+            code: number,
+            content: string,
+            key: string,
+            tag: string,
+            init?: ResponseInit,
+          ) => text(`[${key}] ${tag}: ${content}`, { ...init, status: code })
+        : (
+            code: number,
+            _content: string | undefined | null,
+            _key: string,
+            _tag: string,
+            init?: ResponseInit,
+          ) => status(code, null, init);
 
+  //////////////////////////////////////////////////////////////////////
   return parseMultipart<
     ExtendContext,
     ExtendParsedFormDataFile,
@@ -1841,10 +2008,14 @@ export const parseUpload = <
         return await onEnd(ctx as CTParseUpload, info);
       }
       if (!info.success) {
-        // console.error("[Upload](onEnd)", info.error);
-        return status(500, info.error?.message || "Error while parsing upload");
+        return respond(
+          Status._500_InternalServerError,
+          info.error?.message || "Error while parsing upload",
+          "error",
+          "upload-parser",
+        );
       }
-      return status(200);
+      return respond(Status._200_OK, "success", "message", "upload-parser");
     },
 
     onFileSizeLimit: async (ctx, info) => {

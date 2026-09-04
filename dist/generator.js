@@ -241,7 +241,7 @@ const generateStaticRoutes = (_a) => __awaiter(void 0, [_a], void 0, function* (
                                 .replace(/_$/, "")
                             : (0, node_crypto_1.hash)("md5", pureRelativePath, "base64url").replace(/[^a-zA-Z0-9_]/g, "_"));
                     const importPath = importRoot + pureRelativePath + extension;
-                    const module = (yield (0, utils_node_ts_1.dynamicImport)(fullPath));
+                    const module = (yield (0, utils_node_ts_1.dynamicImport)(fullPath, `v=${node.mtimeMs}`));
                     const routeDef = "  " +
                         getRouteLoaders("router", importName, pathname, module, _path, testRouter);
                     const importStr = `import * as ${importName} from "${importPath}";\n`;

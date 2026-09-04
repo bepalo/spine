@@ -362,7 +362,7 @@ class Router {
                         }
                         let handlersImp;
                         try {
-                            handlersImp = (yield (0, utils_node_ts_1.dynamicImport)(node.fullPath));
+                            handlersImp = (yield (0, utils_node_ts_1.dynamicImport)(node.fullPath, `v=${node.mtimeMs}`));
                             const importPath = node.path;
                             const processedName = decodeURIComponent(processName(node.name));
                             const pathname = !node.parent
