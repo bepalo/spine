@@ -34,14 +34,16 @@ export type ParseAuthFn<ExtendAuth extends Record<string, unknown> = Record<stri
  *   Should return an `Auth` object if valid, `Error` if invalid, or `null/undefined` if missing.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  *
  * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
-export declare const authenticate: <ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>>({ parseAuth, breakPipeline, checkOnly, }: {
+export declare const authenticate: <ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>>({ parseAuth, breakPipeline, checkOnly, responseType, }: {
     parseAuth: ParseAuthFn<ExtendAuth, ExtendContext>;
     breakPipeline?: boolean;
     checkOnly?: boolean;
+    responseType?: "text" | "status" | "json";
 }) => Handler<CTAuth<ExtendAuth> & ExtendContext>;
 /**
  * Middleware to authorize a request based on role or permissions.
@@ -55,17 +57,19 @@ export declare const authenticate: <ExtendAuth extends Record<string, unknown> =
  * @param {(permission: string,role: string) => boolean|null|undefined}[options.hasPermission] - Function to check if a role has a given permission.
  *   Required if `permissions` is provided.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  *
  * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.
  *   Throws an error if `permissions` is set without `hasPermission`.
  *
  */
-export declare const authorize: <ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>>({ allowRole, forbidRole, permissions, hasPermission, breakPipeline, }: {
+export declare const authorize: <ExtendAuth extends Record<string, unknown> = Record<string, never>, ExtendContext extends Record<string, unknown> = Record<string, never>>({ allowRole, forbidRole, permissions, hasPermission, responseType, breakPipeline, }: {
     allowRole?: (role: string) => boolean;
     forbidRole?: (role: string) => boolean;
     permissions?: string[];
     hasPermission?: (permission: string, role: string) => boolean | null | undefined;
+    responseType?: "text" | "status" | "json";
     breakPipeline?: boolean;
 }) => Handler<CTAuth<ExtendAuth> & ExtendContext>;
 /**

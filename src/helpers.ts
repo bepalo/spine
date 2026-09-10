@@ -1,5 +1,6 @@
 // src/helpers.ts
 
+import RJSON from "@bepalo/rjson";
 import Router from "./router.ts";
 import { getHttpStatusText } from "./status.ts";
 import type {
@@ -349,8 +350,8 @@ export const html = (content: string, init?: ResponseInit): Response => {
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/json content-type
  * @example
- * json({ message: "Success" });
- * json({ error: "Not found" }, { status: 404 });
+ * json({ message: "Success" }); // { "message": "Success" }
+ * json({ error: "Not found" }, { status: 404 }); // { "error": "Not found" }
  */
 export const json = (body: any, init?: ResponseInit): Response => {
   const status = init?.status ?? 200;
@@ -360,6 +361,32 @@ export const json = (body: any, init?: ResponseInit): Response => {
     headers.set("content-type", "application/json; charset=utf-8");
   }
   return Response.json(body, {
+    ...init,
+    status,
+    statusText,
+    headers,
+  });
+};
+
+/**
+ * Creates an RJSON Response.
+ * Defaults to status 200 and 'application/rjson; charset=utf-8' content-type if not specified.
+ * Uses Response.json() internally which automatically serializes the body.
+ * @param {any} body - The data to serialize as RJSON
+ * @param {ResponseInit} [init] - Additional response initialization options
+ * @returns {Response} A Response object with application/rjson content-type
+ * @example
+ * rjson({ message: "Success" }); // (message:'Success')
+ * rjson({ error: "Not found" }, { status: 404 }); // (error:'Not found')
+ */
+export const rjson = (body: any, init?: ResponseInit): Response => {
+  const status = init?.status ?? 200;
+  const statusText = init?.statusText ?? getHttpStatusText(status);
+  const headers = new Headers(init?.headers);
+  if (!headers.has("content-type")) {
+    headers.set("content-type", "application/rjson; charset=utf-8");
+  }
+  return new Response(RJSON.stringify(body), {
     ...init,
     status,
     statusText,

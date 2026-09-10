@@ -9,8 +9,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearCookie = exports.setCookie = exports.send = exports.usp = exports.formData = exports.octetStream = exports.blob = exports.json = exports.html = exports.text = exports.forward = exports.redirectPermanentPreserve = exports.redirectTemporaryPreserve = exports.redirectPermanent = exports.redirectTemporary = exports.redirect = exports.status = exports.buildStrictTransportSecurity = exports.buildContentSecurityPolicy = void 0;
+exports.clearCookie = exports.setCookie = exports.send = exports.usp = exports.formData = exports.octetStream = exports.blob = exports.rjson = exports.json = exports.html = exports.text = exports.forward = exports.redirectPermanentPreserve = exports.redirectTemporaryPreserve = exports.redirectPermanent = exports.redirectTemporary = exports.redirect = exports.status = exports.buildStrictTransportSecurity = exports.buildContentSecurityPolicy = void 0;
+const rjson_1 = __importDefault(require("@bepalo/rjson"));
 const status_ts_1 = require("./status.js");
 const VALID_CSP_DIRS = new Set([
     "default-src",
@@ -286,8 +290,8 @@ exports.html = html;
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/json content-type
  * @example
- * json({ message: "Success" });
- * json({ error: "Not found" }, { status: 404 });
+ * json({ message: "Success" }); // { "message": "Success" }
+ * json({ error: "Not found" }, { status: 404 }); // { "error": "Not found" }
  */
 const json = (body, init) => {
     var _a, _b;
@@ -302,6 +306,30 @@ const json = (body, init) => {
         headers }));
 };
 exports.json = json;
+/**
+ * Creates an RJSON Response.
+ * Defaults to status 200 and 'application/rjson; charset=utf-8' content-type if not specified.
+ * Uses Response.json() internally which automatically serializes the body.
+ * @param {any} body - The data to serialize as RJSON
+ * @param {ResponseInit} [init] - Additional response initialization options
+ * @returns {Response} A Response object with application/rjson content-type
+ * @example
+ * rjson({ message: "Success" }); // (message:'Success')
+ * rjson({ error: "Not found" }, { status: 404 }); // (error:'Not found')
+ */
+const rjson = (body, init) => {
+    var _a, _b;
+    const status = (_a = init === null || init === void 0 ? void 0 : init.status) !== null && _a !== void 0 ? _a : 200;
+    const statusText = (_b = init === null || init === void 0 ? void 0 : init.statusText) !== null && _b !== void 0 ? _b : (0, status_ts_1.getHttpStatusText)(status);
+    const headers = new Headers(init === null || init === void 0 ? void 0 : init.headers);
+    if (!headers.has("content-type")) {
+        headers.set("content-type", "application/rjson; charset=utf-8");
+    }
+    return new Response(rjson_1.default.stringify(body), Object.assign(Object.assign({}, init), { status,
+        statusText,
+        headers }));
+};
+exports.rjson = rjson;
 /**
  * Creates a Response from a Blob.
  * Automatically sets content-type from blob.type or defaults to application/octet-stream.

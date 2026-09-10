@@ -113,10 +113,22 @@ export declare const html: (content: string, init?: ResponseInit) => Response;
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/json content-type
  * @example
- * json({ message: "Success" });
- * json({ error: "Not found" }, { status: 404 });
+ * json({ message: "Success" }); // { "message": "Success" }
+ * json({ error: "Not found" }, { status: 404 }); // { "error": "Not found" }
  */
 export declare const json: (body: any, init?: ResponseInit) => Response;
+/**
+ * Creates an RJSON Response.
+ * Defaults to status 200 and 'application/rjson; charset=utf-8' content-type if not specified.
+ * Uses Response.json() internally which automatically serializes the body.
+ * @param {any} body - The data to serialize as RJSON
+ * @param {ResponseInit} [init] - Additional response initialization options
+ * @returns {Response} A Response object with application/rjson content-type
+ * @example
+ * rjson({ message: "Success" }); // (message:'Success')
+ * rjson({ error: "Not found" }, { status: 404 }); // (error:'Not found')
+ */
+export declare const rjson: (body: any, init?: ResponseInit) => Response;
 /**
  * Creates a Response from a Blob.
  * Automatically sets content-type from blob.type or defaults to application/octet-stream.

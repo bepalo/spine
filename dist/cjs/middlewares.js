@@ -10,11 +10,237 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validate = exports.cors = exports.limitRate = exports.securityHeaders = exports.forceHttps = void 0;
+exports.validate = exports.cors = exports.limitRate = exports.securityHeaders = exports.forceHttps = exports.logRequestsWithColor = exports.logRequests = exports.COLORS = void 0;
 const helpers_ts_1 = require("./helpers.js");
 const parsers_ts_1 = require("./parsers.js");
 const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
+const utils_ts_1 = require("./utils.js");
+exports.COLORS = {
+    reset: "\x1b[0m",
+    dim: "\x1b[2m",
+    bold: "\x1b[1m",
+    black: "\x1b[30m",
+    red: "\x1b[31m",
+    green: "\x1b[32m",
+    yellow: "\x1b[33m",
+    blue: "\x1b[34m",
+    magenta: "\x1b[35m",
+    cyan: "\x1b[36m",
+    white: "\x1b[37m",
+    method: {
+        HEAD: "\x1b[36m", // cyan
+        GET: "\x1b[36m",
+        QUERY: "\x1b[34m", // blue
+        POST: "\x1b[32m", // green
+        PUT: "\x1b[33m", // yellow
+        PATCH: "\x1b[33m",
+        DELETE: "\x1b[31m", // red
+        OPTIONS: "\x1b[35m", // magenta
+        TRACE: "\x1b[35m",
+        CONNECT: "\x1b[35m",
+    },
+    status: (status) => {
+        if (status >= 500)
+            return "\x1b[31m"; // red
+        if (status >= 400)
+            return "\x1b[33m"; // yellow
+        if (status >= 300)
+            return "\x1b[36m"; // cyan
+        return "\x1b[32m"; // green
+    },
+};
+/**
+ * Log requests with no color
+ *
+ * @param options Log requests options
+ */
+const logRequests = (options) => {
+    const { logger = console.log, enable, enclosure, indent, pad, } = options !== null && options !== void 0 ? options : {};
+    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "multiline", } = enable !== null && enable !== void 0 ? enable : {};
+    const { requestTime: encReqTime = ["", " "], duration: encDur = ["[", "]"], status: encStatus = ["(", ")"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
+    const [encReqTime0, encReqTime1] = encReqTime;
+    const [encDur0, encDur1] = encDur;
+    const [encStatus0, encStatus1] = encStatus;
+    const { search: indSearch = "    " } = indent !== null && indent !== void 0 ? indent : {};
+    const { duration: padDur = -7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
+    let statusType;
+    switch (enStatus) {
+        case "status":
+            statusType = 1;
+            break;
+        case "status-text":
+            statusType = 2;
+            break;
+        case "with-status-text":
+            statusType = 3;
+            break;
+        default:
+            statusType = 0;
+            break;
+    }
+    const searchType = enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
+    ////////////////////////////////////////////////////////////////////////////
+    return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+        // Status Str
+        let statusStr;
+        switch (statusType) {
+            case 1:
+                statusStr = response.status.toString();
+                break;
+            case 2:
+                statusStr = response.statusText;
+                break;
+            case 3:
+                statusStr = `${response.status} ${response.statusText}`;
+                break;
+            default:
+                statusStr = "";
+                break;
+        }
+        // Search Str
+        let searchStr;
+        switch (searchType) {
+            case 2: {
+                const len = url.searchParams.size;
+                if (len > 0) {
+                    searchStr = "?\n";
+                    let i = 0;
+                    for (const [key, value] of url.searchParams) {
+                        searchStr += `${indSearch}${key}=${value}${++i < len ? " &\n" : ""}`;
+                    }
+                }
+                else {
+                    searchStr = "";
+                }
+                break;
+            }
+            case 1:
+                searchStr = url.search;
+                break;
+            default:
+                searchStr = "";
+                break;
+        }
+        logger(`${enReqTime ? `${encReqTime0}${epoch}${encReqTime1}` : ""}${enDur
+            ? `${encDur0}${(0, utils_ts_1.padStr)((0, utils_ts_1.formatDuration)(end - start), padDur)}${encDur1}`
+            : ""}${!enStatus
+            ? ""
+            : `${encStatus0}${(0, utils_ts_1.padStr)(statusStr, padStatus)}${encStatus1}`} ${(0, utils_ts_1.padStr)(request.method, padMethod)} ${url.pathname}${searchStr}`);
+    };
+};
+exports.logRequests = logRequests;
+/**
+ * Log requests with color
+ *
+ * @param options Log requests options
+ */
+const logRequestsWithColor = (options) => {
+    const { logger = console.log, enable, enclosure, indent, pad, reqTime, duration, status, method, pathname, search, } = options !== null && options !== void 0 ? options : {};
+    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "multiline", } = enable !== null && enable !== void 0 ? enable : {};
+    const { requestTime: encReqTime = ["", " "], duration: encDur = ["[", "]"], status: encStatus = ["(", ")"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
+    const [encReqTime0, encReqTime1] = encReqTime;
+    const [encDur0, encDur1] = encDur;
+    const [encStatus0, encStatus1] = encStatus;
+    const { search: indSearch = "    " } = indent !== null && indent !== void 0 ? indent : {};
+    const { duration: padDur = -7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
+    const { color: reqTimeColor = null, bold: reqTimeBold = false, dim: reqTimeDim = false, } = reqTime !== null && reqTime !== void 0 ? reqTime : {};
+    const { color: durColor = null, bold: durBold = false, dim: durDim = true, } = duration !== null && duration !== void 0 ? duration : {};
+    const { color: statusColor = "auto", bold: statusBold = true, dim: statusDim = false, } = status !== null && status !== void 0 ? status : {};
+    const { color: methodColor = "auto", bold: methodBold = false, dim: methodDim = false, } = method !== null && method !== void 0 ? method : {};
+    const { color: pathnameColor = null, bold: pathnameBold = false, dim: pathnameDim = false, } = pathname !== null && pathname !== void 0 ? pathname : {};
+    const { color: searchColor = null, bold: searchBold = false, dim: searchDim = true, } = search !== null && search !== void 0 ? search : {};
+    const reqTimeDimStr = reqTimeDim ? exports.COLORS.dim : "";
+    const reqTimeColorStr = reqTimeColor ? exports.COLORS[reqTimeColor] : "";
+    const reqTimeBoldStr = reqTimeBold ? exports.COLORS.bold : "";
+    const reqTimeColorReset = reqTimeDim || reqTimeColor || reqTimeBold ? exports.COLORS.reset : "";
+    const durDimStr = durDim ? exports.COLORS.dim : "";
+    const durColorStr = durColor ? exports.COLORS[durColor] : "";
+    const durBoldStr = durBold ? exports.COLORS.bold : "";
+    const durColorReset = durDim || durColor || durBold ? exports.COLORS.reset : "";
+    const statusDimStr = statusDim ? exports.COLORS.dim : "";
+    // const statusColorStr = (status: number) => statusColor === "auto" ? COLORS.status(status) : statusColor ? COLORS[statusColor] : "";
+    const statusBoldStr = statusBold ? exports.COLORS.bold : "";
+    const statusColorReset = statusDim || statusColor || statusBold ? exports.COLORS.reset : "";
+    const methodDimStr = methodDim ? exports.COLORS.dim : "";
+    // const methodColorStr = methodColor === "auto" ? COLORS.status(method) : methodColor ? COLORS[methodColor] : "";
+    const methodBoldStr = methodBold ? exports.COLORS.bold : "";
+    const methodColorReset = methodDim || methodColor || methodBold ? exports.COLORS.reset : "";
+    const pathnameDimStr = pathnameDim ? exports.COLORS.dim : "";
+    const pathnameColorStr = pathnameColor ? exports.COLORS[pathnameColor] : "";
+    const pathnameBoldStr = pathnameBold ? exports.COLORS.bold : "";
+    const pathnameColorReset = pathnameDim || pathnameColor || pathnameBold ? exports.COLORS.reset : "";
+    const searchDimStr = searchDim ? exports.COLORS.dim : "";
+    const searchColorStr = searchColor ? exports.COLORS[searchColor] : "";
+    const searchBoldStr = searchBold ? exports.COLORS.bold : "";
+    const searchColorReset = searchDim || searchColor || searchBold ? exports.COLORS.reset : "";
+    let statusType;
+    switch (enStatus) {
+        case "status":
+            statusType = 1;
+            break;
+        case "status-text":
+            statusType = 2;
+            break;
+        case "with-status-text":
+            statusType = 3;
+            break;
+        default:
+            statusType = 0;
+            break;
+    }
+    const searchType = enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
+    ////////////////////////////////////////////////////////////////////////////
+    return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+        var _a;
+        // Status Str
+        let statusStr;
+        switch (statusType) {
+            case 1:
+                statusStr = response.status.toString();
+                break;
+            case 2:
+                statusStr = response.statusText;
+                break;
+            case 3:
+                statusStr = `${response.status} ${response.statusText}`;
+                break;
+            default:
+                statusStr = "";
+                break;
+        }
+        // Search Str
+        let searchStr;
+        switch (searchType) {
+            case 2: {
+                const len = url.searchParams.size;
+                if (len > 0) {
+                    searchStr = "?\n";
+                    let i = 0;
+                    for (const [key, value] of url.searchParams) {
+                        searchStr += `${indSearch}${key}=${value}${++i < len ? " &\n" : ""}`;
+                    }
+                }
+                else {
+                    searchStr = "";
+                }
+                break;
+            }
+            case 1:
+                searchStr = url.search;
+                break;
+            default:
+                searchStr = "";
+                break;
+        }
+        logger(`${enReqTime ? `${reqTimeDimStr}${reqTimeColorStr}${reqTimeBoldStr}${encReqTime0}${epoch}${encReqTime1}${reqTimeColorReset}` : ""}${enDur
+            ? `${durDimStr}${durColorStr}${durBoldStr}${encDur0}${(0, utils_ts_1.padStr)((0, utils_ts_1.formatDuration)(end - start), padDur)}${encDur1}${durColorReset}`
+            : ""}${!enStatus
+            ? ""
+            : `${statusDimStr}${statusColor === "auto" ? exports.COLORS.status(response.status) : statusColor ? exports.COLORS[statusColor] : ""}${statusBoldStr}${encStatus0}${(0, utils_ts_1.padStr)(statusStr, padStatus)}${encStatus1}${statusColorReset}`} ${methodDimStr}${methodColor === "auto" ? ((_a = exports.COLORS.method[request.method]) !== null && _a !== void 0 ? _a : "\x1b[37m") : methodColor ? exports.COLORS[methodColor] : ""}${methodBoldStr}${(0, utils_ts_1.padStr)(request.method, padMethod)}${methodColorReset} ${pathnameDimStr}${pathnameColorStr}${pathnameBoldStr}${url.pathname}${pathnameColorReset}${searchDimStr}${searchColorStr}${searchBoldStr}${searchStr}${searchColorReset}`);
+    };
+};
+exports.logRequestsWithColor = logRequestsWithColor;
 /**
  * Force http into https
  *
@@ -223,7 +449,7 @@ const limitRate = (config) => {
                 }
                 if (entry.tokens <= 0) {
                     ctx.headers.set("Retry-After", Math.ceil(refillInterval - timeElapsed).toFixed());
-                    return respond(status_ts_1.Status._429_TooManyRequests, "Rate Limited", "message", "rate-limit");
+                    return respond(status_ts_1.Status._429_TooManyRequests, "Too Many Requests", "message", "rate-limit");
                 }
                 else {
                     entry.tokens--;
@@ -249,7 +475,7 @@ const limitRate = (config) => {
                 entry.lastRefill = now();
                 if (entry.tokens <= 0) {
                     ctx.headers.set("Retry-After", Math.ceil(1 / refillRate).toFixed());
-                    return respond(status_ts_1.Status._429_TooManyRequests, "Rate Limited", "message", "rate-limit");
+                    return respond(status_ts_1.Status._429_TooManyRequests, "Too Many Requests", "message", "rate-limit");
                 }
                 else {
                     entry.tokens--;
@@ -352,7 +578,7 @@ const cors = (config) => {
                 const requestMethod = request.headers.get("Access-Control-Request-Method");
                 if (requestMethod &&
                     !methods.includes(requestMethod)) {
-                    return respond(status_ts_1.Status._405_MethodNotAllowed, `Method ${requestMethod} not allowed`, "error", "CORS");
+                    return respond(status_ts_1.Status._405_MethodNotAllowed, "Method not allowed", "message", "CORS");
                 }
                 headers.set("Access-Control-Allow-Methods", methods.join(", "));
             }
@@ -520,10 +746,8 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                 ctx.query = {};
             }
             const searchParams = ctx.url.searchParams;
-            for (const key of searchParams.keys()) {
-                const values = searchParams.getAll(key);
-                ctx.query[key] =
-                    values.length > 1 ? values[values.length - 1] : values[0];
+            for (const [key, value] of searchParams) {
+                ctx.query[key] = value;
             }
         })
         : queryParse || undefined;
@@ -593,6 +817,7 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
             ? bodyValidator
             : [bodyValidator]
         : undefined;
+    bodyParseOptions = Object.assign(Object.assign({}, bodyParseOptions), { responseType });
     if (bodyValidators) {
         if (!bodyValidatorIsFunction &&
             !bodyValidatorIsObject &&
@@ -631,10 +856,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                 ? paramsValidator.bind(ctx)(params)
                 : paramsValidator(params);
             if (result instanceof Error) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "params-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, result.message, status >= 500 ? "error" : "message", "params-validator");
             }
             else if (paramsErrors && errorMatches(result, paramsErrors)) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "params-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, String(result), status >= 500 ? "error" : "message", "params-validator");
             }
             else if (result instanceof Response ||
                 result === types_ts_1.Break_Pipe ||
@@ -665,10 +892,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                         ? validator.bind(ctx)(params[key])
                         : validator(params[key]);
                 if (result instanceof Error) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "params-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, result.message, status >= 500 ? "error" : "message", "params-validator");
                 }
                 else if (paramsErrors && errorMatches(result, paramsErrors)) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "params-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, String(result), status >= 500 ? "error" : "message", "params-validator");
                 }
                 else if (result instanceof Response ||
                     result === types_ts_1.Break_Pipe ||
@@ -682,7 +911,10 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
         }
         // Parse query
         if (queryParser) {
-            yield queryParser(ctx);
+            const response = yield queryParser(ctx);
+            if (response instanceof Response) {
+                return response;
+            }
         }
         const query = ctx.query;
         // Validate Query
@@ -691,10 +923,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                 ? queryValidator.bind(ctx)(query)
                 : queryValidator(query);
             if (result instanceof Error) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "query-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, result.message, status >= 500 ? "error" : "message", "query-validator");
             }
             else if (queryErrors && errorMatches(result, queryErrors)) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "query-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, String(result), status >= 500 ? "error" : "message", "query-validator");
             }
             else if (result instanceof Response ||
                 result === types_ts_1.Break_Pipe ||
@@ -725,10 +959,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                         ? validator.bind(ctx)(query[key])
                         : validator(query[key]);
                 if (result instanceof Error) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "query-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, result.message, status >= 500 ? "error" : "message", "query-validator");
                 }
                 else if (queryErrors && errorMatches(result, queryErrors)) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "query-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, String(result), status >= 500 ? "error" : "message", "query-validator");
                 }
                 else if (result instanceof Response ||
                     result === types_ts_1.Break_Pipe ||
@@ -742,7 +978,10 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
         }
         // Parse cookie
         if (cookieParser) {
-            yield cookieParser(ctx);
+            const response = yield cookieParser(ctx);
+            if (response instanceof Response) {
+                return response;
+            }
         }
         const cookie = ctx.cookie;
         // Validate Cookie
@@ -751,10 +990,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                 ? cookieValidator.bind(ctx)(cookie)
                 : cookieValidator(cookie);
             if (result instanceof Error) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "cookie-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, result.message, status >= 500 ? "error" : "message", "cookie-validator");
             }
             else if (cookieErrors && errorMatches(result, cookieErrors)) {
-                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "cookie-validator");
+                const status = result.status || status_ts_1.Status._400_BadRequest;
+                return respond(status, String(result), status >= 500 ? "error" : "message", "cookie-validator");
             }
             else if (result instanceof Response ||
                 result === types_ts_1.Break_Pipe ||
@@ -785,10 +1026,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                         ? validator.bind(ctx)(cookie[key])
                         : validator(cookie[key]);
                 if (result instanceof Error) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "cookie-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, result.message, status >= 500 ? "error" : "message", "cookie-validator");
                 }
                 else if (cookieErrors && errorMatches(result, cookieErrors)) {
-                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "cookie-validator");
+                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                    return respond(status, String(result), status >= 500 ? "error" : "message", "cookie-validator");
                 }
                 else if (result instanceof Response ||
                     result === types_ts_1.Break_Pipe ||
@@ -802,17 +1045,22 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
         }
         // Parse body
         if (bodyParser) {
-            yield bodyParser(ctx);
+            const response = yield bodyParser(ctx);
+            if (response instanceof Response) {
+                return response;
+            }
         }
         const body = ctx.body;
         // Validate Body
         if (bodyValidators) {
             const bodyIsArray = Array.isArray(body);
             if (bodyValidatorIsArray && !bodyIsArray) {
-                return respond(status_ts_1.Status._400_BadRequest, "array body type expected", "error", "body-validator");
+                const status = status_ts_1.Status._400_BadRequest;
+                return respond(status, "array body type expected", status >= 500 ? "error" : "message", "body-validator");
             }
             else if (!bodyValidatorIsArray && bodyIsArray) {
-                return respond(status_ts_1.Status._400_BadRequest, "object body type expected", "error", "body-validator");
+                const status = status_ts_1.Status._400_BadRequest;
+                return respond(status, "object body type expected", status >= 500 ? "error" : "message", "body-validator");
             }
             if (bodyIsArray) {
                 for (let i = 0; i < body.length; i++) {
@@ -823,10 +1071,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                             ? validator.bind(ctx)(activeBody, i)
                             : validator(activeBody, i);
                         if (result instanceof Error) {
-                            return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                            const status = result.status || status_ts_1.Status._400_BadRequest;
+                            return respond(status, result.message, status >= 500 ? "error" : "message", "body-validator");
                         }
                         else if (bodyErrors && errorMatches(result, bodyErrors)) {
-                            return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                            const status = result.status || status_ts_1.Status._400_BadRequest;
+                            return respond(status, String(result), status >= 500 ? "error" : "message", "body-validator");
                         }
                         else if (result instanceof Response ||
                             result === types_ts_1.Break_Pipe ||
@@ -863,10 +1113,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                                         ? propValidator.bind(ctx)(activeBody[key], i)
                                         : propValidator(activeBody[key], i);
                                 if (result instanceof Error) {
-                                    return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                                    return respond(status, result.message, status >= 500 ? "error" : "message", "body-validator");
                                 }
                                 else if (bodyErrors && errorMatches(result, bodyErrors)) {
-                                    return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                                    const status = result.status || status_ts_1.Status._400_BadRequest;
+                                    return respond(status, String(result), status >= 500 ? "error" : "message", "body-validator");
                                 }
                                 else if (result instanceof Response ||
                                     result === types_ts_1.Break_Pipe ||
@@ -879,7 +1131,7 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                             }
                         }
                         else {
-                            return respond(status_ts_1.Status._400_BadRequest, `Invalid body type at index ${i}`, "error", "body-validator");
+                            return respond(status_ts_1.Status._400_BadRequest, `Invalid body type at index ${i}`, "message", "body-validator");
                         }
                     }
                 }
@@ -891,10 +1143,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                         ? validator.bind(ctx)(body)
                         : validator(body);
                     if (result instanceof Error) {
-                        return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                        const status = result.status || status_ts_1.Status._400_BadRequest;
+                        return respond(status, result.message, status >= 500 ? "error" : "message", "body-validator");
                     }
                     else if (bodyErrors && errorMatches(result, bodyErrors)) {
-                        return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                        const status = result.status || status_ts_1.Status._400_BadRequest;
+                        return respond(status, String(result), status >= 500 ? "error" : "message", "body-validator");
                     }
                     else if (result instanceof Response ||
                         result === types_ts_1.Break_Pipe ||
@@ -929,10 +1183,12 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                                     ? propValidator.bind(ctx)(body[key])
                                     : propValidator(body[key]);
                             if (result instanceof Error) {
-                                return respond(result.status || status_ts_1.Status._400_BadRequest, result.message, "error", "body-validator");
+                                const status = result.status || status_ts_1.Status._400_BadRequest;
+                                return respond(status, result.message, status >= 500 ? "error" : "message", "body-validator");
                             }
                             else if (bodyErrors && errorMatches(result, bodyErrors)) {
-                                return respond(result.status || status_ts_1.Status._400_BadRequest, String(result), "error", "body-validator");
+                                const status = result.status || status_ts_1.Status._400_BadRequest;
+                                return respond(status, String(result), status >= 500 ? "error" : "message", "body-validator");
                             }
                             else if (result instanceof Response ||
                                 result === types_ts_1.Break_Pipe ||
@@ -945,7 +1201,7 @@ const validate = ({ responseType = "text", errors, paramsMutation = false, param
                         }
                     }
                     else {
-                        return respond(status_ts_1.Status._400_BadRequest, "Invalid body type", "error", "body-validator");
+                        return respond(status_ts_1.Status._400_BadRequest, "Invalid body type", "message", "body-validator");
                     }
                 }
             }

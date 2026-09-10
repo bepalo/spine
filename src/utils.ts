@@ -86,3 +86,21 @@ export const fromBase64UUID = (cuuid: string): string => {
   const uuid = `${h(b, 0)}${h(b, 1)}${h(b, 2)}${h(b, 3)}-${h(b, 4)}${h(b, 5)}-${h(b, 6)}${h(b, 7)}-${h(b, 8)}${h(b, 9)}-${h(b, 10)}${h(b, 11)}${h(b, 12)}${h(b, 13)}${h(b, 14)}${h(b, 15)}`;
   return uuid;
 };
+
+export function formatDuration(ms: number) {
+  const value =
+    ms < 1
+      ? `${(ms * 1000).toFixed(0)}µs`
+      : ms < 1000
+        ? `${ms.toPrecision(4)}ms`
+        : `${(ms / 1000).toPrecision(4)}s`;
+  return value;
+}
+
+export const padStr = (str: string, padding: number) => {
+  return !padding
+    ? str
+    : padding > 0
+      ? str.padEnd(padding)
+      : str.padStart(-padding);
+};

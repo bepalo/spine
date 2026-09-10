@@ -1,6 +1,116 @@
 import { CTBody, CTCookie, CTQuery, ParseBodyOptions, ParsedBody } from "./parsers.ts";
-import { HttpError } from "./types.ts";
-import type { HttpMethodLower, HttpMethodUpper, Context, Handler, HttpMethod, XFrameOptions, ReferrerPolicy, ContentSecurityPolicyParams, StrictTransportSecurityParams, CrossOriginOpenerPolicy, CrossOriginEmbedderPolicy, CrossOriginResourcePolicy, ContentSecurityPolicyArrayParams, StrictTransportSecurity, ContentSecurityPolicySource, ContentSecurityPolicyFetchDirectiveType, HandlerReturn } from "./types.ts";
+import { EndHandler, HttpError } from "./types.ts";
+import { HttpMethodLower, HttpMethodUpper, Context, Handler, HttpMethod, XFrameOptions, ReferrerPolicy, ContentSecurityPolicyParams, StrictTransportSecurityParams, CrossOriginOpenerPolicy, CrossOriginEmbedderPolicy, CrossOriginResourcePolicy, ContentSecurityPolicyArrayParams, StrictTransportSecurity, ContentSecurityPolicySource, ContentSecurityPolicyFetchDirectiveType, HandlerReturn, Color } from "./types.ts";
+export declare const COLORS: {
+    reset: string;
+    dim: string;
+    bold: string;
+    black: string;
+    red: string;
+    green: string;
+    yellow: string;
+    blue: string;
+    magenta: string;
+    cyan: string;
+    white: string;
+    method: {
+        HEAD: string;
+        GET: string;
+        QUERY: string;
+        POST: string;
+        PUT: string;
+        PATCH: string;
+        DELETE: string;
+        OPTIONS: string;
+        TRACE: string;
+        CONNECT: string;
+    };
+    status: (status: number) => "\u001B[31m" | "\u001B[32m" | "\u001B[33m" | "\u001B[36m";
+};
+/**
+ * Log requests with no color
+ *
+ * @param options Log requests options
+ */
+export declare const logRequests: <ExtendContext extends Record<string, unknown> = {}>(options?: {
+    logger?: (...args: any[]) => void;
+    enable?: {
+        requestTime?: boolean;
+        duration?: boolean;
+        status?: false | "status" | "status-text" | "with-status-text";
+        search?: false | "singleline" | "multiline";
+    };
+    enclosure?: {
+        requestTime?: [string, string];
+        duration?: [string, string];
+        status?: [string, string];
+    };
+    indent?: {
+        search?: string;
+    };
+    pad?: {
+        duration?: number;
+        status?: number;
+        method?: number;
+    };
+}) => EndHandler<ExtendContext>;
+/**
+ * Log requests with color
+ *
+ * @param options Log requests options
+ */
+export declare const logRequestsWithColor: <ExtendContext extends Record<string, unknown> = {}>(options?: {
+    logger?: (...args: any[]) => void;
+    enable?: {
+        requestTime?: boolean;
+        duration?: boolean;
+        status?: false | "status" | "status-text" | "with-status-text";
+        search?: false | "singleline" | "multiline";
+    };
+    enclosure?: {
+        requestTime?: [string, string];
+        duration?: [string, string];
+        status?: [string, string];
+    };
+    indent?: {
+        search?: string;
+    };
+    pad?: {
+        duration?: number;
+        status?: number;
+        method?: number;
+    };
+    reqTime?: {
+        color?: Color;
+        bold?: boolean;
+        dim?: boolean;
+    };
+    duration?: {
+        color?: Color;
+        bold?: boolean;
+        dim?: boolean;
+    };
+    status?: {
+        color?: Color | "auto";
+        bold?: boolean;
+        dim?: boolean;
+    };
+    method?: {
+        color?: Color | "auto";
+        bold?: boolean;
+        dim?: boolean;
+    };
+    pathname?: {
+        color?: Color;
+        bold?: boolean;
+        dim?: boolean;
+    };
+    search?: {
+        color?: Color;
+        bold?: boolean;
+        dim?: boolean;
+    };
+}) => EndHandler<ExtendContext>;
 /**
  * Force http into https
  *
@@ -221,13 +331,13 @@ export type ValidatorIt<Target, ExtendContext extends Record<string, unknown> = 
     [K in keyof Target]: PropValidatorIt<Target[K], ExtendContext>;
 } : never);
 export type ValidateQueryParser<ExtendContext extends Record<string, unknown> = {}> = {
-    (ctx: Context<CTQuery & ExtendContext>): Promise<void> | void;
+    (ctx: Context<CTQuery & ExtendContext>): Promise<Response | void> | Response | void;
 };
 export type ValidateCookieParser<ExtendContext extends Record<string, unknown> = {}> = {
-    (ctx: Context<CTCookie & ExtendContext>): Promise<void> | void;
+    (ctx: Context<CTCookie & ExtendContext>): Promise<Response | void> | Response | void;
 };
 export type ValidateBodyParser<ExtendContext extends Record<string, unknown> = {}> = {
-    (ctx: Context<CTBody & ExtendContext>): Promise<void> | void;
+    (ctx: Context<CTBody & ExtendContext>): Promise<Response | void> | Response | void;
 };
 export type ValidatorStrangeReturnType = Error | HttpError | unknown;
 /**
@@ -277,7 +387,7 @@ export interface ValidateOptions<ExtendContext extends ({
     strangeCookie?: boolean | {
         <Target extends Record<string, unknown> = {}>(key: string, target: Target): ValidatorStrangeReturnType;
     };
-    bodyParseOptions?: ParseBodyOptions;
+    bodyParseOptions?: Pick<ParseBodyOptions, "accept" | "maxSize" | "clone" | "once">;
     bodyParse?: boolean | ValidateBodyParser<ExtendContext>;
     bodyMutation?: boolean;
     body?: Validator<ParsedBody, ExtendContext> | Array<ValidatorIt<ParsedBody, ExtendContext>>;

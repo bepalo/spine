@@ -773,12 +773,25 @@ describe("Router", () => {
 
       router.get("/test", () => text("original"));
 
+      router.afterGet("/test", ({ response }) => {
+        response.headers.set("x-test", "modified")
+      });
+
+      const response = await router.respond(createRequest("/test"));
+      expect(await response.headers.get("x-test")).toBe("modified");
+    });
+
+    it("should allow not allow replacing the response in after", async () => {
+      const router = new Router();
+
+      router.get("/test", () => text("original"));
+
       router.afterGet("/test", () => {
         return text("modified");
       });
 
       const response = await router.respond(createRequest("/test"));
-      expect(await response.text()).toBe("modified");
+      expect(await response.text()).not.toBe("modified");
     });
   });
 
@@ -1677,7 +1690,7 @@ describe("Router - Additional Tests", () => {
       expect(await response.text()).toBe("Caught: Filter error");
     });
 
-    it("should not propagate errors from after handlers", () => {
+    it("should quietly defuse errors and continue response in after handlers", () => {
       const router = new Router();
       let caught = false;
 
@@ -1693,10 +1706,36 @@ describe("Router - Additional Tests", () => {
       });
       expect(async () => {
         await router.respond(createRequest("/test"));
-      }).toThrow(Error);
+      }).not.toThrow(Error);
       expect(caught).toBe(false);
     });
 
+    it("should allow default after catcher to handle error and continue with response in after handlers", () => {
+      let caught = false;
+      let caughtNormal = false;
+      const router = new Router({
+        defaultAfterCatcher: ({ error, response }) => {
+          caught = true;
+        }
+      });
+
+      router.get("/test", () => text("OK"));
+
+      router.afterGet("/test", () => {
+        throw new Error("After error");
+      });
+
+      router.catchGet("/test", (ctx) => {
+        caughtNormal = true;
+        return text(`Caught: ${ctx.errormessage}`, { status: 500 });
+      });
+      expect(async () => {
+        await router.respond(createRequest("/test"));
+      }).not.toThrow(Error);
+      expect(caught).toBe(true);
+      expect(caughtNormal).toBe(false);
+    });
+    
     it("should handle errors in default handlers", async () => {
       const router = new Router({
         defaultCatcher: (ctx) => {
@@ -2448,7 +2487,7 @@ describe("Router - Additional Tests", () => {
       expect(await response.text()).toBe("Caught: Async filter error");
     });
 
-    it("should not catch errors in after handlers", () => {
+    it("should catch and defuse errors quietly in after handlers", () => {
       const router = new Router();
 
       router.get("/test", () => text("OK"));
@@ -2464,7 +2503,7 @@ describe("Router - Additional Tests", () => {
 
       expect(async () => {
         await router.respond(createRequest("/test"));
-      }).toThrow(Error);
+      }).not.toThrow();
     });
   });
 

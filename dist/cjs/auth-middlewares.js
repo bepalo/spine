@@ -12,6 +12,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.basicAuthParser = exports.authorize = exports.authenticate = void 0;
 const helpers_ts_1 = require("./helpers.js");
+const status_ts_1 = require("./status.js");
 const types_ts_1 = require("./types.js");
 /**
  * Middleware to authenticate a request.
@@ -23,11 +24,17 @@ const types_ts_1 = require("./types.js");
  *   Should return an `Auth` object if valid, `Error` if invalid, or `null/undefined` if missing.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
  * @param {boolean} [options.checkOnly=false] - If true, only checks authentication without returning a response.
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  *
  * @returns {Handler<CTAuth<ExtendAuth> & ExtendContext>} A handler that sets `ctx.auth` if authentication succeeds,
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
-const authenticate = ({ parseAuth, breakPipeline = false, checkOnly = false, }) => {
+const authenticate = ({ parseAuth, breakPipeline = false, checkOnly = false, responseType = "text", }) => {
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
     return function (ctx) {
         return __awaiter(this, void 0, void 0, function* () {
             const auth = yield parseAuth(ctx);
@@ -35,7 +42,7 @@ const authenticate = ({ parseAuth, breakPipeline = false, checkOnly = false, }) 
                 if (checkOnly) {
                     return;
                 }
-                return (0, helpers_ts_1.status)(401);
+                return respond(status_ts_1.Status._401_Unauthorized, "Unauthorized", "message", "authenticate");
             }
             else if (auth instanceof Response) {
                 if (checkOnly) {
@@ -63,30 +70,36 @@ exports.authenticate = authenticate;
  * @param {(permission: string,role: string) => boolean|null|undefined}[options.hasPermission] - Function to check if a role has a given permission.
  *   Required if `permissions` is provided.
  * @param {boolean} [options.breakPipeline=false] - If true, stops only pipe flow per handler type after success.
+ * @param {"status"|"text"|"json"} [config.responseType="text"] Response type
  *
  * @returns {Handler<CTAuth & ExtendContext>} A handler that checks `ctx.auth` and enforces role/permission rules.
  *   Returns `401 Unauthorized` if no auth is present, or `403 Forbidden` if checks fail.
  *   Throws an error if `permissions` is set without `hasPermission`.
  *
  */
-const authorize = ({ allowRole, forbidRole, permissions, hasPermission, breakPipeline = false, }) => {
+const authorize = ({ allowRole, forbidRole, permissions, hasPermission, responseType = "text", breakPipeline = false, }) => {
     if (permissions && !hasPermission) {
         throw new types_ts_1.RouterError("authorize middleware 'permissions' require 'hasPermission'");
     }
+    const respond = responseType === "json"
+        ? (code, content, key, tag, init) => (0, helpers_ts_1.json)({ [key]: `${tag}: ${content}`, tag }, Object.assign(Object.assign({}, init), { status: code }))
+        : responseType === "text"
+            ? (code, content, key, tag, init) => (0, helpers_ts_1.text)(`[${key}] ${tag}: ${content}`, Object.assign(Object.assign({}, init), { status: code }))
+            : (code, _content, _key, _tag, init) => (0, helpers_ts_1.status)(code, null, init);
     return ({ auth }) => {
         if (auth == null) {
-            return (0, helpers_ts_1.status)(401);
+            return respond(status_ts_1.Status._401_Unauthorized, "Unauthorized", "message", "authorize");
         }
         if (allowRole && !allowRole(auth.role)) {
-            return (0, helpers_ts_1.status)(403);
+            return respond(status_ts_1.Status._403_Forbidden, "Forbidden", "message", "authorize");
         }
         if (forbidRole && forbidRole(auth.role)) {
-            return (0, helpers_ts_1.status)(403);
+            return respond(status_ts_1.Status._403_Forbidden, "Forbidden", "message", "authorize");
         }
         if (permissions && hasPermission) {
             const permitted = permissions.some((permission) => hasPermission(permission, auth.role));
             if (!permitted)
-                return (0, helpers_ts_1.status)(403);
+                return respond(status_ts_1.Status._403_Forbidden, "Forbidden", "message", "authorize");
         }
         if (breakPipeline) {
             return types_ts_1.Break_Pipeline;

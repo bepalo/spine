@@ -1,7 +1,7 @@
 // src/generator.ts
 
 import {
-  HandlerRegisterPiplineOptions,
+  RegisterPiplineOptions,
   HandlerType,
   HttpMethod,
   HttpMethodUpper,
@@ -70,7 +70,7 @@ function getRouteLoaders(
     const defIsObject = !Array.isArray(def) && typeof def === "object";
     // get pipe and any other options
     const pipe = defIsObject ? (def as any).pipe : def;
-    const options: HandlerRegisterPiplineOptions | undefined = defIsObject
+    const options: RegisterPiplineOptions | undefined = defIsObject
       ? {}
       : undefined;
     if (options != null) {

@@ -3,9 +3,9 @@ export declare const Break_Pipeline: unique symbol;
 export declare const Break_Pipe: unique symbol;
 export * from "./types.openapi.ts";
 export type HashType = "md5" | "sha1" | "sha256" | "sha384" | "sha512" | "sha3-256" | "sha3-384" | "sha3-512" | "blake2b512" | "blake2s256";
-export type HttpMethod = "Head" | "Get" | "Post" | "Put" | "Patch" | "Delete" | "Options" | "Trace" | "Connect";
-export type HttpMethodLower = "head" | "get" | "post" | "put" | "patch" | "delete" | "options" | "trace" | "connect";
-export type HttpMethodUpper = "HEAD" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "TRACE" | "CONNECT";
+export type HttpMethod = "Head" | "Get" | "Query" | "Post" | "Put" | "Patch" | "Delete" | "Options" | "Trace" | "Connect";
+export type HttpMethodLower = "head" | "get" | "query" | "post" | "put" | "patch" | "delete" | "options" | "trace" | "connect";
+export type HttpMethodUpper = "HEAD" | "GET" | "QUERY" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "TRACE" | "CONNECT";
 export type HandlerType = "handler" | "filter" | "fallback" | "after" | "catcher";
 export type CrossOriginOpenerPolicy = "unsafe-none" | "same-origin-allow-popups" | "same-origin" | "noopener-allow-popups";
 export type CrossOriginEmbedderPolicyToken = "unsafe-none" | "require-corp" | "credentialless";
@@ -101,11 +101,70 @@ export type BaseContext = {
     url: URL;
     request: Request;
     headers: Headers;
-    params: Record<string, string>;
+    /**
+     * @property Parameters parsed in the pipeline so far that match the current route pathname definition.
+     *
+     * __NOTE__: If a parameter is present or updated in a pipe then that parameter will be present in the following pipes with the same parameter id.
+     *   The parameters with the same id and index are linked throughout the pipeline.
+     * @example
+     *
+     * ```ts
+     * spine.filterGet("/api/::res", [
+     *   validate({
+     *     errors: [ArkErrors],
+     *     paramsMutation: true,
+     *     params: type({ res: "string" }),
+     *   }),
+     *   ({ params }) => {
+     *     console.log(params);
+     *   },
+     * ]);
+     *
+     * spine.filterGet("/api/:res/:id", [
+     *   validate({
+     *     errors: [ArkErrors],
+     *     paramsMutation: true,
+     *     params: type({ res: "string", id: "string.numeric.parse" }),
+     *   }),
+     *   ({ params }) => {
+     *     console.log(params);
+     *   },
+     * ]);
+     *
+     *
+     * spine.get("/api/user/:id", [
+     *   ({ params }) => {
+     *     console.log(params);
+     *     return json({ params });
+     *   },
+     * ]);
+     * ```
+     *
+     * ```sh
+     * # Executing
+     * curl http://localhost:3000/api/user/1234
+     * # Will log this on the server
+     * # NOTICE: how the parsed id parameter is being used in the `.get("/api/user/:id")` handler.
+     * #         and how the `:res` and `::res` parameters do not collide.
+     * ```
+     * ```sh
+     * {
+     *    res: "user",
+     *    id: 1234,
+     *  }
+     *  {
+     *    res: "user/1234",
+     *  }
+     *  {
+     *    id: 1234,
+     *  }
+     * ```
+     */
+    params: Record<string, string | unknown>;
+    method: string;
     pathname: string;
-    $pathname: string[];
     timestamps: {
-        request: number;
+        epoch: number;
         start: number;
         end: number;
     };
@@ -121,13 +180,15 @@ export type RespondContext<ExtendContext extends Record<string, unknown> = Recor
 export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
     maxPath: number;
     enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
-    defaultFilter?: Handler<Context<ExtendContext>>;
-    defaultFallback?: Handler<Context<ExtendContext>>;
-    defaultCatcher?: Handler<Context<CTError & ExtendContext>>;
-    defaultAfter?: Handler<Context<CTResponse & ExtendContext>>;
+    defaultFilter?: DefaultHandler<Context<ExtendContext>>;
+    defaultHandler?: DefaultHandler<Context<ExtendContext>>;
+    defaultFallback?: DefaultHandler<Context<ExtendContext>>;
+    defaultCatcher?: DefaultErrorHandler<Context<ExtendContext>>;
+    defaultAfter?: DefaultEndHandler<Context<ExtendContext>>;
+    defaultAfterCatcher?: DefaultEndErrorHandler<Context<ExtendContext>>;
 };
 export interface RouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> {
-    parseParams: (pathname: string, parts: string[]) => Record<string, string> | undefined;
+    parseParams: (pathname: string, parts: string[], allParams: Record<string, unknown>) => Record<string, unknown>;
     params?: Array<[number, string]>;
     pipe: Pipe<ExtendContext>;
     originalPath: string;
@@ -135,6 +196,9 @@ export interface RouteEntry<ExtendContext extends Record<string, unknown> = Reco
     openApiPath: string;
     path: string;
     pathParts: string[];
+    hasSuperGlob: boolean;
+    hasGlob: boolean;
+    hasAnyGlob: boolean;
 }
 export type HandlerRouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> = RouteEntry<ExtendContext> & {
     openApi?: OpenApiDesc | false;
@@ -154,17 +218,34 @@ export interface HandlerRouteEntries<ExtendContext extends Record<string, unknow
 export type HandlerReturn = Response | typeof Break_Pipeline | typeof Break_Pipe | void;
 export type Handler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<ExtendContext>) => Promise<HandlerReturn> | HandlerReturn;
 export type Pipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<Handler<ExtendContext>>;
+export type DefaultHandlerReturn = Response | void;
+export type DefaultHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<ExtendContext>) => Promise<DefaultHandlerReturn> | DefaultHandlerReturn;
+export type EndHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<Readonly<CTResponse> & ExtendContext>) => Promise<void> | void;
+export type DefaultEndHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<Readonly<CTResponse> & ExtendContext>) => Promise<void> | void;
+export type DefaultEndErrorHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTError & Readonly<CTResponse> & ExtendContext>) => Promise<void> | void;
+export type EndPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<EndHandler<Readonly<CTResponse> & ExtendContext>>;
+export type ErrorHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTError & ExtendContext>) => Promise<DefaultHandlerReturn> | DefaultHandlerReturn;
+export type DefaultErrorHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTError & ExtendContext>) => Promise<DefaultHandlerReturn> | DefaultHandlerReturn;
+export type ErrorPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<ErrorHandler<CTError & ExtendContext>>;
 export type RegisterPiplineOptions = {
-    overwrite?: boolean;
-};
-export type HandlerRegisterPiplineOptions = {
     overwrite?: boolean;
     openApi?: OpenApiDesc | false;
 };
-export type HandlerDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext>;
-export type PipeDef<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
+export type FilterPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
     pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
-} & HandlerRegisterPiplineOptions;
+} & Omit<RegisterPiplineOptions, "openApi">);
+export type HandlerPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
+    pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
+} & RegisterPiplineOptions);
+export type FallbackPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
+    pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
+} & Omit<RegisterPiplineOptions, "openApi">);
+export type CatcherPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<CTError & ExtendContext> | Pipe<CTError & ExtendContext> | ({
+    pipe: Handler<CTError & ExtendContext> | Pipe<CTError & ExtendContext>;
+} & Omit<RegisterPiplineOptions, "openApi">);
+export type AfterPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<Readonly<CTResponse> & ExtendContext> | Pipe<Readonly<CTResponse> & ExtendContext> | ({
+    pipe: Handler<Readonly<CTResponse> & ExtendContext> | Pipe<Readonly<CTResponse> & ExtendContext>;
+} & Omit<RegisterPiplineOptions, "openApi">);
 export declare class RouterError extends Error {
     constructor(message: string, options?: ErrorOptions);
 }
@@ -182,4 +263,5 @@ export declare enum EvictionReason {
     Expired = 2,
     Replaced = 3
 }
+export type Color = "dim" | "black" | "red" | "green" | "yellow" | "blue" | "magenta" | "cyan" | "white";
 //# sourceMappingURL=types.d.ts.map

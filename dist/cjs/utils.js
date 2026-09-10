@@ -1,7 +1,8 @@
 "use strict";
 // src/utils.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fromBase64UUID = exports.toBase64UUID = void 0;
+exports.padStr = exports.fromBase64UUID = exports.toBase64UUID = void 0;
+exports.formatDuration = formatDuration;
 const CCPlus = 43; // "+".charCodeAt(0);
 const CCFSlash = 47; // "/".charCodeAt(0);
 const CCEqual = 61; // "=".charCodeAt(0);
@@ -74,4 +75,20 @@ const fromBase64UUID = (cuuid) => {
     return uuid;
 };
 exports.fromBase64UUID = fromBase64UUID;
+function formatDuration(ms) {
+    const value = ms < 1
+        ? `${(ms * 1000).toFixed(0)}µs`
+        : ms < 1000
+            ? `${ms.toPrecision(4)}ms`
+            : `${(ms / 1000).toPrecision(4)}s`;
+    return value;
+}
+const padStr = (str, padding) => {
+    return !padding
+        ? str
+        : padding > 0
+            ? str.padEnd(padding)
+            : str.padStart(-padding);
+};
+exports.padStr = padStr;
 //# sourceMappingURL=utils.js.map

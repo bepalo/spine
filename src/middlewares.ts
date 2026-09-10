@@ -19,8 +19,8 @@ import {
   parseBody,
 } from "./parsers.ts";
 import { Status } from "./status.ts";
-import { Break_Pipe, Break_Pipeline, HttpError } from "./types.ts";
-import type {
+import { Break_Pipe, Break_Pipeline, EndHandler, HttpError } from "./types.ts";
+import {
   HttpMethodLower,
   HttpMethodUpper,
   Context,
@@ -38,7 +38,393 @@ import type {
   ContentSecurityPolicySource,
   ContentSecurityPolicyFetchDirectiveType,
   HandlerReturn,
+  Color,
 } from "./types.ts";
+import { formatDuration, padStr } from "./utils.ts";
+
+export const COLORS = {
+  reset: "\x1b[0m",
+  dim: "\x1b[2m",
+  bold: "\x1b[1m",
+  black: "\x1b[30m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  white: "\x1b[37m",
+  method: {
+    HEAD: "\x1b[36m", // cyan
+    GET: "\x1b[36m",
+    QUERY: "\x1b[34m", // blue
+    POST: "\x1b[32m", // green
+    PUT: "\x1b[33m", // yellow
+    PATCH: "\x1b[33m",
+    DELETE: "\x1b[31m", // red
+    OPTIONS: "\x1b[35m", // magenta
+    TRACE: "\x1b[35m",
+    CONNECT: "\x1b[35m",
+  },
+  status: (status: number) => {
+    if (status >= 500) return "\x1b[31m"; // red
+    if (status >= 400) return "\x1b[33m"; // yellow
+    if (status >= 300) return "\x1b[36m"; // cyan
+    return "\x1b[32m"; // green
+  },
+};
+
+/**
+ * Log requests with no color
+ *
+ * @param options Log requests options
+ */
+export const logRequests = <
+  ExtendContext extends Record<string, unknown> = {},
+>(options?: {
+  logger?: (...args: any[]) => void;
+  enable?: {
+    requestTime?: boolean;
+    duration?: boolean;
+    status?: false | "status" | "status-text" | "with-status-text";
+    search?: false | "singleline" | "multiline";
+  };
+  enclosure?: {
+    requestTime?: [string, string];
+    duration?: [string, string];
+    status?: [string, string];
+  };
+  indent?: {
+    search?: string;
+  };
+  pad?: {
+    duration?: number;
+    status?: number;
+    method?: number;
+  };
+}): EndHandler<ExtendContext> => {
+  const {
+    logger = console.log,
+    enable,
+    enclosure,
+    indent,
+    pad,
+  } = options ?? {};
+  const {
+    requestTime: enReqTime = true,
+    duration: enDur = true,
+    status: enStatus = "status",
+    search: enSearch = "multiline",
+  } = enable ?? {};
+  const {
+    requestTime: encReqTime = ["", " "],
+    duration: encDur = ["[", "]"],
+    status: encStatus = ["(", ")"],
+  } = enclosure ?? {};
+  const [encReqTime0, encReqTime1] = encReqTime;
+  const [encDur0, encDur1] = encDur;
+  const [encStatus0, encStatus1] = encStatus;
+  const { search: indSearch = "    " } = indent ?? {};
+  const {
+    duration: padDur = -7,
+    status: padStatus = 0,
+    method: padMethod = 0,
+  } = pad ?? {};
+  let statusType;
+  switch (enStatus) {
+    case "status":
+      statusType = 1;
+      break;
+    case "status-text":
+      statusType = 2;
+      break;
+    case "with-status-text":
+      statusType = 3;
+      break;
+    default:
+      statusType = 0;
+      break;
+  }
+  const searchType =
+    enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
+  ////////////////////////////////////////////////////////////////////////////
+  return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+    // Status Str
+    let statusStr;
+    switch (statusType) {
+      case 1:
+        statusStr = response.status.toString();
+        break;
+      case 2:
+        statusStr = response.statusText;
+        break;
+      case 3:
+        statusStr = `${response.status} ${response.statusText}`;
+        break;
+      default:
+        statusStr = "";
+        break;
+    }
+    // Search Str
+    let searchStr;
+    switch (searchType) {
+      case 2: {
+        const len = url.searchParams.size;
+        if (len > 0) {
+          searchStr = "?\n";
+          let i = 0;
+          for (const [key, value] of url.searchParams) {
+            searchStr += `${indSearch}${key}=${value}${++i < len ? " &\n" : ""}`;
+          }
+        } else {
+          searchStr = "";
+        }
+        break;
+      }
+      case 1:
+        searchStr = url.search;
+        break;
+      default:
+        searchStr = "";
+        break;
+    }
+    logger(
+      `${enReqTime ? `${encReqTime0}${epoch}${encReqTime1}` : ""}${
+        enDur
+          ? `${encDur0}${padStr(formatDuration(end - start), padDur)}${encDur1}`
+          : ""
+      }${
+        !enStatus
+          ? ""
+          : `${encStatus0}${padStr(statusStr, padStatus)}${encStatus1}`
+      } ${padStr(request.method, padMethod)} ${url.pathname}${searchStr}`,
+    );
+  };
+};
+
+/**
+ * Log requests with color
+ *
+ * @param options Log requests options
+ */
+export const logRequestsWithColor = <
+  ExtendContext extends Record<string, unknown> = {},
+>(options?: {
+  logger?: (...args: any[]) => void;
+  enable?: {
+    requestTime?: boolean;
+    duration?: boolean;
+    status?: false | "status" | "status-text" | "with-status-text";
+    search?: false | "singleline" | "multiline";
+  };
+  enclosure?: {
+    requestTime?: [string, string];
+    duration?: [string, string];
+    status?: [string, string];
+  };
+  indent?: {
+    search?: string;
+  };
+  pad?: {
+    duration?: number;
+    status?: number;
+    method?: number;
+  };
+  reqTime?: {
+    color?: Color;
+    bold?: boolean;
+    dim?: boolean;
+  };
+  duration?: {
+    color?: Color;
+    bold?: boolean;
+    dim?: boolean;
+  };
+  status?: {
+    color?: Color | "auto";
+    bold?: boolean;
+    dim?: boolean;
+  };
+  method?: {
+    color?: Color | "auto";
+    bold?: boolean;
+    dim?: boolean;
+  };
+  pathname?: {
+    color?: Color;
+    bold?: boolean;
+    dim?: boolean;
+  };
+  search?: {
+    color?: Color;
+    bold?: boolean;
+    dim?: boolean;
+  };
+}): EndHandler<ExtendContext> => {
+  const {
+    logger = console.log,
+    enable,
+    enclosure,
+    indent,
+    pad,
+    reqTime,
+    duration,
+    status,
+    method,
+    pathname,
+    search,
+  } = options ?? {};
+  const {
+    requestTime: enReqTime = true,
+    duration: enDur = true,
+    status: enStatus = "status",
+    search: enSearch = "multiline",
+  } = enable ?? {};
+  const {
+    requestTime: encReqTime = ["", " "],
+    duration: encDur = ["[", "]"],
+    status: encStatus = ["(", ")"],
+  } = enclosure ?? {};
+  const [encReqTime0, encReqTime1] = encReqTime;
+  const [encDur0, encDur1] = encDur;
+  const [encStatus0, encStatus1] = encStatus;
+  const { search: indSearch = "    " } = indent ?? {};
+  const {
+    duration: padDur = -7,
+    status: padStatus = 0,
+    method: padMethod = 0,
+  } = pad ?? {};
+  const {
+    color: reqTimeColor = null,
+    bold: reqTimeBold = false,
+    dim: reqTimeDim = false,
+  } = reqTime ?? {};
+  const {
+    color: durColor = null,
+    bold: durBold = false,
+    dim: durDim = true,
+  } = duration ?? {};
+  const {
+    color: statusColor = "auto",
+    bold: statusBold = true,
+    dim: statusDim = false,
+  } = status ?? {};
+  const {
+    color: methodColor = "auto",
+    bold: methodBold = false,
+    dim: methodDim = false,
+  } = method ?? {};
+  const {
+    color: pathnameColor = null,
+    bold: pathnameBold = false,
+    dim: pathnameDim = false,
+  } = pathname ?? {};
+  const {
+    color: searchColor = null,
+    bold: searchBold = false,
+    dim: searchDim = true,
+  } = search ?? {};
+
+  const reqTimeDimStr = reqTimeDim ? COLORS.dim : "";
+  const reqTimeColorStr = reqTimeColor ? COLORS[reqTimeColor] : "";
+  const reqTimeBoldStr = reqTimeBold ? COLORS.bold : "";
+  const reqTimeColorReset =
+    reqTimeDim || reqTimeColor || reqTimeBold ? COLORS.reset : "";
+  const durDimStr = durDim ? COLORS.dim : "";
+  const durColorStr = durColor ? COLORS[durColor] : "";
+  const durBoldStr = durBold ? COLORS.bold : "";
+  const durColorReset = durDim || durColor || durBold ? COLORS.reset : "";
+  const statusDimStr = statusDim ? COLORS.dim : "";
+  // const statusColorStr = (status: number) => statusColor === "auto" ? COLORS.status(status) : statusColor ? COLORS[statusColor] : "";
+  const statusBoldStr = statusBold ? COLORS.bold : "";
+  const statusColorReset =
+    statusDim || statusColor || statusBold ? COLORS.reset : "";
+  const methodDimStr = methodDim ? COLORS.dim : "";
+  // const methodColorStr = methodColor === "auto" ? COLORS.status(method) : methodColor ? COLORS[methodColor] : "";
+  const methodBoldStr = methodBold ? COLORS.bold : "";
+  const methodColorReset =
+    methodDim || methodColor || methodBold ? COLORS.reset : "";
+  const pathnameDimStr = pathnameDim ? COLORS.dim : "";
+  const pathnameColorStr = pathnameColor ? COLORS[pathnameColor] : "";
+  const pathnameBoldStr = pathnameBold ? COLORS.bold : "";
+  const pathnameColorReset =
+    pathnameDim || pathnameColor || pathnameBold ? COLORS.reset : "";
+  const searchDimStr = searchDim ? COLORS.dim : "";
+  const searchColorStr = searchColor ? COLORS[searchColor] : "";
+  const searchBoldStr = searchBold ? COLORS.bold : "";
+  const searchColorReset =
+    searchDim || searchColor || searchBold ? COLORS.reset : "";
+  let statusType;
+  switch (enStatus) {
+    case "status":
+      statusType = 1;
+      break;
+    case "status-text":
+      statusType = 2;
+      break;
+    case "with-status-text":
+      statusType = 3;
+      break;
+    default:
+      statusType = 0;
+      break;
+  }
+  const searchType =
+    enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
+  ////////////////////////////////////////////////////////////////////////////
+  return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+    // Status Str
+    let statusStr;
+    switch (statusType) {
+      case 1:
+        statusStr = response.status.toString();
+        break;
+      case 2:
+        statusStr = response.statusText;
+        break;
+      case 3:
+        statusStr = `${response.status} ${response.statusText}`;
+        break;
+      default:
+        statusStr = "";
+        break;
+    }
+    // Search Str
+    let searchStr;
+    switch (searchType) {
+      case 2: {
+        const len = url.searchParams.size;
+        if (len > 0) {
+          searchStr = "?\n";
+          let i = 0;
+          for (const [key, value] of url.searchParams) {
+            searchStr += `${indSearch}${key}=${value}${++i < len ? " &\n" : ""}`;
+          }
+        } else {
+          searchStr = "";
+        }
+        break;
+      }
+      case 1:
+        searchStr = url.search;
+        break;
+      default:
+        searchStr = "";
+        break;
+    }
+    logger(
+      `${enReqTime ? `${reqTimeDimStr}${reqTimeColorStr}${reqTimeBoldStr}${encReqTime0}${epoch}${encReqTime1}${reqTimeColorReset}` : ""}${
+        enDur
+          ? `${durDimStr}${durColorStr}${durBoldStr}${encDur0}${padStr(formatDuration(end - start), padDur)}${encDur1}${durColorReset}`
+          : ""
+      }${
+        !enStatus
+          ? ""
+          : `${statusDimStr}${statusColor === "auto" ? COLORS.status(response.status) : statusColor ? COLORS[statusColor] : ""}${statusBoldStr}${encStatus0}${padStr(statusStr, padStatus)}${encStatus1}${statusColorReset}`
+      } ${methodDimStr}${methodColor === "auto" ? (COLORS.method[request.method as keyof typeof COLORS.method] ?? "\x1b[37m") : methodColor ? COLORS[methodColor] : ""}${methodBoldStr}${padStr(request.method, padMethod)}${methodColorReset} ${pathnameDimStr}${pathnameColorStr}${pathnameBoldStr}${url.pathname}${pathnameColorReset}${searchDimStr}${searchColorStr}${searchBoldStr}${searchStr}${searchColorReset}`,
+    );
+  };
+};
 
 /**
  * Force http into https
@@ -393,7 +779,7 @@ export const limitRate = <
         );
         return respond(
           Status._429_TooManyRequests,
-          "Rate Limited",
+          "Too Many Requests",
           "message",
           "rate-limit",
         );
@@ -420,7 +806,7 @@ export const limitRate = <
         ctx.headers.set("Retry-After", Math.ceil(1 / refillRate).toFixed());
         return respond(
           Status._429_TooManyRequests,
-          "Rate Limited",
+          "Too Many Requests",
           "message",
           "rate-limit",
         );
@@ -581,8 +967,8 @@ export const cors = <
         ) {
           return respond(
             Status._405_MethodNotAllowed,
-            `Method ${requestMethod} not allowed`,
-            "error",
+            "Method not allowed",
+            "message",
             "CORS",
           );
         }
@@ -704,19 +1090,25 @@ export type ValidatorIt<
 export type ValidateQueryParser<
   ExtendContext extends Record<string, unknown> = {},
 > = {
-  (ctx: Context<CTQuery & ExtendContext>): Promise<void> | void;
+  (
+    ctx: Context<CTQuery & ExtendContext>,
+  ): Promise<Response | void> | Response | void;
 };
 
 export type ValidateCookieParser<
   ExtendContext extends Record<string, unknown> = {},
 > = {
-  (ctx: Context<CTCookie & ExtendContext>): Promise<void> | void;
+  (
+    ctx: Context<CTCookie & ExtendContext>,
+  ): Promise<Response | void> | Response | void;
 };
 
 export type ValidateBodyParser<
   ExtendContext extends Record<string, unknown> = {},
 > = {
-  (ctx: Context<CTBody & ExtendContext>): Promise<void> | void;
+  (
+    ctx: Context<CTBody & ExtendContext>,
+  ): Promise<Response | void> | Response | void;
 };
 
 export type ValidatorStrangeReturnType = Error | HttpError | unknown;
@@ -782,7 +1174,10 @@ export interface ValidateOptions<
         ): ValidatorStrangeReturnType;
       };
 
-  bodyParseOptions?: ParseBodyOptions;
+  bodyParseOptions?: Pick<
+    ParseBodyOptions,
+    "accept" | "maxSize" | "clone" | "once"
+  >;
   bodyParse?: boolean | ValidateBodyParser<ExtendContext>;
   bodyMutation?: boolean;
   body?:
@@ -1052,10 +1447,8 @@ export const validate = <
             ctx.query = {};
           }
           const searchParams = ctx.url.searchParams;
-          for (const key of searchParams.keys()) {
-            const values = searchParams.getAll(key);
-            (ctx.query as any)[key] =
-              values.length > 1 ? values[values.length - 1]! : values[0]!;
+          for (const [key, value] of searchParams) {
+            (ctx.query as any)[key] = value;
           }
         }) as ValidateQueryParser<ExtendContext>)
       : queryParse || undefined;
@@ -1134,6 +1527,7 @@ export const validate = <
       ? bodyValidator
       : [bodyValidator]
     : undefined;
+  bodyParseOptions = { ...bodyParseOptions, responseType } as ParseBodyOptions;
   if (bodyValidators) {
     if (
       !bodyValidatorIsFunction &&
@@ -1181,17 +1575,19 @@ export const validate = <
         ? paramsValidator.bind(ctx)(params)
         : paramsValidator(params);
       if (result instanceof Error) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           result.message,
-          "error",
+          status >= 500 ? "error" : "message",
           "params-validator",
         );
       } else if (paramsErrors && errorMatches(result, paramsErrors)) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           String(result),
-          "error",
+          status >= 500 ? "error" : "message",
           "params-validator",
         );
       } else if (
@@ -1224,17 +1620,19 @@ export const validate = <
               ? validator.bind(ctx)(params[key])
               : validator(params[key]);
         if (result instanceof Error) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             result.message,
-            "error",
+            status >= 500 ? "error" : "message",
             "params-validator",
           );
         } else if (paramsErrors && errorMatches(result, paramsErrors)) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             String(result),
-            "error",
+            status >= 500 ? "error" : "message",
             "params-validator",
           );
         } else if (
@@ -1251,7 +1649,10 @@ export const validate = <
 
     // Parse query
     if (queryParser) {
-      await queryParser(ctx as any);
+      const response = await queryParser(ctx as any);
+      if (response instanceof Response) {
+        return response;
+      }
     }
     const query = ctx.query as ValidateTargetTypes["query"];
 
@@ -1261,17 +1662,19 @@ export const validate = <
         ? queryValidator.bind(ctx)(query)
         : queryValidator(query);
       if (result instanceof Error) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           result.message,
-          "error",
+          status >= 500 ? "error" : "message",
           "query-validator",
         );
       } else if (queryErrors && errorMatches(result, queryErrors)) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           String(result),
-          "error",
+          status >= 500 ? "error" : "message",
           "query-validator",
         );
       } else if (
@@ -1304,17 +1707,19 @@ export const validate = <
               ? validator.bind(ctx)(query[key])
               : validator(query[key]);
         if (result instanceof Error) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             result.message,
-            "error",
+            status >= 500 ? "error" : "message",
             "query-validator",
           );
         } else if (queryErrors && errorMatches(result, queryErrors)) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             String(result),
-            "error",
+            status >= 500 ? "error" : "message",
             "query-validator",
           );
         } else if (
@@ -1331,7 +1736,10 @@ export const validate = <
 
     // Parse cookie
     if (cookieParser) {
-      await cookieParser(ctx as any);
+      const response = await cookieParser(ctx as any);
+      if (response instanceof Response) {
+        return response;
+      }
     }
     const cookie = ctx.cookie as ValidateTargetTypes["cookie"];
 
@@ -1341,17 +1749,19 @@ export const validate = <
         ? cookieValidator.bind(ctx)(cookie)
         : cookieValidator(cookie);
       if (result instanceof Error) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           result.message,
-          "error",
+          status >= 500 ? "error" : "message",
           "cookie-validator",
         );
       } else if (cookieErrors && errorMatches(result, cookieErrors)) {
+        const status = (result as HttpError).status || Status._400_BadRequest;
         return respond(
-          (result as HttpError).status || Status._400_BadRequest,
+          status,
           String(result),
-          "error",
+          status >= 500 ? "error" : "message",
           "cookie-validator",
         );
       } else if (
@@ -1384,17 +1794,19 @@ export const validate = <
               ? validator.bind(ctx)(cookie[key])
               : validator(cookie[key]);
         if (result instanceof Error) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             result.message,
-            "error",
+            status >= 500 ? "error" : "message",
             "cookie-validator",
           );
         } else if (cookieErrors && errorMatches(result, cookieErrors)) {
+          const status = (result as HttpError).status || Status._400_BadRequest;
           return respond(
-            (result as HttpError).status || Status._400_BadRequest,
+            status,
             String(result),
-            "error",
+            status >= 500 ? "error" : "message",
             "cookie-validator",
           );
         } else if (
@@ -1411,24 +1823,29 @@ export const validate = <
 
     // Parse body
     if (bodyParser) {
-      await bodyParser(ctx as any);
+      const response = await bodyParser(ctx as any);
+      if (response instanceof Response) {
+        return response;
+      }
     }
     const body = ctx.body as ValidateTargetTypes["body"];
     // Validate Body
     if (bodyValidators) {
       const bodyIsArray = Array.isArray(body);
       if (bodyValidatorIsArray && !bodyIsArray) {
+        const status = Status._400_BadRequest;
         return respond(
-          Status._400_BadRequest,
+          status,
           "array body type expected",
-          "error",
+          status >= 500 ? "error" : "message",
           "body-validator",
         );
       } else if (!bodyValidatorIsArray && bodyIsArray) {
+        const status = Status._400_BadRequest;
         return respond(
-          Status._400_BadRequest,
+          status,
           "object body type expected",
-          "error",
+          status >= 500 ? "error" : "message",
           "body-validator",
         );
       }
@@ -1441,17 +1858,21 @@ export const validate = <
               ? validator.bind(ctx)(activeBody, i)
               : validator(activeBody, i);
             if (result instanceof Error) {
+              const status =
+                (result as HttpError).status || Status._400_BadRequest;
               return respond(
-                (result as HttpError).status || Status._400_BadRequest,
+                status,
                 result.message,
-                "error",
+                status >= 500 ? "error" : "message",
                 "body-validator",
               );
             } else if (bodyErrors && errorMatches(result, bodyErrors)) {
+              const status =
+                (result as HttpError).status || Status._400_BadRequest;
               return respond(
-                (result as HttpError).status || Status._400_BadRequest,
+                status,
                 String(result),
-                "error",
+                status >= 500 ? "error" : "message",
                 "body-validator",
               );
             } else if (
@@ -1502,17 +1923,21 @@ export const validate = <
                           i,
                         );
                 if (result instanceof Error) {
+                  const status =
+                    (result as HttpError).status || Status._400_BadRequest;
                   return respond(
-                    (result as HttpError).status || Status._400_BadRequest,
+                    status,
                     result.message,
-                    "error",
+                    status >= 500 ? "error" : "message",
                     "body-validator",
                   );
                 } else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                  const status =
+                    (result as HttpError).status || Status._400_BadRequest;
                   return respond(
-                    (result as HttpError).status || Status._400_BadRequest,
+                    status,
                     String(result),
-                    "error",
+                    status >= 500 ? "error" : "message",
                     "body-validator",
                   );
                 } else if (
@@ -1529,7 +1954,7 @@ export const validate = <
               return respond(
                 Status._400_BadRequest,
                 `Invalid body type at index ${i}`,
-                "error",
+                "message",
                 "body-validator",
               );
             }
@@ -1542,17 +1967,21 @@ export const validate = <
             ? validator.bind(ctx)(body)
             : validator(body);
           if (result instanceof Error) {
+            const status =
+              (result as HttpError).status || Status._400_BadRequest;
             return respond(
-              (result as HttpError).status || Status._400_BadRequest,
+              status,
               result.message,
-              "error",
+              status >= 500 ? "error" : "message",
               "body-validator",
             );
           } else if (bodyErrors && errorMatches(result, bodyErrors)) {
+            const status =
+              (result as HttpError).status || Status._400_BadRequest;
             return respond(
-              (result as HttpError).status || Status._400_BadRequest,
+              status,
               String(result),
-              "error",
+              status >= 500 ? "error" : "message",
               "body-validator",
             );
           } else if (
@@ -1589,17 +2018,21 @@ export const validate = <
                     ? propValidator.bind(ctx)(body[key])
                     : propValidator(body[key]);
               if (result instanceof Error) {
+                const status =
+                  (result as HttpError).status || Status._400_BadRequest;
                 return respond(
-                  (result as HttpError).status || Status._400_BadRequest,
+                  status,
                   result.message,
-                  "error",
+                  status >= 500 ? "error" : "message",
                   "body-validator",
                 );
               } else if (bodyErrors && errorMatches(result, bodyErrors)) {
+                const status =
+                  (result as HttpError).status || Status._400_BadRequest;
                 return respond(
-                  (result as HttpError).status || Status._400_BadRequest,
+                  status,
                   String(result),
-                  "error",
+                  status >= 500 ? "error" : "message",
                   "body-validator",
                 );
               } else if (
@@ -1616,7 +2049,7 @@ export const validate = <
             return respond(
               Status._400_BadRequest,
               "Invalid body type",
-              "error",
+              "message",
               "body-validator",
             );
           }
