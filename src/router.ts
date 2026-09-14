@@ -138,10 +138,11 @@ export class Router<
       ...config,
       maxPath: config?.maxPath ?? 24,
       enable: {
-        filter: config?.enable?.filter ?? true,
-        fallback: config?.enable?.fallback ?? true,
-        after: config?.enable?.after ?? true,
-        catcher: config?.enable?.catcher ?? true,
+        filter: (!config?.disable?.filter && config?.enable?.filter) ?? true,
+        fallback:
+          (!config?.disable?.fallback && config?.enable?.fallback) ?? true,
+        after: (!config?.disable?.after && config?.enable?.after) ?? true,
+        catcher: (!config?.disable?.catcher && config?.enable?.catcher) ?? true,
       },
     };
     this.#routes = this.#initRoutes();
@@ -178,7 +179,7 @@ export class Router<
       pathname,
       timestamps: {
         ...(ctxInit as any)?.timestamps,
-        request: requestTimestamp,
+        epoch: requestTimestamp,
         start: startTimestamp,
         end: startTimestamp,
       },

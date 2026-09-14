@@ -180,6 +180,7 @@ export type RespondContext<ExtendContext extends Record<string, unknown> = Recor
 export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
     maxPath: number;
     enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
+    disable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
     defaultFilter?: DefaultHandler<Context<ExtendContext>>;
     defaultHandler?: DefaultHandler<Context<ExtendContext>>;
     defaultFallback?: DefaultHandler<Context<ExtendContext>>;

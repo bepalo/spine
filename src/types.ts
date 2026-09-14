@@ -640,6 +640,7 @@ export type RouterConfig<
 > = {
   maxPath: number;
   enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
+  disable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
   defaultFilter?: DefaultHandler<Context<ExtendContext>>;
   defaultHandler?: DefaultHandler<Context<ExtendContext>>;
   defaultFallback?: DefaultHandler<Context<ExtendContext>>;

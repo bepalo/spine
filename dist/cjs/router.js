@@ -88,15 +88,15 @@ class Router {
         return Object.assign({}, __classPrivateFieldGet(this, _Router_config, "f").enable);
     }
     constructor(config) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
         _Router_instances.add(this);
         _Router_config.set(this, void 0);
         _Router_routes.set(this, void 0);
         __classPrivateFieldSet(this, _Router_config, Object.assign(Object.assign({}, config), { maxPath: (_a = config === null || config === void 0 ? void 0 : config.maxPath) !== null && _a !== void 0 ? _a : 24, enable: {
-                filter: (_c = (_b = config === null || config === void 0 ? void 0 : config.enable) === null || _b === void 0 ? void 0 : _b.filter) !== null && _c !== void 0 ? _c : true,
-                fallback: (_e = (_d = config === null || config === void 0 ? void 0 : config.enable) === null || _d === void 0 ? void 0 : _d.fallback) !== null && _e !== void 0 ? _e : true,
-                after: (_g = (_f = config === null || config === void 0 ? void 0 : config.enable) === null || _f === void 0 ? void 0 : _f.after) !== null && _g !== void 0 ? _g : true,
-                catcher: (_j = (_h = config === null || config === void 0 ? void 0 : config.enable) === null || _h === void 0 ? void 0 : _h.catcher) !== null && _j !== void 0 ? _j : true,
+                filter: (_d = (!((_b = config === null || config === void 0 ? void 0 : config.disable) === null || _b === void 0 ? void 0 : _b.filter) && ((_c = config === null || config === void 0 ? void 0 : config.enable) === null || _c === void 0 ? void 0 : _c.filter))) !== null && _d !== void 0 ? _d : true,
+                fallback: (_g = (!((_e = config === null || config === void 0 ? void 0 : config.disable) === null || _e === void 0 ? void 0 : _e.fallback) && ((_f = config === null || config === void 0 ? void 0 : config.enable) === null || _f === void 0 ? void 0 : _f.fallback))) !== null && _g !== void 0 ? _g : true,
+                after: (_k = (!((_h = config === null || config === void 0 ? void 0 : config.disable) === null || _h === void 0 ? void 0 : _h.after) && ((_j = config === null || config === void 0 ? void 0 : config.enable) === null || _j === void 0 ? void 0 : _j.after))) !== null && _k !== void 0 ? _k : true,
+                catcher: (_o = (!((_l = config === null || config === void 0 ? void 0 : config.disable) === null || _l === void 0 ? void 0 : _l.catcher) && ((_m = config === null || config === void 0 ? void 0 : config.enable) === null || _m === void 0 ? void 0 : _m.catcher))) !== null && _o !== void 0 ? _o : true,
             } }), "f");
         __classPrivateFieldSet(this, _Router_routes, __classPrivateFieldGet(this, _Router_instances, "m", _Router_initRoutes).call(this), "f");
     }
@@ -122,7 +122,7 @@ class Router {
             const parts = [];
             const ctx = Object.assign(Object.assign({}, ctxInit), { router: this, url,
                 request, headers: (_a = ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.headers) !== null && _a !== void 0 ? _a : new Headers(), params: exports.EMPTY_PARAMS, method,
-                pathname, timestamps: Object.assign(Object.assign({}, ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.timestamps), { request: requestTimestamp, start: startTimestamp, end: startTimestamp }) });
+                pathname, timestamps: Object.assign(Object.assign({}, ctxInit === null || ctxInit === void 0 ? void 0 : ctxInit.timestamps), { epoch: requestTimestamp, start: startTimestamp, end: startTimestamp }) });
             {
                 const count = this.splitPath(pathname, parts, __classPrivateFieldGet(this, _Router_config, "f").maxPath);
                 if (count < 0) {
