@@ -40,6 +40,7 @@ import {
   EndPipe,
   ErrorHandler,
   ErrorPipe,
+  ExtractMethodPathsParams,
 } from "./types.ts";
 import { CTParams } from "./parsers.ts";
 import { walk, dynamicImport } from "./utils.deno.ts";
@@ -107,10 +108,11 @@ export const HANDLER_TYPES = new Set<HandlerType>([
  */
 export class Router<
   _ExtendContext extends Record<string, unknown> = EmptyRecord,
-  ExtendContext extends { router: Router<_ExtendContext> } & Record<
-    string,
-    unknown
-  > = { router: Router<_ExtendContext> } & _ExtendContext,
+  ExtendContext extends {
+    router: Router<_ExtendContext, { router: any }>;
+  } = _ExtendContext & {
+    router: Router<_ExtendContext, { router: any }>;
+  },
 > {
   #config: Omit<RouterConfig<ExtendContext>, "maxPath" | "enable" | "disable"> &
     Required<Pick<RouterConfig<ExtendContext>, "maxPath" | "enable">>;
@@ -195,14 +197,14 @@ export class Router<
    * Respond to a request according to the defined routes.
    *
    * @param {Request} request An http request object
-   * @param {RespondContext<ExtendContext>} ctxInit Context pre-initialization.
+   * @param {RespondContext<_ExtendContext>} ctxInit Context pre-initialization.
    *     Only headers and timestamps are allowed.
    *     But timestamps properties will not be overridden but rather extended.
    * @returns {Response} An http response object
    */
   async respond(
     request: Request,
-    ctxInit?: RespondContext<ExtendContext>,
+    ctxInit?: RespondContext<_ExtendContext>,
   ): Promise<Response> {
     const startTimestamp = performance.now();
     const requestTimestamp = Date.now();
@@ -458,8 +460,10 @@ export class Router<
       }
       if (!(response instanceof Response)) {
         const status =
-          ctx.error && ctx.error instanceof HttpError
-            ? ctx.error.status
+          (ctx as Context<CTError & ExtendContext>).error &&
+          (ctx as Context<CTError & ExtendContext>).error instanceof HttpError
+            ? ((ctx as Context<CTError & ExtendContext>).error as HttpError)
+                .status
             : Status._500_InternalServerError;
         response = new Response(null, {
           status,
@@ -1311,7 +1315,7 @@ export class Router<
    * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1326,7 +1330,7 @@ export class Router<
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -1346,7 +1350,7 @@ export class Router<
    * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1356,12 +1360,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -1381,7 +1385,7 @@ export class Router<
    * Define handlers for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1391,12 +1395,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -1413,7 +1417,7 @@ export class Router<
    * Define handlers for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1423,12 +1427,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -1445,7 +1449,7 @@ export class Router<
    * Define handlers for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1455,12 +1459,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -1477,7 +1481,7 @@ export class Router<
    * Define handlers for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1487,12 +1491,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -1509,7 +1513,7 @@ export class Router<
    * Define handlers for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1519,12 +1523,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -1541,7 +1545,7 @@ export class Router<
    * Define handlers for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1551,12 +1555,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -1573,7 +1577,7 @@ export class Router<
    * Define handlers for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1583,12 +1587,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -1605,7 +1609,7 @@ export class Router<
    * Define handlers for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1615,12 +1619,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -1637,7 +1641,7 @@ export class Router<
    * Define handlers for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1647,12 +1651,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -1669,7 +1673,7 @@ export class Router<
    * Define handlers for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1679,12 +1683,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -1701,7 +1705,7 @@ export class Router<
    * Define filters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1711,12 +1715,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -1736,7 +1740,7 @@ export class Router<
    * Define filters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1746,12 +1750,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -1771,7 +1775,7 @@ export class Router<
    * Define filters for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1781,12 +1785,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -1803,7 +1807,7 @@ export class Router<
    * Define filters for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1813,12 +1817,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -1835,7 +1839,7 @@ export class Router<
    * Define filters for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1845,12 +1849,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -1867,7 +1871,7 @@ export class Router<
    * Define filters for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1877,12 +1881,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -1899,7 +1903,7 @@ export class Router<
    * Define filters for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1909,12 +1913,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -1931,7 +1935,7 @@ export class Router<
    * Define filters for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1941,12 +1945,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -1963,7 +1967,7 @@ export class Router<
    * Define filters for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1973,12 +1977,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -1995,7 +1999,7 @@ export class Router<
    * Define filters for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2005,12 +2009,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -2027,7 +2031,7 @@ export class Router<
    * Define filters for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2037,12 +2041,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -2059,7 +2063,7 @@ export class Router<
    * Define filters for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2069,12 +2073,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -2091,7 +2095,7 @@ export class Router<
    * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2101,12 +2105,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2126,7 +2130,7 @@ export class Router<
    * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2136,12 +2140,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2161,7 +2165,7 @@ export class Router<
    * Define handlers for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2171,12 +2175,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -2193,7 +2197,7 @@ export class Router<
    * Define handlers for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2203,12 +2207,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -2225,7 +2229,7 @@ export class Router<
    * Define handlers for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2235,12 +2239,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -2257,7 +2261,7 @@ export class Router<
    * Define handlers for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2267,12 +2271,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -2289,7 +2293,7 @@ export class Router<
    * Define handlers for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2299,12 +2303,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -2321,7 +2325,7 @@ export class Router<
    * Define handlers for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2331,12 +2335,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -2353,7 +2357,7 @@ export class Router<
    * Define handlers for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2363,12 +2367,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -2385,7 +2389,7 @@ export class Router<
    * Define handlers for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2395,12 +2399,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -2417,7 +2421,7 @@ export class Router<
    * Define handlers for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2427,12 +2431,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -2449,7 +2453,7 @@ export class Router<
    * Define handlers for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2459,12 +2463,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -2481,7 +2485,7 @@ export class Router<
    * Define fallbacks for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2491,12 +2495,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2516,7 +2520,7 @@ export class Router<
    * Define fallbacks for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2526,12 +2530,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2551,7 +2555,7 @@ export class Router<
    * Define fallbacks for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2561,12 +2565,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -2583,7 +2587,7 @@ export class Router<
    * Define fallbacks for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2593,12 +2597,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -2615,7 +2619,7 @@ export class Router<
    * Define fallbacks for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2625,12 +2629,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -2647,7 +2651,7 @@ export class Router<
    * Define fallbacks for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2657,12 +2661,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -2679,7 +2683,7 @@ export class Router<
    * Define fallbacks for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2689,12 +2693,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -2711,7 +2715,7 @@ export class Router<
    * Define fallbacks for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2721,12 +2725,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -2743,7 +2747,7 @@ export class Router<
    * Define fallbacks for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2753,12 +2757,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -2775,7 +2779,7 @@ export class Router<
    * Define fallbacks for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2785,12 +2789,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -2807,7 +2811,7 @@ export class Router<
    * Define fallbacks for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2817,12 +2821,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -2839,7 +2843,7 @@ export class Router<
    * Define fallbacks for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2849,12 +2853,12 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | Handler<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -2871,7 +2875,7 @@ export class Router<
    * Define afters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2881,14 +2885,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2908,7 +2912,7 @@ export class Router<
    * Define afters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2918,14 +2922,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -2945,7 +2949,7 @@ export class Router<
    * Define afters for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2955,14 +2959,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -2979,7 +2983,7 @@ export class Router<
    * Define afters for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2989,14 +2993,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -3013,7 +3017,7 @@ export class Router<
    * Define afters for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3023,14 +3027,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -3047,7 +3051,7 @@ export class Router<
    * Define afters for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3057,14 +3061,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -3081,7 +3085,7 @@ export class Router<
    * Define afters for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3091,14 +3095,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -3115,7 +3119,7 @@ export class Router<
    * Define afters for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3125,14 +3129,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -3149,7 +3153,7 @@ export class Router<
    * Define afters for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3159,14 +3163,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -3183,7 +3187,7 @@ export class Router<
    * Define afters for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3193,14 +3197,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -3217,7 +3221,7 @@ export class Router<
    * Define afters for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3227,14 +3231,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -3251,7 +3255,7 @@ export class Router<
    * Define afters for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3261,14 +3265,14 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | EndHandler<
           CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore
         >
       | Pipe<CTParams<ExtractParams<P>> & ExtendContext & ExtendContextMore>,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -3285,7 +3289,7 @@ export class Router<
    * Define catchers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3295,7 +3299,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3310,7 +3314,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -3330,7 +3334,7 @@ export class Router<
    * Define catchers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3340,7 +3344,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3355,7 +3359,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths: Array<MethodPath> = [];
     for (const p of paths) {
@@ -3375,7 +3379,7 @@ export class Router<
    * Define catchers for Head http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3385,7 +3389,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3400,7 +3404,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Head ${p}`,
@@ -3417,7 +3421,7 @@ export class Router<
    * Define catchers for Get http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3427,7 +3431,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3442,7 +3446,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Get ${p}`,
@@ -3459,7 +3463,7 @@ export class Router<
    * Define catchers for Query http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3469,7 +3473,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3484,7 +3488,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Query ${p}`,
@@ -3501,7 +3505,7 @@ export class Router<
    * Define catchers for Post http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3511,7 +3515,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3526,7 +3530,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Post ${p}`,
@@ -3543,7 +3547,7 @@ export class Router<
    * Define catchers for Put http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3553,7 +3557,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3568,7 +3572,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Put ${p}`,
@@ -3585,7 +3589,7 @@ export class Router<
    * Define catchers for Patch http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3595,7 +3599,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3610,7 +3614,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Patch ${p}`,
@@ -3627,7 +3631,7 @@ export class Router<
    * Define catchers for Head Delete method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3637,7 +3641,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3652,7 +3656,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Delete ${p}`,
@@ -3669,7 +3673,7 @@ export class Router<
    * Define catchers for Options http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3679,7 +3683,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3694,7 +3698,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Options ${p}`,
@@ -3711,7 +3715,7 @@ export class Router<
    * Define catchers for Trace http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3721,7 +3725,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3736,7 +3740,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Trace ${p}`,
@@ -3753,7 +3757,7 @@ export class Router<
    * Define catchers for Connect http method and the specified paths.
    *
    * @param {Path} paths One or more valid route paths
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -3763,7 +3767,7 @@ export class Router<
     ExtendContextMore extends Record<string, unknown> = EmptyRecord,
     P extends Path = Path,
   >(
-    paths: Path | Array<Path>,
+    paths: P | Array<P>,
     pipe:
       | ErrorHandler<
           CTParams<ExtractParams<P>> &
@@ -3778,7 +3782,7 @@ export class Router<
             ExtendContextMore
         >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     paths = Array.isArray(paths) ? paths : [paths];
     const methodPaths = paths.map(
       (p: string) => `Connect ${p}`,
@@ -3795,22 +3799,31 @@ export class Router<
    * Define filters for the specified method paths.
    *
    * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-   * @param pipe One or more request handlers
+   * @param pipe One or more filtering handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  filter<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths:
-      | MethodPath
-      | Array<MethodPath>
-      | [Array<HttpMethod>, ...Array<Path>],
+  filter<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
+    methodPaths: MP | Array<MP> | [Array<HttpMethod>, ...Array<P>],
     pipe:
-      | Handler<ExtendContext & ExtendContextMore>
-      | Pipe<ExtendContext & ExtendContextMore>,
+      | Handler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | Pipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const methodPathIsArray = Array.isArray(methodPaths);
     if (
       methodPathIsArray &&
@@ -3829,6 +3842,9 @@ export class Router<
       throw new RouterError(
         "Invalid method type. Allowed [[Methods...], ...Paths]",
       );
+    }
+    if (firstElementIsArray && methodPaths[0].length === 0) {
+      throw new RouterError("Empty method. Allowed [[Methods...], ...Paths]");
     }
     if (
       methodPathIsArray &&
@@ -3865,22 +3881,31 @@ export class Router<
    * Define handlers for the specified method paths.
    *
    * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-   * @param pipe One or more request handlers
+   * @param pipe One or more main handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  handle<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths:
-      | MethodPath
-      | Array<MethodPath>
-      | [Array<HttpMethod>, ...Array<Path>],
+  handle<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
+    methodPaths: MP | Array<MP> | [Array<HttpMethod>, ...Array<P>],
     pipe:
-      | Handler<ExtendContext & ExtendContextMore>
-      | Pipe<ExtendContext & ExtendContextMore>,
+      | Handler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | Pipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const methodPathIsArray = Array.isArray(methodPaths);
     if (
       methodPathIsArray &&
@@ -3899,6 +3924,9 @@ export class Router<
       throw new RouterError(
         "Invalid method type. Allowed [[Methods...], ...Paths]",
       );
+    }
+    if (firstElementIsArray && methodPaths[0].length === 0) {
+      throw new RouterError("Empty method. Allowed [[Methods...], ...Paths]");
     }
     if (
       methodPathIsArray &&
@@ -3935,22 +3963,31 @@ export class Router<
    * Define fallbacks for the specified method paths.
    *
    * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-   * @param pipe One or more request handlers
+   * @param pipe One or more fallback handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  fallback<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths:
-      | MethodPath
-      | Array<MethodPath>
-      | [Array<HttpMethod>, ...Array<Path>],
+  fallback<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
+    methodPaths: MP | Array<MP> | [Array<HttpMethod>, ...Array<P>],
     pipe:
-      | Handler<ExtendContext & ExtendContextMore>
-      | Pipe<ExtendContext & ExtendContextMore>,
+      | Handler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | Pipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const methodPathIsArray = Array.isArray(methodPaths);
     if (
       methodPathIsArray &&
@@ -3969,6 +4006,9 @@ export class Router<
       throw new RouterError(
         "Invalid method type. Allowed [[Methods...], ...Paths]",
       );
+    }
+    if (firstElementIsArray && methodPaths[0].length === 0) {
+      throw new RouterError("Empty method. Allowed [[Methods...], ...Paths]");
     }
     if (
       methodPathIsArray &&
@@ -4007,22 +4047,31 @@ export class Router<
    * Define afters for the specified method paths.
    *
    * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-   * @param pipe One or more request handlers
+   * @param pipe One or more after handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  after<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths:
-      | MethodPath
-      | Array<MethodPath>
-      | [Array<HttpMethod>, ...Array<Path>],
+  after<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
+    methodPaths: MP | Array<MP> | [Array<HttpMethod>, ...Array<P>],
     pipe:
-      | EndHandler<ExtendContext & ExtendContextMore>
-      | EndPipe<ExtendContext & ExtendContextMore>,
+      | EndHandler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | EndPipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const methodPathIsArray = Array.isArray(methodPaths);
     if (
       methodPathIsArray &&
@@ -4041,6 +4090,9 @@ export class Router<
       throw new RouterError(
         "Invalid method type. Allowed [[Methods...], ...Paths]",
       );
+    }
+    if (firstElementIsArray && methodPaths[0].length === 0) {
+      throw new RouterError("Empty method. Allowed [[Methods...], ...Paths]");
     }
     if (
       methodPathIsArray &&
@@ -4077,22 +4129,31 @@ export class Router<
    * Define catchers for the specified method paths.
    *
    * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-   * @param pipe One or more request handlers
+   * @param pipe One or more error handlers
    * @param {RegisterPipelineOptions} options Register pipeline options
    * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  catch<ExtendContextMore extends Record<string, unknown> = EmptyRecord>(
-    methodPaths:
-      | MethodPath
-      | Array<MethodPath>
-      | [Array<HttpMethod>, ...Array<Path>],
+  catch<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
+    methodPaths: MP | Array<MP> | [Array<HttpMethod>, ...Array<P>],
     pipe:
-      | ErrorHandler<ExtendContext & ExtendContextMore>
-      | ErrorPipe<ExtendContext & ExtendContextMore>,
+      | ErrorHandler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | ErrorPipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const methodPathIsArray = Array.isArray(methodPaths);
     if (
       methodPathIsArray &&
@@ -4111,6 +4172,9 @@ export class Router<
       throw new RouterError(
         "Invalid method type. Allowed [[Methods...], ...Paths]",
       );
+    }
+    if (firstElementIsArray && methodPaths[0].length === 0) {
+      throw new RouterError("Empty method. Allowed [[Methods...], ...Paths]");
     }
     if (
       methodPathIsArray &&
@@ -4154,18 +4218,46 @@ export class Router<
    * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
    * @returns This router instance.
    */
-  register(
+  register<
+    ExtendContextMore extends Record<string, unknown> = EmptyRecord,
+    MP extends MethodPath = MethodPath,
+    P extends Path = Path,
+  >(
     handlerType: HandlerType,
-    methodPaths: MethodPath | Array<MethodPath>,
+    methodPaths: MP | Array<MP>,
     pipe:
-      | Handler<ExtendContext>
-      | ErrorHandler<ExtendContext>
-      | EndHandler<ExtendContext>
-      | Pipe<ExtendContext>
-      | ErrorPipe<ExtendContext>
-      | EndPipe<ExtendContext>,
+      | Handler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | Pipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | ErrorHandler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | ErrorPipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | EndHandler<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >
+      | EndPipe<
+          CTParams<ExtractMethodPathsParams<MP> | ExtractParams<P>> &
+            ExtendContext &
+            ExtendContextMore
+        >,
     options?: RegisterPipelineOptions | RegisterPipelineOptions,
-  ): Router<ExtendContext> {
+  ): Router<_ExtendContext, ExtendContext> {
     const overwrite = options?.overwrite === true;
     const methodPaths_ = Array.isArray(methodPaths)
       ? methodPaths
@@ -4331,6 +4423,17 @@ export class Router<
           methodPaths,
           pipe,
           options,
+        } as {
+          handlerType: HandlerType;
+          methodPaths: MethodPath | Array<MethodPath>;
+          pipe:
+            | Handler<ExtendContext>
+            | ErrorHandler<ExtendContext>
+            | EndHandler<ExtendContext>
+            | Pipe<ExtendContext>
+            | ErrorPipe<ExtendContext>
+            | EndPipe<ExtendContext>;
+          options?: RegisterPipelineOptions | RegisterPipelineOptions;
         }),
       );
     }

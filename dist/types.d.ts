@@ -95,6 +95,13 @@ export type ExtractParamName<S extends string> = S extends `::${infer Name}` ? N
  * @template {string} P pathname. /api/v1/users/:userId/posts/:postId
  */
 export type ExtractParams<P extends string> = ExtractParamName<SplitPathSegments<P>[number]>;
+export type ExtractPathFromMethodPath<MP extends MethodPath> = MP extends `${HttpMethod} ${infer Path}` ? Path : never;
+/**
+ * Gives parameters from method-path segments Get /a/:id/b/:n -> 'id'|'n'
+ *
+ * @template {string} MP method-pathname. Get /api/v1/users/:userId/posts/:postId
+ */
+export type ExtractMethodPathsParams<MP extends string> = MP extends `${HttpMethod} ${infer Path}` ? ExtractParamName<SplitPathSegments<Path>[number]> : never;
 export type EmptyRecord = Record<string, unknown>;
 export type BaseContext = {
     router: any;
@@ -182,12 +189,12 @@ export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<
     enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
     disable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
     doNotStoreSetters?: boolean;
-    defaultFilter?: DefaultHandler<Context<ExtendContext>>;
-    defaultHandler?: DefaultHandler<Context<ExtendContext>>;
-    defaultFallback?: DefaultHandler<Context<ExtendContext>>;
-    defaultCatcher?: DefaultErrorHandler<Context<ExtendContext>>;
-    defaultAfter?: DefaultEndHandler<Context<ExtendContext>>;
-    afterCatcher?: DefaultEndErrorHandler<Context<ExtendContext>>;
+    defaultFilter?: DefaultHandler<ExtendContext>;
+    defaultHandler?: DefaultHandler<ExtendContext>;
+    defaultFallback?: DefaultHandler<ExtendContext>;
+    defaultCatcher?: DefaultErrorHandler<ExtendContext>;
+    defaultAfter?: DefaultEndHandler<ExtendContext>;
+    afterCatcher?: DefaultEndErrorHandler<ExtendContext>;
 };
 export interface RouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     parseParams: (pathname: string, parts: string[], allParams: Record<string, unknown>) => Record<string, unknown>;

@@ -131,7 +131,7 @@ class Router {
      * Respond to a request according to the defined routes.
      *
      * @param {Request} request An http request object
-     * @param {RespondContext<ExtendContext>} ctxInit Context pre-initialization.
+     * @param {RespondContext<_ExtendContext>} ctxInit Context pre-initialization.
      *     Only headers and timestamps are allowed.
      *     But timestamps properties will not be overridden but rather extended.
      * @returns {Response} An http response object
@@ -366,8 +366,10 @@ class Router {
                     }
                 }
                 if (!(response instanceof Response)) {
-                    const status = ctx.error && ctx.error instanceof types_ts_1.HttpError
-                        ? ctx.error.status
+                    const status = ctx.error &&
+                        ctx.error instanceof types_ts_1.HttpError
+                        ? ctx.error
+                            .status
                         : status_ts_1.Status._500_InternalServerError;
                     response = new Response(null, {
                         status,
@@ -1011,7 +1013,7 @@ class Router {
      * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1031,7 +1033,7 @@ class Router {
      * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1051,7 +1053,7 @@ class Router {
      * Define handlers for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1066,7 +1068,7 @@ class Router {
      * Define handlers for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1081,7 +1083,7 @@ class Router {
      * Define handlers for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1096,7 +1098,7 @@ class Router {
      * Define handlers for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1111,7 +1113,7 @@ class Router {
      * Define handlers for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1126,7 +1128,7 @@ class Router {
      * Define handlers for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1141,7 +1143,7 @@ class Router {
      * Define handlers for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1156,7 +1158,7 @@ class Router {
      * Define handlers for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1171,7 +1173,7 @@ class Router {
      * Define handlers for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1186,7 +1188,7 @@ class Router {
      * Define handlers for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1201,7 +1203,7 @@ class Router {
      * Define filters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1221,7 +1223,7 @@ class Router {
      * Define filters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1241,7 +1243,7 @@ class Router {
      * Define filters for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1256,7 +1258,7 @@ class Router {
      * Define filters for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1271,7 +1273,7 @@ class Router {
      * Define filters for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1286,7 +1288,7 @@ class Router {
      * Define filters for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1301,7 +1303,7 @@ class Router {
      * Define filters for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1316,7 +1318,7 @@ class Router {
      * Define filters for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1331,7 +1333,7 @@ class Router {
      * Define filters for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1346,7 +1348,7 @@ class Router {
      * Define filters for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1361,7 +1363,7 @@ class Router {
      * Define filters for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1376,7 +1378,7 @@ class Router {
      * Define filters for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1391,7 +1393,7 @@ class Router {
      * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1411,7 +1413,7 @@ class Router {
      * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1431,7 +1433,7 @@ class Router {
      * Define handlers for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1446,7 +1448,7 @@ class Router {
      * Define handlers for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1461,7 +1463,7 @@ class Router {
      * Define handlers for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1476,7 +1478,7 @@ class Router {
      * Define handlers for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1491,7 +1493,7 @@ class Router {
      * Define handlers for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1506,7 +1508,7 @@ class Router {
      * Define handlers for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1521,7 +1523,7 @@ class Router {
      * Define handlers for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1536,7 +1538,7 @@ class Router {
      * Define handlers for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1551,7 +1553,7 @@ class Router {
      * Define handlers for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1566,7 +1568,7 @@ class Router {
      * Define handlers for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1581,7 +1583,7 @@ class Router {
      * Define fallbacks for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1601,7 +1603,7 @@ class Router {
      * Define fallbacks for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1621,7 +1623,7 @@ class Router {
      * Define fallbacks for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1636,7 +1638,7 @@ class Router {
      * Define fallbacks for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1651,7 +1653,7 @@ class Router {
      * Define fallbacks for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1666,7 +1668,7 @@ class Router {
      * Define fallbacks for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1681,7 +1683,7 @@ class Router {
      * Define fallbacks for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1696,7 +1698,7 @@ class Router {
      * Define fallbacks for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1711,7 +1713,7 @@ class Router {
      * Define fallbacks for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1726,7 +1728,7 @@ class Router {
      * Define fallbacks for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1741,7 +1743,7 @@ class Router {
      * Define fallbacks for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1756,7 +1758,7 @@ class Router {
      * Define fallbacks for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1771,7 +1773,7 @@ class Router {
      * Define afters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1791,7 +1793,7 @@ class Router {
      * Define afters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1811,7 +1813,7 @@ class Router {
      * Define afters for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1826,7 +1828,7 @@ class Router {
      * Define afters for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1841,7 +1843,7 @@ class Router {
      * Define afters for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1856,7 +1858,7 @@ class Router {
      * Define afters for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1871,7 +1873,7 @@ class Router {
      * Define afters for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1886,7 +1888,7 @@ class Router {
      * Define afters for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1901,7 +1903,7 @@ class Router {
      * Define afters for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1916,7 +1918,7 @@ class Router {
      * Define afters for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1931,7 +1933,7 @@ class Router {
      * Define afters for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1946,7 +1948,7 @@ class Router {
      * Define afters for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1961,7 +1963,7 @@ class Router {
      * Define catchers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -1981,7 +1983,7 @@ class Router {
      * Define catchers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2001,7 +2003,7 @@ class Router {
      * Define catchers for Head http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2016,7 +2018,7 @@ class Router {
      * Define catchers for Get http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2031,7 +2033,7 @@ class Router {
      * Define catchers for Query http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2046,7 +2048,7 @@ class Router {
      * Define catchers for Post http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2061,7 +2063,7 @@ class Router {
      * Define catchers for Put http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2076,7 +2078,7 @@ class Router {
      * Define catchers for Patch http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2091,7 +2093,7 @@ class Router {
      * Define catchers for Head Delete method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2106,7 +2108,7 @@ class Router {
      * Define catchers for Options http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2121,7 +2123,7 @@ class Router {
      * Define catchers for Trace http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2136,7 +2138,7 @@ class Router {
      * Define catchers for Connect http method and the specified paths.
      *
      * @param {Path} paths One or more valid route paths
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2151,7 +2153,7 @@ class Router {
      * Define filters for the specified method paths.
      *
      * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-     * @param pipe One or more request handlers
+     * @param pipe One or more filtering handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2167,6 +2169,9 @@ class Router {
         if (firstElementIsArray &&
             !methodPaths[0].every((mp) => typeof mp === "string")) {
             throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (firstElementIsArray && methodPaths[0].length === 0) {
+            throw new types_ts_1.RouterError("Empty method. Allowed [[Methods...], ...Paths]");
         }
         if (methodPathIsArray &&
             !firstElementIsArray &&
@@ -2191,7 +2196,7 @@ class Router {
      * Define handlers for the specified method paths.
      *
      * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-     * @param pipe One or more request handlers
+     * @param pipe One or more main handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2207,6 +2212,9 @@ class Router {
         if (firstElementIsArray &&
             !methodPaths[0].every((mp) => typeof mp === "string")) {
             throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (firstElementIsArray && methodPaths[0].length === 0) {
+            throw new types_ts_1.RouterError("Empty method. Allowed [[Methods...], ...Paths]");
         }
         if (methodPathIsArray &&
             !firstElementIsArray &&
@@ -2231,7 +2239,7 @@ class Router {
      * Define fallbacks for the specified method paths.
      *
      * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-     * @param pipe One or more request handlers
+     * @param pipe One or more fallback handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2247,6 +2255,9 @@ class Router {
         if (firstElementIsArray &&
             !methodPaths[0].every((mp) => typeof mp === "string")) {
             throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (firstElementIsArray && methodPaths[0].length === 0) {
+            throw new types_ts_1.RouterError("Empty method. Allowed [[Methods...], ...Paths]");
         }
         if (methodPathIsArray &&
             !firstElementIsArray &&
@@ -2271,7 +2282,7 @@ class Router {
      * Define afters for the specified method paths.
      *
      * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-     * @param pipe One or more request handlers
+     * @param pipe One or more after handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2287,6 +2298,9 @@ class Router {
         if (firstElementIsArray &&
             !methodPaths[0].every((mp) => typeof mp === "string")) {
             throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (firstElementIsArray && methodPaths[0].length === 0) {
+            throw new types_ts_1.RouterError("Empty method. Allowed [[Methods...], ...Paths]");
         }
         if (methodPathIsArray &&
             !firstElementIsArray &&
@@ -2311,7 +2325,7 @@ class Router {
      * Define catchers for the specified method paths.
      *
      * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
-     * @param pipe One or more request handlers
+     * @param pipe One or more error handlers
      * @param {RegisterPipelineOptions} options Register pipeline options
      * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
      * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
@@ -2327,6 +2341,9 @@ class Router {
         if (firstElementIsArray &&
             !methodPaths[0].every((mp) => typeof mp === "string")) {
             throw new types_ts_1.RouterError("Invalid method type. Allowed [[Methods...], ...Paths]");
+        }
+        if (firstElementIsArray && methodPaths[0].length === 0) {
+            throw new types_ts_1.RouterError("Empty method. Allowed [[Methods...], ...Paths]");
         }
         if (methodPathIsArray &&
             !firstElementIsArray &&
