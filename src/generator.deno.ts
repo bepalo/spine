@@ -222,7 +222,7 @@ export const generateStaticRoutes = async ({
             : importExtensions
               ? relativePath.substring(relativePath.lastIndexOf("."))
               : "";
-        let pathname = translateRouteFilePath("/" + pureRelativePath, , maxPath);
+        let pathname = translateRouteFilePath("/" + pureRelativePath, maxPath);
         pathname = pureRelativePath.endsWith("/index")
           ? pathname.substring(0, pathname.length - 1)
           : pathname;
