@@ -1038,6 +1038,42 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
      * @returns -count if path parts are greater than maxPath.
      */
     splitPath(pathname: string, parts: string[], maxPath: number): number;
+    /**
+     * Generates a routes object keyed by pathname then by method then by handler-type.
+     *
+     * @returns Routes object
+     */
+    getRoutesByPathnameThenMethod(): Record<Path, Partial<Record<HttpMethodUpper, Partial<Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
+    /**
+     * Generates a routes object keyed by pathname then by handler-type then by method.
+     *
+     * @returns Routes object
+     */
+    getRoutesByPathnameThenHandlerType(): Record<Path, Partial<Record<HandlerType, Partial<Record<HttpMethodUpper, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
+    /**
+     * Generates a routes object keyed by method then by pathname then by handler-type.
+     *
+     * @returns Routes object
+     */
+    getRoutesByMethodThenPathname(): Partial<Record<HttpMethodUpper, Record<Path, Partial<Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
+    /**
+     * Generates a routes object keyed by method then by handler-type then by pathname.
+     *
+     * @returns Routes object
+     */
+    getRoutesByMethodThenHandlerType(): Partial<Record<HttpMethodUpper, Partial<Record<HandlerType, Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
+    /**
+     * Generates a routes object keyed by handler-type then by method then by pathname.
+     *
+     * @returns Routes object
+     */
+    getRoutesByHandlerTypeThenMethod(): Partial<Record<HandlerType, Partial<Record<HttpMethodUpper, Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
+    /**
+     * Generates a routes object keyed by handler-type then by pathname then by method.
+     *
+     * @returns Routes object
+     */
+    getRoutesByHandlerTypeThenPathname(): Partial<Record<HandlerType, Record<Path, Partial<Record<HttpMethodUpper, Handler<ExtendContext> | Pipe<ExtendContext>>>>>>;
 }
 /**
  * Translate route definition file pathname into valid route pathname.

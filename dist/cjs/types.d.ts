@@ -217,12 +217,18 @@ export interface RouteEntries<ExtendContext extends Record<string, unknown> = Re
     entries: Array<Map<string, RouteEntry<ExtendContext>>>;
     globs: Array<Map<string, RouteEntry<ExtendContext>>>;
     superGlobs: Array<Map<string, RouteEntry<ExtendContext>>>;
+    entriesIndices: number[];
+    globsIndices: number[];
+    superGlobsIndices: number[];
 }
 export interface HandlerRouteEntries<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     method: HttpMethodUpper;
     entries: Array<Map<string, HandlerRouteEntry<ExtendContext>>>;
     globs: Array<Map<string, HandlerRouteEntry<ExtendContext>>>;
     superGlobs: Array<Map<string, HandlerRouteEntry<ExtendContext>>>;
+    entriesIndices: number[];
+    globsIndices: number[];
+    superGlobsIndices: number[];
 }
 export type HandlerReturn = Response | typeof Break_Pipeline | typeof Break_Pipe | void;
 export type Handler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<ExtendContext>) => Promise<HandlerReturn> | HandlerReturn;

@@ -4365,6 +4365,9 @@ export class Router<
           if (superGlobEntries == null) {
             superGlobEntries = new Map();
             routes.superGlobs[parts_len_1] = superGlobEntries;
+            if (routes.superGlobsIndices.indexOf(parts_len_1) === -1) {
+              routes.superGlobsIndices.push(parts_len_1);
+            }
           }
           superGlobEntries.set(basePath, entry);
         } else if (hasGlob) {
@@ -4398,6 +4401,9 @@ export class Router<
           if (globEntries == null) {
             globEntries = new Map();
             routes.globs[parts.length] = globEntries;
+            if (routes.globsIndices.indexOf(parts.length) === -1) {
+              routes.globsIndices.push(parts.length);
+            }
           }
           globEntries.set(path, entry);
         } else {
@@ -4410,6 +4416,9 @@ export class Router<
           if (entries == null) {
             entries = new Map();
             routes.entries[parts.length] = entries;
+            if (routes.entriesIndices.indexOf(parts.length) === -1) {
+              routes.entriesIndices.push(parts.length);
+            }
           }
           entries.set(path, entry);
         }
@@ -4420,9 +4429,12 @@ export class Router<
       this.#setters.push(
         Object.freeze({
           handlerType,
-          methodPaths,
-          pipe,
-          options,
+          methodPaths: Array.isArray(methodPaths)
+            ? Object.freeze(methodPaths)
+            : methodPaths,
+          pipe: Array.isArray(pipe) ? Object.freeze(pipe) : pipe,
+          options:
+            typeof options === "object" ? Object.freeze(options) : options,
         } as {
           handlerType: HandlerType;
           methodPaths: MethodPath | Array<MethodPath>;
@@ -4475,6 +4487,660 @@ export class Router<
       parts.push(pathname.substring(lastI));
     }
     return count;
+  }
+
+  /**
+   * Generates a routes object keyed by pathname then by method then by handler-type.
+   *
+   * @returns Routes object
+   */
+  getRoutesByPathnameThenMethod(): Record<
+    Path,
+    Partial<
+      Record<
+        HttpMethodUpper,
+        Partial<
+          Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Record<
+      Path,
+      Partial<
+        Record<
+          HttpMethodUpper,
+          Partial<
+            Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[entry.standardPath as Path][methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[entry.standardPath as Path][methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[entry.standardPath as Path][
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[entry.standardPath as Path][methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
+  }
+
+  /**
+   * Generates a routes object keyed by pathname then by handler-type then by method.
+   *
+   * @returns Routes object
+   */
+  getRoutesByPathnameThenHandlerType(): Record<
+    Path,
+    Partial<
+      Record<
+        HandlerType,
+        Partial<
+          Record<HttpMethodUpper, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Record<
+      Path,
+      Partial<
+        Record<
+          HandlerType,
+          Partial<
+            Record<
+              HttpMethodUpper,
+              Handler<ExtendContext> | Pipe<ExtendContext>
+            >
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][handlerType as HandlerType]
+            ) {
+              routes[entry.standardPath as Path][handlerType as HandlerType] =
+                {};
+            }
+            routes[entry.standardPath as Path][handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][handlerType as HandlerType]
+            ) {
+              routes[entry.standardPath as Path][handlerType as HandlerType] =
+                {};
+            }
+            routes[entry.standardPath as Path][handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[entry.standardPath as Path]) {
+              routes[entry.standardPath as Path] = {};
+            }
+            if (
+              !routes[entry.standardPath as Path][handlerType as HandlerType]
+            ) {
+              routes[entry.standardPath as Path][handlerType as HandlerType] =
+                {};
+            }
+            routes[entry.standardPath as Path][handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
+  }
+
+  /**
+   * Generates a routes object keyed by method then by pathname then by handler-type.
+   *
+   * @returns Routes object
+   */
+  getRoutesByMethodThenPathname(): Partial<
+    Record<
+      HttpMethodUpper,
+      Record<
+        Path,
+        Partial<
+          Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Partial<
+      Record<
+        HttpMethodUpper,
+        Record<
+          Path,
+          Partial<
+            Record<HandlerType, Handler<ExtendContext> | Pipe<ExtendContext>>
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              entry.standardPath as Path
+            ]![handlerType as HandlerType] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              entry.standardPath as Path
+            ]![handlerType as HandlerType] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                entry.standardPath as Path
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              entry.standardPath as Path
+            ]![handlerType as HandlerType] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
+  }
+
+  /**
+   * Generates a routes object keyed by method then by handler-type then by pathname.
+   *
+   * @returns Routes object
+   */
+  getRoutesByMethodThenHandlerType(): Partial<
+    Record<
+      HttpMethodUpper,
+      Partial<
+        Record<
+          HandlerType,
+          Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Partial<
+      Record<
+        HttpMethodUpper,
+        Partial<
+          Record<
+            HandlerType,
+            Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[methodUpper as HttpMethodUpper]) {
+              routes[methodUpper as HttpMethodUpper] = {};
+            }
+            if (
+              !routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ]
+            ) {
+              routes[methodUpper as HttpMethodUpper]![
+                handlerType as HandlerType
+              ] = {};
+            }
+            routes[methodUpper as HttpMethodUpper]![
+              handlerType as HandlerType
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
+  }
+
+  /**
+   * Generates a routes object keyed by handler-type then by method then by pathname.
+   *
+   * @returns Routes object
+   */
+  getRoutesByHandlerTypeThenMethod(): Partial<
+    Record<
+      HandlerType,
+      Partial<
+        Record<
+          HttpMethodUpper,
+          Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Partial<
+      Record<
+        HandlerType,
+        Partial<
+          Record<
+            HttpMethodUpper,
+            Record<Path, Handler<ExtendContext> | Pipe<ExtendContext>>
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ]
+            ) {
+              routes[handlerType as HandlerType]![
+                methodUpper as HttpMethodUpper
+              ] = {};
+            }
+            routes[handlerType as HandlerType]![
+              methodUpper as HttpMethodUpper
+            ]![entry.standardPath as Path] = Array.isArray(entry.pipe)
+              ? [...entry.pipe]
+              : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
+  }
+
+  /**
+   * Generates a routes object keyed by handler-type then by pathname then by method.
+   *
+   * @returns Routes object
+   */
+  getRoutesByHandlerTypeThenPathname(): Partial<
+    Record<
+      HandlerType,
+      Record<
+        Path,
+        Partial<
+          Record<HttpMethodUpper, Handler<ExtendContext> | Pipe<ExtendContext>>
+        >
+      >
+    >
+  > {
+    const routes: Partial<
+      Record<
+        HandlerType,
+        Record<
+          Path,
+          Partial<
+            Record<
+              HttpMethodUpper,
+              Handler<ExtendContext> | Pipe<ExtendContext>
+            >
+          >
+        >
+      >
+    > = {};
+    for (const handlerType of Object.keys(this.#routes)) {
+      const entry0 = this.#routes[handlerType as HandlerType];
+      for (const methodUpper of Object.keys(entry0)) {
+        const entry1 = entry0[methodUpper as HttpMethodUpper];
+        // super-globs
+        for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+          const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+          for (const [, entry] of superGlobEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![entry.standardPath as Path]
+            ) {
+              routes[handlerType as HandlerType]![entry.standardPath as Path] =
+                {};
+            }
+            routes[handlerType as HandlerType]![entry.standardPath as Path]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // globs
+        for (const globEntryIdx of entry1.globsIndices) {
+          const globEntries = entry1.globs[globEntryIdx];
+          for (const [, entry] of globEntries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![entry.standardPath as Path]
+            ) {
+              routes[handlerType as HandlerType]![entry.standardPath as Path] =
+                {};
+            }
+            routes[handlerType as HandlerType]![entry.standardPath as Path]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+        // normal paths
+        for (const entryIdx of entry1.entriesIndices) {
+          const entries = entry1.entries[entryIdx];
+          for (const [, entry] of entries) {
+            if (!entry.pipe) {
+              continue;
+            }
+            if (!routes[handlerType as HandlerType]) {
+              routes[handlerType as HandlerType] = {};
+            }
+            if (
+              !routes[handlerType as HandlerType]![entry.standardPath as Path]
+            ) {
+              routes[handlerType as HandlerType]![entry.standardPath as Path] =
+                {};
+            }
+            routes[handlerType as HandlerType]![entry.standardPath as Path]![
+              methodUpper as HttpMethodUpper
+            ] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+          }
+        }
+      }
+    }
+    return routes;
   }
 
   #processPath(path: string): {
@@ -4687,6 +5353,9 @@ export class Router<
       entries: new Array(this.#config.maxPath + 1),
       globs: new Array(this.#config.maxPath + 1),
       superGlobs: new Array(this.#config.maxPath + 1),
+      entriesIndices: [],
+      globsIndices: [],
+      superGlobsIndices: [],
     };
   }
 

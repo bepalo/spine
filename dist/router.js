@@ -2463,6 +2463,9 @@ class Router {
                     if (superGlobEntries == null) {
                         superGlobEntries = new Map();
                         routes.superGlobs[parts_len_1] = superGlobEntries;
+                        if (routes.superGlobsIndices.indexOf(parts_len_1) === -1) {
+                            routes.superGlobsIndices.push(parts_len_1);
+                        }
                     }
                     superGlobEntries.set(basePath, entry);
                 }
@@ -2494,6 +2497,9 @@ class Router {
                     if (globEntries == null) {
                         globEntries = new Map();
                         routes.globs[parts.length] = globEntries;
+                        if (routes.globsIndices.indexOf(parts.length) === -1) {
+                            routes.globsIndices.push(parts.length);
+                        }
                     }
                     globEntries.set(path, entry);
                 }
@@ -2505,6 +2511,9 @@ class Router {
                     if (entries == null) {
                         entries = new Map();
                         routes.entries[parts.length] = entries;
+                        if (routes.entriesIndices.indexOf(parts.length) === -1) {
+                            routes.entriesIndices.push(parts.length);
+                        }
                     }
                     entries.set(path, entry);
                 }
@@ -2514,9 +2523,11 @@ class Router {
         if (!__classPrivateFieldGet(this, _Router_config, "f").doNotStoreSetters) {
             __classPrivateFieldGet(this, _Router_setters, "f").push(Object.freeze({
                 handlerType,
-                methodPaths,
-                pipe,
-                options,
+                methodPaths: Array.isArray(methodPaths)
+                    ? Object.freeze(methodPaths)
+                    : methodPaths,
+                pipe: Array.isArray(pipe) ? Object.freeze(pipe) : pipe,
+                options: typeof options === "object" ? Object.freeze(options) : options,
             }));
         }
         return this;
@@ -2556,6 +2567,408 @@ class Router {
             parts.push(pathname.substring(lastI));
         }
         return count;
+    }
+    /**
+     * Generates a routes object keyed by pathname then by method then by handler-type.
+     *
+     * @returns Routes object
+     */
+    getRoutesByPathnameThenMethod() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][methodUpper]) {
+                            routes[entry.standardPath][methodUpper] = {};
+                        }
+                        routes[entry.standardPath][methodUpper][handlerType] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][methodUpper]) {
+                            routes[entry.standardPath][methodUpper] = {};
+                        }
+                        routes[entry.standardPath][methodUpper][handlerType] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][methodUpper]) {
+                            routes[entry.standardPath][methodUpper] = {};
+                        }
+                        routes[entry.standardPath][methodUpper][handlerType] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
+    }
+    /**
+     * Generates a routes object keyed by pathname then by handler-type then by method.
+     *
+     * @returns Routes object
+     */
+    getRoutesByPathnameThenHandlerType() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][handlerType]) {
+                            routes[entry.standardPath][handlerType] =
+                                {};
+                        }
+                        routes[entry.standardPath][handlerType][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][handlerType]) {
+                            routes[entry.standardPath][handlerType] =
+                                {};
+                        }
+                        routes[entry.standardPath][handlerType][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[entry.standardPath]) {
+                            routes[entry.standardPath] = {};
+                        }
+                        if (!routes[entry.standardPath][handlerType]) {
+                            routes[entry.standardPath][handlerType] =
+                                {};
+                        }
+                        routes[entry.standardPath][handlerType][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
+    }
+    /**
+     * Generates a routes object keyed by method then by pathname then by handler-type.
+     *
+     * @returns Routes object
+     */
+    getRoutesByMethodThenPathname() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][entry.standardPath]) {
+                            routes[methodUpper][entry.standardPath] = {};
+                        }
+                        routes[methodUpper][entry.standardPath][handlerType] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][entry.standardPath]) {
+                            routes[methodUpper][entry.standardPath] = {};
+                        }
+                        routes[methodUpper][entry.standardPath][handlerType] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][entry.standardPath]) {
+                            routes[methodUpper][entry.standardPath] = {};
+                        }
+                        routes[methodUpper][entry.standardPath][handlerType] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
+    }
+    /**
+     * Generates a routes object keyed by method then by handler-type then by pathname.
+     *
+     * @returns Routes object
+     */
+    getRoutesByMethodThenHandlerType() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][handlerType]) {
+                            routes[methodUpper][handlerType] = {};
+                        }
+                        routes[methodUpper][handlerType][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][handlerType]) {
+                            routes[methodUpper][handlerType] = {};
+                        }
+                        routes[methodUpper][handlerType][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[methodUpper]) {
+                            routes[methodUpper] = {};
+                        }
+                        if (!routes[methodUpper][handlerType]) {
+                            routes[methodUpper][handlerType] = {};
+                        }
+                        routes[methodUpper][handlerType][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
+    }
+    /**
+     * Generates a routes object keyed by handler-type then by method then by pathname.
+     *
+     * @returns Routes object
+     */
+    getRoutesByHandlerTypeThenMethod() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][methodUpper]) {
+                            routes[handlerType][methodUpper] = {};
+                        }
+                        routes[handlerType][methodUpper][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][methodUpper]) {
+                            routes[handlerType][methodUpper] = {};
+                        }
+                        routes[handlerType][methodUpper][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][methodUpper]) {
+                            routes[handlerType][methodUpper] = {};
+                        }
+                        routes[handlerType][methodUpper][entry.standardPath] = Array.isArray(entry.pipe)
+                            ? [...entry.pipe]
+                            : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
+    }
+    /**
+     * Generates a routes object keyed by handler-type then by pathname then by method.
+     *
+     * @returns Routes object
+     */
+    getRoutesByHandlerTypeThenPathname() {
+        const routes = {};
+        for (const handlerType of Object.keys(__classPrivateFieldGet(this, _Router_routes, "f"))) {
+            const entry0 = __classPrivateFieldGet(this, _Router_routes, "f")[handlerType];
+            for (const methodUpper of Object.keys(entry0)) {
+                const entry1 = entry0[methodUpper];
+                // super-globs
+                for (const superGlobEntryIdx of entry1.superGlobsIndices) {
+                    const superGlobEntries = entry1.superGlobs[superGlobEntryIdx];
+                    for (const [, entry] of superGlobEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][entry.standardPath]) {
+                            routes[handlerType][entry.standardPath] =
+                                {};
+                        }
+                        routes[handlerType][entry.standardPath][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // globs
+                for (const globEntryIdx of entry1.globsIndices) {
+                    const globEntries = entry1.globs[globEntryIdx];
+                    for (const [, entry] of globEntries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][entry.standardPath]) {
+                            routes[handlerType][entry.standardPath] =
+                                {};
+                        }
+                        routes[handlerType][entry.standardPath][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+                // normal paths
+                for (const entryIdx of entry1.entriesIndices) {
+                    const entries = entry1.entries[entryIdx];
+                    for (const [, entry] of entries) {
+                        if (!entry.pipe) {
+                            continue;
+                        }
+                        if (!routes[handlerType]) {
+                            routes[handlerType] = {};
+                        }
+                        if (!routes[handlerType][entry.standardPath]) {
+                            routes[handlerType][entry.standardPath] =
+                                {};
+                        }
+                        routes[handlerType][entry.standardPath][methodUpper] = Array.isArray(entry.pipe) ? [...entry.pipe] : entry.pipe;
+                    }
+                }
+            }
+        }
+        return routes;
     }
 }
 exports.Router = Router;
@@ -2757,6 +3170,9 @@ _Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_setters 
         entries: new Array(__classPrivateFieldGet(this, _Router_config, "f").maxPath + 1),
         globs: new Array(__classPrivateFieldGet(this, _Router_config, "f").maxPath + 1),
         superGlobs: new Array(__classPrivateFieldGet(this, _Router_config, "f").maxPath + 1),
+        entriesIndices: [],
+        globsIndices: [],
+        superGlobsIndices: [],
     };
 }, _Router_initRoutes = function _Router_initRoutes() {
     const routes = {};
