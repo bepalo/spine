@@ -20,7 +20,7 @@ const createRequest = (
 describe("Router - OpenAPI Generation", () => {
   describe("Basic OpenAPI Generation", () => {
     it("should generate basic OpenAPI document", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -58,7 +58,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should generate OpenAPI with servers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -77,7 +77,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should generate OpenAPI with contact and license", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -105,7 +105,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should generate OpenAPI with external docs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -126,7 +126,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Tags", () => {
     it("should auto-tag routes based on path", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"));
       router.get("/api/posts", () => text("OK"));
@@ -148,7 +148,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should use custom tag function", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"));
       router.get("/api/posts", () => text("OK"));
@@ -168,7 +168,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include global tags when used by operations", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"), {
         openApi: { tags: ["users", "api"] },
@@ -191,7 +191,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should auto-generate tags when autoTag is enabled by default", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -209,7 +209,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should not include unused tags", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -230,7 +230,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Operation IDs", () => {
     it("should generate operation IDs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"));
       router.post("/api/users", () => text("OK"));
@@ -249,7 +249,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should use custom operation ID when provided", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -266,7 +266,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should not generate operation IDs when disabled", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -279,7 +279,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should clean operation IDs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/v1/users/:id/posts", () => text("OK"));
 
@@ -296,7 +296,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Summaries", () => {
     it("should auto-generate summaries", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"));
       router.post("/api/users/:id/update", () => text("OK"));
@@ -313,7 +313,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should use custom summary when provided", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -330,7 +330,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should not generate summaries when disabled", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -345,7 +345,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Parameters", () => {
     it("should include path parameters from route", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:userId/posts/:postId", () => text("OK"));
 
@@ -366,7 +366,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should combine user-defined and path parameters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:id", () => text("OK"), {
         openApi: {
@@ -404,7 +404,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should deduplicate parameters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:id", () => text("OK"), {
         openApi: {
@@ -429,7 +429,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should add common parameters to all operations", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
       router.get("/posts", () => text("OK"));
@@ -466,7 +466,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Responses", () => {
     it("should infer default responses", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -481,7 +481,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should use custom responses when provided", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -519,7 +519,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Request Body", () => {
     it("should include request body from OpenAPI description", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.post("/users", () => text("OK"), {
         openApi: {
@@ -568,7 +568,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Security", () => {
     it("should include global security", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -594,7 +594,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include operation-level security", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/public", () => text("OK"));
 
@@ -626,7 +626,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should merge operation security with global security", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -661,7 +661,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Components", () => {
     it("should include global schemas", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -702,7 +702,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include global parameters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -736,7 +736,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include global responses", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -761,7 +761,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include global examples", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -789,7 +789,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should merge multiple component types", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
 
@@ -829,7 +829,7 @@ describe("Router - OpenAPI Generation", () => {
   });
   describe("OpenAPI with Route Filtering", () => {
     it("should filter routes with pick option", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Routes that should be included
       router.get("/api/v1/users", () => text("OK"), {
@@ -913,7 +913,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle complex pick conditions with multiple criteria", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/public/users", () => text("OK"), {
         openApi: { tags: ["public"] },
@@ -963,7 +963,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should preserve operation ordering when filtering with pick", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/v1/users", () => text("OK"), {
         openApi: { tags: ["v1"], operationId: "getV1Users" },
@@ -1006,7 +1006,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle empty pick filter (include all)", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"), {
         openApi: { tags: ["users"] },
@@ -1031,7 +1031,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should filter out all routes when pick returns false", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("OK"), {
         openApi: { tags: ["users"] },
@@ -1051,7 +1051,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should maintain tag filtering when pick is used", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/v1/users", () => text("OK"), {
         openApi: { tags: ["v1", "api"] },
@@ -1095,7 +1095,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle pick with different HTTP methods on same path", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/resource", () => text("OK"), {
         openApi: { tags: ["read"] },
@@ -1136,7 +1136,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI with Complex Routes", () => {
     it("should handle routes with alternative paths", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // This registers: /home, /about, /contact (expanded by router)
       router.get("/|home|about|contact:page", (ctx) => {
@@ -1160,7 +1160,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle routes with pipe in parameters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get(
         "/dashboard/admin|vendor|client:role/settings/profile|payment:tab",
@@ -1193,7 +1193,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle deep nested routes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/a/b/c/d/e/f/g/h/i/j", () => text("OK"));
 
@@ -1207,7 +1207,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle all HTTP methods", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/resource", () => text("GET"));
       router.post("/resource", () => text("POST"));
@@ -1239,7 +1239,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI Schema Descriptions", () => {
     it("should include schema descriptions", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.post("/users", () => text("OK"), {
         openApi: {
@@ -1341,7 +1341,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include descriptions for array items", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"), {
         openApi: {
@@ -1385,7 +1385,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI Return Type Validation", () => {
     it("should return a valid GeneratedOpenApi type", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -1434,7 +1434,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should include operation IDs in all operations when enabled", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("OK"));
       router.post("/users", () => text("OK"));
@@ -1459,7 +1459,7 @@ describe("Router - OpenAPI Generation", () => {
 
   describe("OpenAPI Edge Cases", () => {
     it("should handle routes with no OpenAPI metadata", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -1474,7 +1474,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle routes with multiple methods", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.all("/test", () => text("All methods"));
 
@@ -1492,7 +1492,7 @@ describe("Router - OpenAPI Generation", () => {
     });
 
     it("should handle routes with same path but different methods and OpenAPI", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("GET"), {
         openApi: {

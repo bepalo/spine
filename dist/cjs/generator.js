@@ -196,9 +196,9 @@ function getRouteLoaders(routerId, moduleId, pathname, module, importPath, testR
  *  ```
  *
  */
-const generateStaticRoutes = (_a) => __awaiter(void 0, [_a], void 0, function* ({ routesPath, importRoot = "./", usePathForIdGeneration = false, importExtensions = false, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), onError, }) {
+const generateStaticRoutes = (_a) => __awaiter(void 0, [_a], void 0, function* ({ maxPath, routesPath, importRoot = "./", usePathForIdGeneration = false, importExtensions = false, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), onError, }) {
     var _b, e_1, _c, _d;
-    const testRouter = new router_ts_1.default();
+    const testRouter = new router_ts_1.default({ maxPath });
     let imports = "";
     let loads = "";
     const prefix = "route";
@@ -226,7 +226,7 @@ const generateStaticRoutes = (_a) => __awaiter(void 0, [_a], void 0, function* (
                         : importExtensions
                             ? relativePath.substring(relativePath.lastIndexOf("."))
                             : "";
-                    let pathname = (0, router_ts_1.translateRouteFilePath)("/" + pureRelativePath);
+                    let pathname = (0, router_ts_1.translateRouteFilePath)("/" + pureRelativePath, maxPath);
                     pathname = pureRelativePath.endsWith("/index")
                         ? pathname.substring(0, pathname.length - 1)
                         : pathname;

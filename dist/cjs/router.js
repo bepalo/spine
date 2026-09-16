@@ -27,7 +27,7 @@ var __asyncValues = (this && this.__asyncValues) || function (o) {
     function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
     function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
 };
-var _Router_instances, _Router_config, _Router_routes, _Router_generateUniqueOperationId, _Router_processPath, _Router_getRouteEntries, _Router_InitEntries, _Router_initRoutes;
+var _Router_instances, _Router_config, _Router_routes, _Router_setters, _Router_generateUniqueOperationId, _Router_processPath, _Router_getRouteEntries, _Router_InitEntries, _Router_initRoutes;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.translateRouteFilePath = exports.Router = exports.HANDLER_TYPES = exports.HTTP_METHODS_UPPER = exports.CRUD_METHODS = exports.HTTP_METHODS = exports.REGISTER_PATH_REGEX = exports.PATH_PART_REGEX = exports.EMPTY_PARAMS = void 0;
 const status_ts_1 = require("./status.js");
@@ -51,6 +51,7 @@ exports.HTTP_METHODS = new Set([
 ]);
 exports.CRUD_METHODS = new Set([
     "Get",
+    "Query",
     "Post",
     "Put",
     "Patch",
@@ -87,19 +88,54 @@ class Router {
     get enable() {
         return Object.assign({}, __classPrivateFieldGet(this, _Router_config, "f").enable);
     }
+    get doNotStoreSetters() {
+        return __classPrivateFieldGet(this, _Router_config, "f").doNotStoreSetters;
+    }
+    get setters() {
+        return [...__classPrivateFieldGet(this, _Router_setters, "f")];
+    }
+    /**
+     * Create a new Router
+     *
+     * @param {RouterConfig<ExtendContext>} config Router configs
+     */
     constructor(config) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+        var _a, _b, _c, _d;
         _Router_instances.add(this);
         _Router_config.set(this, void 0);
         _Router_routes.set(this, void 0);
-        __classPrivateFieldSet(this, _Router_config, Object.assign(Object.assign({}, config), { maxPath: (_a = config === null || config === void 0 ? void 0 : config.maxPath) !== null && _a !== void 0 ? _a : 24, enable: {
-                filter: (_d = (!((_b = config === null || config === void 0 ? void 0 : config.disable) === null || _b === void 0 ? void 0 : _b.filter) && ((_c = config === null || config === void 0 ? void 0 : config.enable) === null || _c === void 0 ? void 0 : _c.filter))) !== null && _d !== void 0 ? _d : true,
-                fallback: (_g = (!((_e = config === null || config === void 0 ? void 0 : config.disable) === null || _e === void 0 ? void 0 : _e.fallback) && ((_f = config === null || config === void 0 ? void 0 : config.enable) === null || _f === void 0 ? void 0 : _f.fallback))) !== null && _g !== void 0 ? _g : true,
-                after: (_k = (!((_h = config === null || config === void 0 ? void 0 : config.disable) === null || _h === void 0 ? void 0 : _h.after) && ((_j = config === null || config === void 0 ? void 0 : config.enable) === null || _j === void 0 ? void 0 : _j.after))) !== null && _k !== void 0 ? _k : true,
-                catcher: (_o = (!((_l = config === null || config === void 0 ? void 0 : config.disable) === null || _l === void 0 ? void 0 : _l.catcher) && ((_m = config === null || config === void 0 ? void 0 : config.enable) === null || _m === void 0 ? void 0 : _m.catcher))) !== null && _o !== void 0 ? _o : true,
-            } }), "f");
+        _Router_setters.set(this, []);
+        const { maxPath, doNotStoreSetters, enable, disable, defaultFilter, defaultHandler, defaultFallback, defaultCatcher, defaultAfter, afterCatcher, } = config;
+        if (typeof maxPath !== "number" || maxPath <= 0 || maxPath >= 1024) {
+            throw new types_ts_1.RouterError("Invalid maxPath. Use range 1 upto 1024");
+        }
+        __classPrivateFieldSet(this, _Router_config, {
+            maxPath,
+            doNotStoreSetters: Boolean(doNotStoreSetters),
+            enable: {
+                filter: (_a = (!(disable === null || disable === void 0 ? void 0 : disable.filter) && (enable === null || enable === void 0 ? void 0 : enable.filter))) !== null && _a !== void 0 ? _a : true,
+                fallback: (_b = (!(disable === null || disable === void 0 ? void 0 : disable.fallback) && (enable === null || enable === void 0 ? void 0 : enable.fallback))) !== null && _b !== void 0 ? _b : true,
+                after: (_c = (!(disable === null || disable === void 0 ? void 0 : disable.after) && (enable === null || enable === void 0 ? void 0 : enable.after))) !== null && _c !== void 0 ? _c : true,
+                catcher: (_d = (!(disable === null || disable === void 0 ? void 0 : disable.catcher) && (enable === null || enable === void 0 ? void 0 : enable.catcher))) !== null && _d !== void 0 ? _d : true,
+            },
+            defaultFilter,
+            defaultHandler,
+            defaultFallback,
+            defaultCatcher,
+            defaultAfter,
+            afterCatcher,
+        }, "f");
         __classPrivateFieldSet(this, _Router_routes, __classPrivateFieldGet(this, _Router_instances, "m", _Router_initRoutes).call(this), "f");
     }
+    /**
+     * Respond to a request according to the defined routes.
+     *
+     * @param {Request} request An http request object
+     * @param {RespondContext<ExtendContext>} ctxInit Context pre-initialization.
+     *     Only headers and timestamps are allowed.
+     *     But timestamps properties will not be overridden but rather extended.
+     * @returns {Response} An http response object
+     */
     respond(request, ctxInit) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
@@ -321,7 +357,7 @@ class Router {
                         }
                     }
                 }
-                // default cathcer
+                // default catcher
                 if (__classPrivateFieldGet(this, _Router_config, "f").defaultCatcher && !(response instanceof Response)) {
                     ctx.error = error;
                     const resp = yield __classPrivateFieldGet(this, _Router_config, "f").defaultCatcher(ctx);
@@ -383,23 +419,60 @@ class Router {
             }
             catch (_error) {
                 const error = _error instanceof Error ? _error : Error(String(_error));
-                // default after cathcer
-                if (__classPrivateFieldGet(this, _Router_config, "f").defaultAfterCatcher) {
+                // after catcher
+                if (__classPrivateFieldGet(this, _Router_config, "f").afterCatcher) {
                     ctx.error = error;
-                    yield __classPrivateFieldGet(this, _Router_config, "f").defaultAfterCatcher(ctx);
+                    yield __classPrivateFieldGet(this, _Router_config, "f").afterCatcher(ctx);
                 }
             }
             return response;
         });
     }
-    load(_a) {
-        return __awaiter(this, arguments, void 0, function* ({ routesPath, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), }) {
-            var _b, e_1, _c, _d;
+    /**
+     *
+     * @param {string} prefix Path prefix to prepend to paths.
+     * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.
+     * @param {{overwrite:boolean}} options Options to apply to each route definition.
+     * @param {boolean} [options.overwrite] Overwrite each route definition. This overrides the route specific options.
+     */
+    appendTo(prefix, router, options) {
+        const overwrite = options === null || options === void 0 ? void 0 : options.overwrite;
+        for (const { handlerType, methodPaths, pipe, options: setterOptions, } of __classPrivateFieldGet(router, _Router_setters, "f")) {
+            if (Array.isArray(methodPaths)) {
+                const appendedMethodPaths = methodPaths.map((methodPath) => {
+                    const [method, path] = methodPath.split(" ", 2);
+                    return `${method} ${prefix}${path}`;
+                });
+                this.register(handlerType, appendedMethodPaths, pipe, Object.assign(Object.assign({}, setterOptions), { overwrite: (setterOptions === null || setterOptions === void 0 ? void 0 : setterOptions.overwrite) || overwrite }));
+            }
+            else {
+                const [method, path] = methodPaths.split(" ", 2);
+                const appendedMethodPaths = `${method} ${prefix}${path}`;
+                this.register(handlerType, appendedMethodPaths, pipe, Object.assign(Object.assign({}, setterOptions), { overwrite: (setterOptions === null || setterOptions === void 0 ? void 0 : setterOptions.overwrite) || overwrite }));
+            }
+        }
+    }
+    /**
+     * Dynamically load route definition files
+     *
+     * @param options
+     * @param {string} [options.routesPath] The root path of the route definitions
+     * @param {RegExp} [options.pattern] Regex pattern to use for matching and filtering route definition files.
+     * @param {RegExp} [options.dirPattern] Regex pattern to use for matching and filtering route definition folders.
+     * @param {(name:string)=>string} [options.processName] Route file name processor to decide the route path from filename.
+     *     This is used for removing filename extensions and other appendages.
+     *     The default removes only file extension.
+     *     You can override this to remove custom appendages like '.route.ts'
+     */
+    load(options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, e_1, _b, _c;
+            const { routesPath, pattern = /\.(js|ts|mjs|cjs)$/, dirPattern = /.*/, processName = (name) => name.substring(0, name.lastIndexOf(".")), } = options;
             try {
-                for (var _e = true, _f = __asyncValues((0, utils_node_ts_1.walk)(routesPath)), _g; _g = yield _f.next(), _b = _g.done, !_b; _e = true) {
-                    _d = _g.value;
-                    _e = false;
-                    const node = _d;
+                for (var _d = true, _e = __asyncValues((0, utils_node_ts_1.walk)(routesPath)), _f; _f = yield _e.next(), _a = _f.done, !_a; _d = true) {
+                    _c = _f.value;
+                    _d = false;
+                    const node = _c;
                     if (node.type === "file") {
                         if (!pattern.test(node.name)) {
                             continue;
@@ -496,7 +569,7 @@ class Router {
             catch (e_1_1) { e_1 = { error: e_1_1 }; }
             finally {
                 try {
-                    if (!_e && !_b && (_c = _f.return)) yield _c.call(_f);
+                    if (!_d && !_a && (_b = _e.return)) yield _b.call(_e);
                 }
                 finally { if (e_1) throw e_1.error; }
             }
@@ -530,7 +603,7 @@ class Router {
      *   - Receives one `GenerateOpenAPISortParam` parameter: `{ method, path, parts, tags }`
      *   - Return true to include, false to exclude
      * @param options.routeSorter - Custom route sorter.
-     *   - Recieves two `GenerateOpenAPISortParam` parameters: `{ method, path, parts, tags }`
+     *   - Receives two `GenerateOpenAPISortParam` parameters: `{ method, path, parts, tags }`
      *   - Return -1, 0, 1
      * @param options.includeOperationId - Whether to generate operationId for each operation (default: true)
      * @param options.autoTag - Automatically tag operations based on path (default: true)
@@ -934,6 +1007,16 @@ class Router {
             resolve(result);
         });
     }
+    /**
+     * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     all(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -944,6 +1027,16 @@ class Router {
         }
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     crud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -954,56 +1047,166 @@ class Router {
         }
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     head(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     get(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     query(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     post(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     put(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     patch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     delete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     options(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     trace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     connect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1014,6 +1217,16 @@ class Router {
         }
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1024,56 +1237,166 @@ class Router {
         }
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterQuery(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filterConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("filter", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1084,6 +1407,16 @@ class Router {
         }
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1094,56 +1427,166 @@ class Router {
         }
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleQuery(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handlePost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handlePut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handlePatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define handlers for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handleConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("handler", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1154,6 +1597,16 @@ class Router {
         }
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1164,56 +1617,166 @@ class Router {
         }
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackQuery(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define fallbacks for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallbackConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("fallback", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1224,6 +1787,16 @@ class Router {
         }
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1234,56 +1807,166 @@ class Router {
         }
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterQuery(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define afters for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     afterConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("after", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for all http methods ["Head","Get","Query","Post","Put","Patch","Delete","Options","Trace","Connect"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchAll(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1294,6 +1977,16 @@ class Router {
         }
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for CRUD http methods ["Get","Query","Post","Put","Patch","Delete"] and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchCrud(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = [];
@@ -1304,56 +1997,166 @@ class Router {
         }
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Head http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchHead(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Head ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Get http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchGet(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Get ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Query http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchQuery(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Query ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Post http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchPost(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Post ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Put http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchPut(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Put ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Patch http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchPatch(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Patch ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Head Delete method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchDelete(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Delete ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Options http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchOptions(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Options ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Trace http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchTrace(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Trace ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define catchers for Connect http method and the specified paths.
+     *
+     * @param {Path} paths One or more valid route paths
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catchConnect(paths, pipe, options) {
         paths = Array.isArray(paths) ? paths : [paths];
         const methodPaths = paths.map((p) => `Connect ${p}`);
         return this.register("catcher", methodPaths, pipe, options);
     }
+    /**
+     * Define filters for the specified method paths.
+     *
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     filter(methodPaths, pipe, options) {
         const methodPathIsArray = Array.isArray(methodPaths);
         if (methodPathIsArray &&
@@ -1384,6 +2187,16 @@ class Router {
             : methodPaths;
         return this.register("filter", methodPaths_, pipe, options);
     }
+    /**
+     * Define handlers for the specified method paths.
+     *
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     handle(methodPaths, pipe, options) {
         const methodPathIsArray = Array.isArray(methodPaths);
         if (methodPathIsArray &&
@@ -1414,6 +2227,16 @@ class Router {
             : methodPaths;
         return this.register("handler", methodPaths_, pipe, options);
     }
+    /**
+     * Define fallbacks for the specified method paths.
+     *
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     fallback(methodPaths, pipe, options) {
         const methodPathIsArray = Array.isArray(methodPaths);
         if (methodPathIsArray &&
@@ -1444,6 +2267,16 @@ class Router {
             : methodPaths;
         return this.register("fallback", methodPaths_, pipe, options);
     }
+    /**
+     * Define afters for the specified method paths.
+     *
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     after(methodPaths, pipe, options) {
         const methodPathIsArray = Array.isArray(methodPaths);
         if (methodPathIsArray &&
@@ -1474,6 +2307,16 @@ class Router {
             : methodPaths;
         return this.register("after", methodPaths_, pipe, options);
     }
+    /**
+     * Define catchers for the specified method paths.
+     *
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     catch(methodPaths, pipe, options) {
         const methodPathIsArray = Array.isArray(methodPaths);
         if (methodPathIsArray &&
@@ -1504,11 +2347,24 @@ class Router {
             : methodPaths;
         return this.register("catcher", methodPaths_, pipe, options);
     }
+    /**
+     * Register route handlers for the specified handler type and method paths.
+     *
+     * @param {HandlerType} handlerType Handler type. `"handler"`, `"filter"`, `"fallback"`, `"after"`, `"catcher"`
+     * @param {MethodPath|Array<MethodPath>} methodPaths Method-path definitions in the form of: `Method /Path`, or [`Method /Path`, ...] or [[`Method`, ...], `/Path`, ...]
+     * @param pipe One or more request handlers
+     * @param {RegisterPipelineOptions} options Register pipeline options
+     * @param {boolean} [options.overwrite] Overwrite colliding route definitions.
+     * @param {OpenApiDesc|false} [options.openApi] OpenApi definition
+     * @returns This router instance.
+     */
     register(handlerType, methodPaths, pipe, options) {
         const overwrite = (options === null || options === void 0 ? void 0 : options.overwrite) === true;
-        methodPaths = Array.isArray(methodPaths) ? methodPaths : [methodPaths];
+        const methodPaths_ = Array.isArray(methodPaths)
+            ? methodPaths
+            : [methodPaths];
         const pipe_ = Array.isArray(pipe) ? pipe : [pipe];
-        for (const methodPath of methodPaths) {
+        for (const methodPath of methodPaths_) {
             const separator1Idx = methodPath.indexOf(" ");
             const method = methodPath.substring(0, separator1Idx);
             const originalPath = methodPath.substring(separator1Idx + 1);
@@ -1637,8 +2493,25 @@ class Router {
                 }
             }
         }
+        // register setters for later use like append.
+        if (!__classPrivateFieldGet(this, _Router_config, "f").doNotStoreSetters) {
+            __classPrivateFieldGet(this, _Router_setters, "f").push(Object.freeze({
+                handlerType,
+                methodPaths,
+                pipe,
+                options,
+            }));
+        }
         return this;
     }
+    /**
+     *
+     * @param pathname Valid url pathname
+     * @param parts Destination parts array to push path parts to.
+     * @param maxPath The max path part count limit.
+     * @returns count of path parts if valid.
+     * @returns -count if path parts are greater than maxPath.
+     */
     splitPath(pathname, parts, maxPath) {
         const path_len_1 = pathname.length - 1;
         let count = 0;
@@ -1669,7 +2542,7 @@ class Router {
     }
 }
 exports.Router = Router;
-_Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_instances = new WeakSet(), _Router_generateUniqueOperationId = function _Router_generateUniqueOperationId(method, path, clean, usedIds) {
+_Router_config = new WeakMap(), _Router_routes = new WeakMap(), _Router_setters = new WeakMap(), _Router_instances = new WeakSet(), _Router_generateUniqueOperationId = function _Router_generateUniqueOperationId(method, path, clean, usedIds) {
     let baseId = generateOperationId(method, path, clean);
     let operationId = baseId;
     let counter = 1;
@@ -1920,8 +2793,20 @@ const parseParams = (superGlobIndex, params, pathname, parts, paramsRef) => {
     }
     return paramsRec;
 };
-const translateRouteFilePath = (pathname, maxPath = 64) => {
+/**
+ * Translate route definition file pathname into valid route pathname.
+ *
+ * @param pathname The file path name of the route definition.
+ * @param maxPath The max path part count limit.
+ * @returns {string} Valid route pathname.
+ * @throws {RouterError} `Invalid path  ${pathname} -> ${part}` if invalid path encountered.
+ * @throws {RouterError} `Max path exceeded` if maxPath is exceeded.
+ */
+const translateRouteFilePath = (pathname, maxPath) => {
     const parts = pathname.split("/", maxPath + 1);
+    if (parts.length > maxPath) {
+        throw new types_ts_1.RouterError("Max path exceeded");
+    }
     const parts_len_1 = parts.length - 1;
     let lastPartIsEscaped = false;
     for (let i = 1; i < parts.length; i++) {

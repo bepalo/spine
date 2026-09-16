@@ -176,17 +176,18 @@ export type CTError = {
 export type CTResponse = {
     response: Response;
 };
-export type RespondContext<ExtendContext extends Record<string, unknown> = Record<string, never>> = Partial<Pick<BaseContext, "headers">> & ExtendContext;
+export type RespondContext<ExtendContext extends Record<string, unknown> = Record<string, never>> = Partial<Pick<BaseContext, "headers" | "timestamps">> & ExtendContext;
 export type RouterConfig<ExtendContext extends Record<string, unknown> = Record<string, never>> = {
     maxPath: number;
     enable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
     disable?: Partial<Record<Exclude<HandlerType, "handler">, boolean>>;
+    doNotStoreSetters?: boolean;
     defaultFilter?: DefaultHandler<Context<ExtendContext>>;
     defaultHandler?: DefaultHandler<Context<ExtendContext>>;
     defaultFallback?: DefaultHandler<Context<ExtendContext>>;
     defaultCatcher?: DefaultErrorHandler<Context<ExtendContext>>;
     defaultAfter?: DefaultEndHandler<Context<ExtendContext>>;
-    defaultAfterCatcher?: DefaultEndErrorHandler<Context<ExtendContext>>;
+    afterCatcher?: DefaultEndErrorHandler<Context<ExtendContext>>;
 };
 export interface RouteEntry<ExtendContext extends Record<string, unknown> = Record<string, never>> {
     parseParams: (pathname: string, parts: string[], allParams: Record<string, unknown>) => Record<string, unknown>;
@@ -228,25 +229,25 @@ export type EndPipe<ExtendContext extends Record<string, unknown> = Record<strin
 export type ErrorHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTError & ExtendContext>) => Promise<DefaultHandlerReturn> | DefaultHandlerReturn;
 export type DefaultErrorHandler<ExtendContext extends Record<string, unknown> = Record<string, never>> = (ctx: Context<CTError & ExtendContext>) => Promise<DefaultHandlerReturn> | DefaultHandlerReturn;
 export type ErrorPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Array<ErrorHandler<CTError & ExtendContext>>;
-export type RegisterPiplineOptions = {
+export type RegisterPipelineOptions = {
     overwrite?: boolean;
     openApi?: OpenApiDesc | false;
 };
 export type FilterPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
     pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
-} & Omit<RegisterPiplineOptions, "openApi">);
+} & Omit<RegisterPipelineOptions, "openApi">);
 export type HandlerPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
     pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
-} & RegisterPiplineOptions);
+} & RegisterPipelineOptions);
 export type FallbackPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<ExtendContext> | Pipe<ExtendContext> | ({
     pipe: Handler<ExtendContext> | Pipe<ExtendContext>;
-} & Omit<RegisterPiplineOptions, "openApi">);
+} & Omit<RegisterPipelineOptions, "openApi">);
 export type CatcherPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<CTError & ExtendContext> | Pipe<CTError & ExtendContext> | ({
     pipe: Handler<CTError & ExtendContext> | Pipe<CTError & ExtendContext>;
-} & Omit<RegisterPiplineOptions, "openApi">);
+} & Omit<RegisterPipelineOptions, "openApi">);
 export type AfterPipe<ExtendContext extends Record<string, unknown> = Record<string, never>> = Handler<Readonly<CTResponse> & ExtendContext> | Pipe<Readonly<CTResponse> & ExtendContext> | ({
     pipe: Handler<Readonly<CTResponse> & ExtendContext> | Pipe<Readonly<CTResponse> & ExtendContext>;
-} & Omit<RegisterPiplineOptions, "openApi">);
+} & Omit<RegisterPipelineOptions, "openApi">);
 export declare class RouterError extends Error {
     constructor(message: string, options?: ErrorOptions);
 }

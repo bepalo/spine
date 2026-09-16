@@ -34,7 +34,7 @@ const createSpy = () => vi.fn();
 describe("Router", () => {
   describe("Basic Routing", () => {
     it("should handle GET requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const spy = createSpy();
 
       router.get("/test", () => {
@@ -49,7 +49,7 @@ describe("Router", () => {
     });
 
     it("should handle POST requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.post("/test", () => json({ created: true }));
 
@@ -59,7 +59,7 @@ describe("Router", () => {
     });
 
     it("should handle PUT requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.put("/test", () => json({ updated: true }));
 
@@ -69,7 +69,7 @@ describe("Router", () => {
     });
 
     it("should handle DELETE requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.delete("/test", () => status(204));
 
@@ -78,7 +78,7 @@ describe("Router", () => {
     });
 
     it("should handle PATCH requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.patch("/test", () => json({ patched: true }));
 
@@ -88,7 +88,7 @@ describe("Router", () => {
     });
 
     it("should handle HEAD requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const spy = createSpy();
 
       router.head("/test", () => {
@@ -102,7 +102,7 @@ describe("Router", () => {
     });
 
     it("should handle OPTIONS requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.options("/test", () => {
         const response = new Response(null, { status: 204 });
@@ -116,13 +116,13 @@ describe("Router", () => {
     });
 
     it("should return 404 for unregistered routes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const response = await router.respond(createRequest("/nonexistent"));
       expect(response.status).toBe(404);
     });
 
     it("should return 501 when handler exists but method is not implemented", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       router.post("/test", () => {});
 
       const response = await router.respond(createRequest("/test", "POST"));
@@ -133,7 +133,7 @@ describe("Router", () => {
   describe("Route Patterns", () => {
     describe("Exact Paths", () => {
       it("should match exact paths", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
         let called = false;
 
         router.get("/exact/path", () => {
@@ -147,7 +147,7 @@ describe("Router", () => {
       });
 
       it("should NOT match similar paths", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
         let called = false;
 
         router.get("/exact/path", () => {
@@ -162,7 +162,7 @@ describe("Router", () => {
 
     describe("Path Parameters", () => {
       it("should parse single parameter", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/users/:id", (ctx) => {
           return json({ id: ctx.params.id! });
@@ -173,7 +173,7 @@ describe("Router", () => {
       });
 
       it("should parse multiple parameters", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/users/:userId/posts/:postId", (ctx) => {
           return json({
@@ -189,7 +189,7 @@ describe("Router", () => {
       });
 
       it("should parse parameter with pipe (specified values)", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/|home|about:page", (ctx) => {
           return json({ page: ctx.params.page! });
@@ -206,7 +206,7 @@ describe("Router", () => {
       });
 
       it("should parse complex pipe with colon", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get(
           "/dashboard/admin|vendor|client:role/settings/profile|payment:tab",
@@ -240,7 +240,7 @@ describe("Router", () => {
 
     describe("Globs (*)", () => {
       it("should match single segment glob", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
         let called = false;
 
         router.get("/api/*", (ctx) => {
@@ -253,7 +253,7 @@ describe("Router", () => {
       });
 
       it("should match multiple globs", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/*/*", () => {
           return status(200);
@@ -264,7 +264,7 @@ describe("Router", () => {
       });
 
       it("should NOT match deeper paths than expected", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
         let called = false;
 
         router.get("/*", () => {
@@ -279,7 +279,7 @@ describe("Router", () => {
 
     describe("Super Globs (**)", () => {
       it("should match deep paths", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/files/**", () => {
           return status(200);
@@ -292,7 +292,7 @@ describe("Router", () => {
       });
 
       it("should match root super glob", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/**", () => {
           return status(200);
@@ -305,7 +305,7 @@ describe("Router", () => {
 
     describe("Special Patterns (*!, **!)", () => {
       it("should match *! pattern as regex-like glob", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/api/*!", () => {
           return status(200);
@@ -322,7 +322,7 @@ describe("Router", () => {
       });
 
       it("should match **! pattern including parent path", async () => {
-        const router = new Router();
+        const router = new Router({ maxPath: 10 });
 
         router.get("/files/**!", () => {
           return status(200);
@@ -349,7 +349,7 @@ describe("Router", () => {
 
   describe("Route Priority", () => {
     it("should prioritize exact matches over globs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.get("/api/users/123", () => {
@@ -373,7 +373,7 @@ describe("Router", () => {
     });
 
     it("should prioritize globs over super globs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.get("/api/v1/*", () => {
@@ -392,7 +392,7 @@ describe("Router", () => {
     });
 
     it("should prioritize specific globs over general globs", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.get("/api/users/*", () => {
@@ -411,7 +411,7 @@ describe("Router", () => {
     });
 
     it("should match the longest super glob prefix", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/**", () => text("api"));
       router.get("/api/v1/**", () => text("v1"));
@@ -430,7 +430,7 @@ describe("Router", () => {
     });
 
     it("should throw RouterError for the same paths", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/*", () => {});
 
@@ -438,7 +438,7 @@ describe("Router", () => {
     });
 
     it("should respect route registration order for equal matches", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.get("/api/*", () => {
@@ -461,7 +461,7 @@ describe("Router", () => {
     });
 
     it("should handle complex priority scenarios", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Exact match
       router.get("/api/users/123", () => text("exact"));
@@ -495,7 +495,7 @@ describe("Router", () => {
 
   describe("Middleware Pipe", () => {
     it("should execute multiple handlers in order", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -517,7 +517,7 @@ describe("Router", () => {
     });
 
     it("should stop pipe with Break_Pipe", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -538,7 +538,7 @@ describe("Router", () => {
     });
 
     it("should stop pipe queue with Break_Pipeline", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -556,7 +556,7 @@ describe("Router", () => {
     });
 
     it("should pass context between handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", [
         (ctx: Context & { data?: string }) => {
@@ -572,7 +572,7 @@ describe("Router", () => {
     });
 
     it("should handle async handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
@@ -586,7 +586,7 @@ describe("Router", () => {
 
   describe("Filters", () => {
     it("should execute filters before handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let filterCalled = false;
       let handlerCalled = false;
 
@@ -605,7 +605,7 @@ describe("Router", () => {
     });
 
     it("should stop execution if filter returns response", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let handlerCalled = false;
 
       router.filterGet("/test", () => {
@@ -624,7 +624,7 @@ describe("Router", () => {
     });
 
     it("should apply filters in priority order", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.filterGet("/**", () => {
@@ -656,7 +656,7 @@ describe("Router", () => {
 
   describe("Fallbacks", () => {
     it("should execute fallback when no handler matches", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.fallbackGet("/*", () => {
         return text("fallback response", { status: 404 });
@@ -668,7 +668,7 @@ describe("Router", () => {
     });
 
     it("should NOT execute fallback when handler exists", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let fallbackCalled = false;
 
       router.get("/test", () => text("handler"));
@@ -683,7 +683,8 @@ describe("Router", () => {
     });
 
     it("should use defaultFallback if configured", async () => {
-      const router = new Router({
+      const router = new Router({ 
+        maxPath:5,
         defaultFallback: () => text("default fallback", { status: 404 }),
       });
 
@@ -695,7 +696,7 @@ describe("Router", () => {
 
   describe("Error Handling", () => {
     it("should catch errors in handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/error", () => {
         throw new Error("Something went wrong");
@@ -706,7 +707,7 @@ describe("Router", () => {
     });
 
     it("should use custom error catcher", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.catchGet("/error", (ctx) => {
         return text(`Error: ${ctx.error.message || "Unknown"}`, {
@@ -724,7 +725,7 @@ describe("Router", () => {
     });
 
     it("should handle HttpError with status", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/error", () => {
         throw new HttpError(403, "Forbidden");
@@ -735,7 +736,8 @@ describe("Router", () => {
     });
 
     it("should use defaultCatcher if configured", async () => {
-      const router = new Router({
+      const router = new Router({ 
+        maxPath:5,
         defaultCatcher: (ctx) => {
           return text(`Error caught: ${ctx.error.message}`, { status: 500 });
         },
@@ -753,7 +755,7 @@ describe("Router", () => {
 
   describe("After Middleware", () => {
     it("should execute after handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let afterCalled = false;
 
       router.get("/test", () => text("OK"));
@@ -769,7 +771,7 @@ describe("Router", () => {
     });
 
     it("should allow modifying response in after", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("original"));
 
@@ -782,7 +784,7 @@ describe("Router", () => {
     });
 
     it("should allow not allow replacing the response in after", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("original"));
 
@@ -797,7 +799,7 @@ describe("Router", () => {
 
   describe("Multiple HTTP Methods", () => {
     it("should handle different methods on same path", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/resource", () => text("GET"));
       router.post("/resource", () => text("POST"));
@@ -817,7 +819,7 @@ describe("Router", () => {
     });
 
     it("should use all() for all HTTP methods", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.all("/test", () => text("All methods"));
 
@@ -837,7 +839,7 @@ describe("Router", () => {
     });
 
     it("should use crud() for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.crud("/resource", () => text("CRUD method"));
 
@@ -853,7 +855,7 @@ describe("Router", () => {
 
   describe("Route Registration", () => {
     it("should register multiple paths at once", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get(["/users", "/profiles", "/people"], () => text("matched"));
 
@@ -864,7 +866,7 @@ describe("Router", () => {
     });
 
     it("should throw error when overwriting existing route", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("first"));
 
@@ -874,7 +876,7 @@ describe("Router", () => {
     });
 
     it("should allow overwriting when specified", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("first"));
       router.get("/test", () => text("second"), { overwrite: true });
@@ -884,7 +886,7 @@ describe("Router", () => {
     });
 
     it("should handle chaining", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router
         .get("/a", () => text("a"))
@@ -904,7 +906,7 @@ describe("Router", () => {
 
   describe("Context and Headers", () => {
     it("should provide request in context", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedRequest: Request | undefined;
 
       router.get("/test", (ctx) => {
@@ -919,7 +921,7 @@ describe("Router", () => {
     });
 
     it("should allow setting response headers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", (ctx) => {
         ctx.headers.set("X-Custom-Response", "header-value");
@@ -931,7 +933,7 @@ describe("Router", () => {
     });
 
     it("should merge response headers with context headers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => {
         const response = text("OK");
@@ -944,12 +946,12 @@ describe("Router", () => {
     });
 
     it("should provide query parameters", async () => {
-      const router = new Router<CTQuery>();
+      const router = new Router<CTQuery>({ maxPath: 10 });
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx<CTQuery>) => {
+        (ctx) => {
           query = ctx.query;
           return text("OK");
         },
@@ -963,7 +965,7 @@ describe("Router", () => {
 
   describe("Path Resolution", () => {
     it("should handle root path /", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/", () => text("root"));
 
@@ -972,7 +974,7 @@ describe("Router", () => {
     });
 
     it("should handle paths with trailing slashes differently that without trailing slashes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users", () => text("users"));
       router.get("/root/", () => text("root"));
@@ -991,7 +993,8 @@ describe("Router", () => {
     });
 
     it("should limit max path depth", async () => {
-      const router = new Router({ maxPath: 3 });
+      const router = new Router({ 
+        maxPath:5, maxPath: 3 });
 
       router.get("/a/b/c", () => text("within limit"));
 
@@ -1005,7 +1008,7 @@ describe("Router", () => {
 
   describe("OpenAPI Generation", () => {
     it("should generate OpenAPI documentation", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:id", () => text("OK"), {
         openApi: {
@@ -1058,7 +1061,7 @@ describe("Router", () => {
 
   describe("Edge Cases", () => {
     it("should handle empty body responses", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/empty", () => status(204, null));
 
@@ -1068,7 +1071,7 @@ describe("Router", () => {
     });
 
     it("should handle redirects", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/old", () => redirect("/new"));
       router.get("/new", () => text("new location"));
@@ -1079,7 +1082,7 @@ describe("Router", () => {
     });
 
     it("should handle JSON responses", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/json", () => json({ message: "success", data: { id: 1 } }));
 
@@ -1097,7 +1100,7 @@ describe("Router", () => {
 
   describe("Performance", () => {
     it("should handle many routes efficiently", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Register 500 routes
       for (let i = 0; i < 500; i++) {
@@ -1122,7 +1125,7 @@ describe("Router", () => {
 
   describe("End-to-End Scenarios", () => {
     it("should handle complete REST API workflow", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const users = new Map<string, unknown>();
 
       // Auth middleware
@@ -1225,79 +1228,79 @@ describe("Router", () => {
 
   describe("File Path Translation", () => {
     it("should translate file system paths to route paths", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       // Access private method for testing
       const translate = translateRouteFilePath.bind(router);
 
-      expect(translate("/users/index")).toBe("/users/");
-      expect(translate("/users/profile")).toBe("/users/profile");
-      expect(translate("/users/check out")).toBe("/users/check out");
-      expect(translate("/users/check out/notify")).toBe("/users/check out/notify");
-      expect(translate("/users/check out/redirect")).toBe("/users/check out/redirect");
-      expect(translate("/api/[#]/users")).toBe("/api/*/users");
-      expect(translate("/api/[[#]]/users")).toBe("/api/*!/users");
-      expect(translate("/api/[#]/users/[[#]]")).toBe("/api/*/users/*!");
-      expect(translate("/api/[[#]]/users/[#]")).toBe("/api/*!/users/*");
-      expect(translate("/api/[##]")).toBe("/api/**");
-      expect(translate("/api/[[##]]")).toBe("/api/**!");
-      expect(translate("/api/[##slug]")).toBe("/api/::slug");
-      expect(translate("/api/[## slug ]")).toBe("/api/::slug");
-      expect(translate("/api/[[##slug]]")).toBe("/api/::slug!");
-      expect(translate("/api/[[## slug ]]")).toBe("/api/::slug!");
-      expect(translate("/[page]")).toBe("/:page");
-      expect(translate("/users/[id]")).toBe("/users/:id");
-      expect(translate("/dashboard/[[admin,vendor,client]role]")).toBe(
+      expect(translate("/users/index", router.maxPath)).toBe("/users/");
+      expect(translate("/users/profile", router.maxPath)).toBe("/users/profile");
+      expect(translate("/users/check out", router.maxPath)).toBe("/users/check out");
+      expect(translate("/users/check out/notify", router.maxPath)).toBe("/users/check out/notify");
+      expect(translate("/users/check out/redirect", router.maxPath)).toBe("/users/check out/redirect");
+      expect(translate("/api/[#]/users", router.maxPath)).toBe("/api/*/users");
+      expect(translate("/api/[[#]]/users", router.maxPath)).toBe("/api/*!/users");
+      expect(translate("/api/[#]/users/[[#]]", router.maxPath)).toBe("/api/*/users/*!");
+      expect(translate("/api/[[#]]/users/[#]", router.maxPath)).toBe("/api/*!/users/*");
+      expect(translate("/api/[##]", router.maxPath)).toBe("/api/**");
+      expect(translate("/api/[[##]]", router.maxPath)).toBe("/api/**!");
+      expect(translate("/api/[##slug]", router.maxPath)).toBe("/api/::slug");
+      expect(translate("/api/[## slug ]", router.maxPath)).toBe("/api/::slug");
+      expect(translate("/api/[[##slug]]", router.maxPath)).toBe("/api/::slug!");
+      expect(translate("/api/[[## slug ]]", router.maxPath)).toBe("/api/::slug!");
+      expect(translate("/[page]", router.maxPath)).toBe("/:page");
+      expect(translate("/users/[id]", router.maxPath)).toBe("/users/:id");
+      expect(translate("/dashboard/[[admin,vendor,client]role]", router.maxPath)).toBe(
         "/dashboard/admin|vendor|client:role",
       );
-      expect(translate("/dashboard/[[admin,vendor,client] role ]")).toBe(
+      expect(translate("/dashboard/[[admin,vendor,client] role ]", router.maxPath)).toBe(
         "/dashboard/admin|vendor|client:role",
       );
-      expect(translate("/dashboard/[[,admin,vendor,client][role]]")).toBe(
+      expect(translate("/dashboard/[[,admin,vendor,client][role]]", router.maxPath)).toBe(
         "/dashboard/|admin|vendor|client:role!",
       );
-      expect(translate("/dashboard/[[,admin,vendor,client][ role ]]")).toBe(
+      expect(translate("/dashboard/[[,admin,vendor,client][ role ]]", router.maxPath)).toBe(
         "/dashboard/|admin|vendor|client:role!",
       );
-      expect(translate("/main api/[#]/users")).toBe("/main api/*/users");
-      expect(translate("/main api/[[#]]/users")).toBe("/main api/*!/users");
-      expect(translate("/main api/[#]/users/[[#]]")).toBe("/main api/*/users/*!");
-      expect(translate("/main api/[[#]]/users/[#]")).toBe("/main api/*!/users/*");
-      expect(translate("/main api/[##]")).toBe("/main api/**");
-      expect(translate("/main api/[[##]]")).toBe("/main api/**!");
-      expect(translate("/main api/[##slug]")).toBe("/main api/::slug");
-      expect(translate("/main api/[## slug ]")).toBe("/main api/::slug");
-      expect(translate("/main api/[[##slug]]")).toBe("/main api/::slug!");
-      expect(translate("/main api/[[## slug ]]")).toBe("/main api/::slug!");
-      expect(translate("/ma in/[page]")).toBe("/ma in/:page");
-      expect(translate("/use rs/[id]")).toBe("/use rs/:id");
-      expect(translate("/dash board/[[admin,vendor,client]role]")).toBe(
+      expect(translate("/main api/[#]/users", router.maxPath)).toBe("/main api/*/users");
+      expect(translate("/main api/[[#]]/users", router.maxPath)).toBe("/main api/*!/users");
+      expect(translate("/main api/[#]/users/[[#]]", router.maxPath)).toBe("/main api/*/users/*!");
+      expect(translate("/main api/[[#]]/users/[#]", router.maxPath)).toBe("/main api/*!/users/*");
+      expect(translate("/main api/[##]", router.maxPath)).toBe("/main api/**");
+      expect(translate("/main api/[[##]]", router.maxPath)).toBe("/main api/**!");
+      expect(translate("/main api/[##slug]", router.maxPath)).toBe("/main api/::slug");
+      expect(translate("/main api/[## slug ]", router.maxPath)).toBe("/main api/::slug");
+      expect(translate("/main api/[[##slug]]", router.maxPath)).toBe("/main api/::slug!");
+      expect(translate("/main api/[[## slug ]]", router.maxPath)).toBe("/main api/::slug!");
+      expect(translate("/ma in/[page]", router.maxPath)).toBe("/ma in/:page");
+      expect(translate("/use rs/[id]", router.maxPath)).toBe("/use rs/:id");
+      expect(translate("/dash board/[[admin,vendor,client]role]", router.maxPath)).toBe(
         "/dash board/admin|vendor|client:role",
       );
-      expect(translate("/dash board/[[admin,vendor,client] role ]")).toBe(
+      expect(translate("/dash board/[[admin,vendor,client] role ]", router.maxPath)).toBe(
         "/dash board/admin|vendor|client:role",
       );
-      expect(translate("/dash board/[[,admin,vendor,client][role]]")).toBe(
+      expect(translate("/dash board/[[,admin,vendor,client][role]]", router.maxPath)).toBe(
         "/dash board/|admin|vendor|client:role!",
       );
-      expect(translate("/dash board/[[,admin,vendor,client][ role ]]")).toBe(
+      expect(translate("/dash board/[[,admin,vendor,client][ role ]]", router.maxPath)).toBe(
         "/dash board/|admin|vendor|client:role!",
       );
-      expect(translate("/main api/[#]/users/more space")).toBe("/main api/*/users/more space");
-      expect(translate("/main api/[[#]]/users/more space")).toBe("/main api/*!/users/more space");
-      expect(translate("/main api/[#]/users/[[#]]/more space")).toBe("/main api/*/users/*!/more space");
-      expect(translate("/main api/[[#]]/users/[#]/more space")).toBe("/main api/*!/users/*/more space");
-      expect(translate("/ma in/[page]/more space")).toBe("/ma in/:page/more space");
-      expect(translate("/use rs/[id]/more space")).toBe("/use rs/:id/more space");
-      expect(translate("/dash board/[[admin,vendor,client]role]/more space")).toBe(
+      expect(translate("/main api/[#]/users/more space", router.maxPath)).toBe("/main api/*/users/more space");
+      expect(translate("/main api/[[#]]/users/more space", router.maxPath)).toBe("/main api/*!/users/more space");
+      expect(translate("/main api/[#]/users/[[#]]/more space", router.maxPath)).toBe("/main api/*/users/*!/more space");
+      expect(translate("/main api/[[#]]/users/[#]/more space", router.maxPath)).toBe("/main api/*!/users/*/more space");
+      expect(translate("/ma in/[page]/more space", router.maxPath)).toBe("/ma in/:page/more space");
+      expect(translate("/use rs/[id]/more space", router.maxPath)).toBe("/use rs/:id/more space");
+      expect(translate("/dash board/[[admin,vendor,client]role]/more space", router.maxPath)).toBe(
         "/dash board/admin|vendor|client:role/more space",
       );
-      expect(translate("/dash board/[[admin,vendor,client] role ]/more space")).toBe(
+      expect(translate("/dash board/[[admin,vendor,client] role ]/more space", router.maxPath)).toBe(
         "/dash board/admin|vendor|client:role/more space",
       );
-      expect(translate("/dash board/[[,admin,vendor,client][role]]/more space")).toBe(
+      expect(translate("/dash board/[[,admin,vendor,client][role]]/more space", router.maxPath)).toBe(
         "/dash board/|admin|vendor|client:role!/more space",
       );
-      expect(translate("/dash board/[[,admin,vendor,client][ role ]]/more space")).toBe(
+      expect(translate("/dash board/[[,admin,vendor,client][ role ]]/more space", router.maxPath)).toBe(
         "/dash board/|admin|vendor|client:role!/more space",
       );
     });
@@ -1307,7 +1310,7 @@ describe("Router", () => {
 describe("Router - Additional Tests", () => {
   describe("Route Collision Detection", () => {
     it("should detect collisions between exact and glob routes", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/users", () => text("exact"));
 
@@ -1318,7 +1321,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should detect collisions between glob routes with same specificity", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/*/users", () => text("first"));
 
@@ -1329,7 +1332,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should allow overlapping globs with different specificity", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/*", () => text("general"));
 
@@ -1340,7 +1343,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should detect collisions with super globs", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/**", () => text("super"));
 
@@ -1357,7 +1360,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Break_Pipe and Break_Pipeline Behavior", () => {
     it("should stop current route handlers with Break_Pipe but continue to next routes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -1381,7 +1384,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should stop all route handlers with Break_Pipeline", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -1407,7 +1410,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should allow handlers after Break_Pipe in the same route", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.get("/test", [
@@ -1430,7 +1433,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Handler Return Types", () => {
     it("should handle handlers that return undefined (void)", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.get("/test", () => {
@@ -1444,7 +1447,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle handlers that return Response", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => {
         return text("custom response");
@@ -1456,7 +1459,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle handlers that return Break_Pipe", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const calls: string[] = [];
 
       router.get("/test", [
@@ -1481,7 +1484,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Multiple Middleware Types Combined", () => {
     it("should execute in order: filter -> handler -> after", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const order: string[] = [];
 
       router.filterGet("/test", () => {
@@ -1504,7 +1507,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should execute fallback when handler returns Break_Pipeline", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let fallbackCalled = false;
 
       router.get("/test", () => {
@@ -1522,7 +1525,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should execute after even after response has been returned", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let afterCalled = false;
       let filterCalled = false;
 
@@ -1545,7 +1548,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Path Parameter Edge Cases", () => {
     it("should handle parameters with special characters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:id", (ctx) => {
         return json({ id: ctx.params.id });
@@ -1558,7 +1561,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle multiple parameters with same name (overwrite)", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/:id/:id", (ctx) => {
         return json({ id: ctx.params.id });
@@ -1569,7 +1572,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle parameters with Unicode characters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:name", (ctx) => {
         return json({ name: ctx.params.name });
@@ -1580,7 +1583,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle empty parameter values", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/users/:id", (ctx) => {
         return json({ id: ctx.params.id });
@@ -1595,12 +1598,12 @@ describe("Router - Additional Tests", () => {
 
   describe("Query Parameter Parsing", () => {
     it("should parse multiple query parameters", async () => {
-      const router = new Router<CTQuery>();
+      const router = new Router<CTQuery>({ maxPath: 10 });
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx<CTQuery>) => {
+        (ctx) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1613,12 +1616,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle query parameters with special characters", async () => {
-      const router = new Router<CTQuery>();
+      const router = new Router<CTQuery>({ maxPath: 10 });
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx<CTQuery>) => {
+        (ctx) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1632,12 +1635,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle duplicate query parameters (last one wins)", async () => {
-      const router = new Router<CTQuery>();
+      const router = new Router<CTQuery>({ maxPath: 10 });
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx<CTQuery>) => {
+        (ctx) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1648,12 +1651,12 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle empty query parameters", async () => {
-      const router = new Router<CTQuery>();
+      const router = new Router<CTQuery>({ maxPath: 10 });
       let query: Record<string, string | null> = {};
 
       router.get("/search", [
         parseQuery(),
-        (ctx<CTQuery>) => {
+        (ctx) => {
           query = ctx.query;
           return text("OK");
         },
@@ -1667,7 +1670,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Error Propagation", () => {
     it("should propagate errors from filters to catchers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const spy = createSpy();
       let caught = false;
 
@@ -1691,7 +1694,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should quietly defuse errors and continue response in after handlers", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let caught = false;
 
       router.get("/test", () => text("OK"));
@@ -1713,8 +1716,9 @@ describe("Router - Additional Tests", () => {
     it("should allow default after catcher to handle error and continue with response in after handlers", () => {
       let caught = false;
       let caughtNormal = false;
-      const router = new Router({
-        defaultAfterCatcher: ({ error, response }) => {
+      const router = new Router({ 
+        maxPath:5,
+        afterCatcher: ({ error, response }) => {
           caught = true;
         }
       });
@@ -1737,7 +1741,8 @@ describe("Router - Additional Tests", () => {
     });
     
     it("should handle errors in default handlers", async () => {
-      const router = new Router({
+      const router = new Router({ 
+        maxPath:5,
         defaultCatcher: (ctx) => {
           return text(`Default: ${ctx.error.message}`, { status: 500 });
         },
@@ -1756,7 +1761,7 @@ describe("Router - Additional Tests", () => {
     it("should allow extending context with custom properties", async () => {
       type CustomContext = Context & { user?: { id: string; name: string } };
 
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", [
         (ctx: CustomContext) => {
@@ -1776,7 +1781,7 @@ describe("Router - Additional Tests", () => {
     it("should preserve context across middleware", async () => {
       type CustomContext = Context & { data: { counter: number } };
 
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", [
         (ctx: CustomContext) => {
@@ -1797,7 +1802,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Route Method Shorthands", () => {
     it("should support HEAD method shorthand", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.head("/test", () => {
@@ -1811,7 +1816,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support OPTIONS method shorthand", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.options("/test", () => {
         const response = new Response(null, { status: 204 });
@@ -1825,7 +1830,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support CONNECT method shorthand", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.connect("/test", () => {
@@ -1839,7 +1844,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support TRACE method shorthand", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.trace("/test", () => {
@@ -1855,7 +1860,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Error Response Formatting", () => {
     it("should include error in response for HttpError", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/error", () => {
         throw new HttpError(400, "Bad Request");
@@ -1873,7 +1878,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle non-Error thrown values", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/error", () => {
         throw "String error"; // Non-Error thrown
@@ -1892,7 +1897,8 @@ describe("Router - Additional Tests", () => {
 
   describe("Configuration Options", () => {
     it("should disable filters when configured", async () => {
-      const router = new Router({
+      const router = new Router({ 
+        maxPath:5,
         enable: { filter: false },
       });
 
@@ -1909,7 +1915,8 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should disable error catchers when configured", async () => {
-      const router = new Router({
+      const router = new Router({ 
+        maxPath:5,
         enable: { catcher: false },
       });
 
@@ -1928,7 +1935,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Concurrent Requests", () => {
     it("should handle concurrent requests without interference", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test/:id", (ctx) => {
         return text(`ID: ${ctx.params.id}`);
@@ -1949,7 +1956,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle concurrent requests with shared state carefully", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let counter = 0;
 
       router.get("/increment", async () => {
@@ -1978,7 +1985,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Route Inheritance and Sub-routing", () => {
     it("should support nested route patterns with shared prefixes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Shared prefix with different handlers
       router.get("/api/users", () => text("users"));
@@ -1993,8 +2000,8 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should allow mounting routers", async () => {
-      const router = new Router();
-      const subRouter = new Router();
+      const router = new Router({ maxPath: 10 });
+      const subRouter = new Router({ maxPath: 10 });
 
       subRouter.get("/users", () => text("sub users"));
       subRouter.get("/posts", () => text("sub posts"));
@@ -2011,7 +2018,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Body Parsing", () => {
     it("should handle JSON body in POST requests", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let body: unknown;
 
       router.post("/test", async (ctx) => {
@@ -2033,7 +2040,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle FormData body", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.post("/upload", async (ctx) => {
         const formData = await ctx.request.formData();
@@ -2054,7 +2061,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle empty body", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let body: unknown = "not set";
 
       router.post("/test", async (ctx) => {
@@ -2082,7 +2089,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Route Matching with Edge Cases", () => {
     it("should match the most specific route when multiple match", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/a/b/c", () => text("exact"));
       router.get("/a/*/c", () => text("glob"));
@@ -2099,7 +2106,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle routes with . and - characters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/v1.2/users", () => text("v1.2"));
       router.get("/api/v2-3/users", () => text("v2-3"));
@@ -2120,7 +2127,8 @@ describe("Router - Additional Tests", () => {
 
   describe("Performance Edge Cases", () => {
     it("should handle deep nested routes efficiently", async () => {
-      const router = new Router({ maxPath: 50 });
+      const router = new Router({ 
+        maxPath:5, maxPath: 100 });
 
       // Create a deep route
       let path = "";
@@ -2135,7 +2143,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle many parameterized routes efficiently", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Register many parameterized routes
       for (let i = 0; i < 100; i++) {
@@ -2155,7 +2163,8 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle routes with many path segments", async () => {
-      const router = new Router({ maxPath: 50 });
+      const router = new Router({ 
+        maxPath:5, maxPath: 100 });
 
       router.get("/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z", () => {
         return text("deep");
@@ -2170,7 +2179,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Path Decoding and Security", () => {
     it("should decode URL-encoded paths", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedPath = "";
 
       router.get("/users/:id", (ctx) => {
@@ -2183,7 +2192,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle paths with spaces", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedPath = "";
 
       router.get("/files/:name", (ctx) => {
@@ -2196,7 +2205,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle unicode characters in paths", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedPath = "";
 
       router.get("/users/:name", (ctx) => {
@@ -2209,7 +2218,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle emoji in paths", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedPath = "";
 
       router.get("/emoji/:emoji", (ctx) => {
@@ -2222,7 +2231,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should normalize path to prevent traversal attacks", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.get("/api/users", () => {
@@ -2235,7 +2244,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should reject paths with null bytes", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.get("/**", ({ url, pathname }) => {
@@ -2253,7 +2262,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle invalid URI encoding gracefully", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Invalid % followed by non-hex characters
       const response = await router.respond(createRequest("/test%ZZ"));
@@ -2261,7 +2270,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should decode paths before route matching", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.get("/api/v1/users", () => {
@@ -2274,7 +2283,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle double-encoded paths", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let capturedPath = "";
 
       router.get("/search/:q", (ctx) => {
@@ -2288,7 +2297,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should normalize path traversal with .. segments", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       let called = false;
 
       router.get("/protected/secret", () => {
@@ -2304,7 +2313,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should prevent path traversal with encoded .. %2E%2E", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const result = { pathname: "" };
 
       router.get("/data", ({ pathname }) => {
@@ -2325,7 +2334,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should prevent path traversal with encoded / %2F", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
       const result = { pathname: "" };
 
       router.get("/secure/data", ({ pathname }) => {
@@ -2346,7 +2355,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Route Collision Edge Cases", () => {
     it("should not allow registering duplicate exact routes", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("first"));
 
@@ -2356,7 +2365,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should allow registering same path with different methods", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       expect(() => {
         router.get("/test", () => text("GET"));
@@ -2366,7 +2375,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle route conflicts with globs correctly", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/*/users", () => text("first"));
 
@@ -2382,7 +2391,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle route conflicts with super globs correctly", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/api/**", () => text("super"));
 
@@ -2404,7 +2413,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Headers and Status Codes", () => {
     it("should preserve custom status texts", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/custom", () => {
         return new Response("Custom message", {
@@ -2419,7 +2428,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should merge headers correctly", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => {
         const response = text("OK");
@@ -2434,7 +2443,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle multiple Set-Cookie headers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/cookies", () => {
         const response = text("OK");
@@ -2453,7 +2462,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Async Error Handling", () => {
     it("should catch errors from async handlers", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/async-error", async () => {
         await new Promise((resolve) => setTimeout(resolve, 1));
@@ -2470,7 +2479,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should catch errors from async filters", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.filterGet("/test", async () => {
         await new Promise((resolve) => setTimeout(resolve, 1));
@@ -2488,7 +2497,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should catch and defuse errors quietly in after handlers", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/test", () => text("OK"));
 
@@ -2509,7 +2518,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Middleware with Response Shortcuts", () => {
     it("should support json helper", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/json", () => json({ success: true, data: { id: 1 } }));
 
@@ -2521,7 +2530,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support text helper", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/text", () => text("Hello World"));
 
@@ -2531,7 +2540,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support status helper", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/status", () => status(201, "Created"));
 
@@ -2541,7 +2550,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should support redirect helper", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/old", () => redirect("/new"));
       router.get("/new", () => text("New Location"));
@@ -2554,7 +2563,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Method Chaining", () => {
     it("should support fluent method chaining", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router
         .get("/a", () => text("A"))
@@ -2578,7 +2587,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Empty Path Handling", () => {
     it("should handle empty path as root", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/", () => text("root"));
 
@@ -2587,7 +2596,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle path with only slash", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       router.get("/", () => text("root"));
 
@@ -2598,7 +2607,7 @@ describe("Router - Additional Tests", () => {
 
   describe("Router - Memory Usage and Cleanup", () => {
     it("should not leak memory with many route registrations", () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Register and overwrite many routes
       for (let i = 0; i < 100; i++) {
@@ -2612,7 +2621,7 @@ describe("Router - Additional Tests", () => {
     });
 
     it("should handle circular route references gracefully", async () => {
-      const router = new Router();
+      const router = new Router({ maxPath: 10 });
 
       // Register routes that might reference each other
       router.get("/a", () => redirect("/b"));
@@ -2629,7 +2638,7 @@ describe("Router - Additional Tests", () => {
 
 describe("OpenAPI Generation - Extended", () => {
   it("should generate OpenAPI with parameters", async () => {
-    const router = new Router();
+    const router = new Router({ maxPath: 10 });
 
     router.get("/users/:id", () => text("OK"), {
       openApi: {
@@ -2673,7 +2682,7 @@ describe("OpenAPI Generation - Extended", () => {
   });
 
   it("should generate OpenAPI with request body", async () => {
-    const router = new Router();
+    const router = new Router({ maxPath: 10 });
 
     router.post("/users", () => text("OK"), {
       openApi: {

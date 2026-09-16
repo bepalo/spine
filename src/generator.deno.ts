@@ -1,11 +1,10 @@
-// src/generator.deno.ts
+// src/generator.ts
 
 import {
-  RegisterPiplineOptions,
+  RegisterPipelineOptions,
   HandlerType,
   HttpMethod,
   HttpMethodUpper,
-  MethodPath,
   MIME_TYPES,
   MimeType,
   Path,
@@ -23,6 +22,7 @@ import { hash } from "node:crypto";
 import { stat } from "node:fs/promises";
 
 export interface GenerateStaticRoutesParams {
+  maxPath: number;
   routesPath: string;
   importRoot: string;
   usePathForIdGeneration?: boolean;
@@ -70,7 +70,7 @@ function getRouteLoaders(
     const defIsObject = !Array.isArray(def) && typeof def === "object";
     // get pipe and any other options
     const pipe = defIsObject ? (def as any).pipe : def;
-    const options: RegisterPiplineOptions | undefined = defIsObject
+    const options: RegisterPipelineOptions | undefined = defIsObject
       ? {}
       : undefined;
     if (options != null) {
@@ -184,6 +184,7 @@ function getRouteLoaders(
  *
  */
 export const generateStaticRoutes = async ({
+  maxPath,
   routesPath,
   importRoot = "./",
   usePathForIdGeneration = false,
@@ -193,7 +194,7 @@ export const generateStaticRoutes = async ({
   processName = (name: string) => name.substring(0, name.lastIndexOf(".")),
   onError,
 }: GenerateStaticRoutesParams): Promise<string> => {
-  const testRouter = new Router();
+  const testRouter = new Router({ maxPath });
   let imports = "";
   let loads = "";
   const prefix = "route";
@@ -221,7 +222,7 @@ export const generateStaticRoutes = async ({
             : importExtensions
               ? relativePath.substring(relativePath.lastIndexOf("."))
               : "";
-        let pathname = translateRouteFilePath("/" + pureRelativePath);
+        let pathname = translateRouteFilePath("/" + pureRelativePath, , maxPath);
         pathname = pureRelativePath.endsWith("/index")
           ? pathname.substring(0, pathname.length - 1)
           : pathname;

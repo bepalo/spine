@@ -1,6 +1,7 @@
 import { MimeType } from "./types.ts";
 import { DirWalkNode } from "./utils.ts";
 export interface GenerateStaticRoutesParams {
+    maxPath: number;
     routesPath: string;
     importRoot: string;
     usePathForIdGeneration?: boolean;
@@ -64,7 +65,7 @@ export interface GenerateStaticRoutesParams {
  *  ```
  *
  */
-export declare const generateStaticRoutes: ({ routesPath, importRoot, usePathForIdGeneration, importExtensions, pattern, dirPattern, processName, onError, }: GenerateStaticRoutesParams) => Promise<string>;
+export declare const generateStaticRoutes: ({ maxPath, routesPath, importRoot, usePathForIdGeneration, importExtensions, pattern, dirPattern, processName, onError, }: GenerateStaticRoutesParams) => Promise<string>;
 export type GenerateStaticRoutesWatcherParams = {
     read: (filename: string) => Promise<string> | string;
     write: (filename: string, content: string) => Promise<void | unknown> | void | unknown;

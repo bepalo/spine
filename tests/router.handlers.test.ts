@@ -28,7 +28,9 @@ const createSpy = () => vi.fn();
 describe("Router Handler Methods", () => {
   describe("HTTP Method Shorthands", () => {
     it("router.get() should register GET handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/test", () => {
@@ -42,7 +44,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.post() should register POST handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.post("/test", () => {
@@ -56,7 +60,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.put() should register PUT handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.put("/test", () => {
@@ -70,7 +76,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.delete() should register DELETE handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.delete("/test", () => {
@@ -84,7 +92,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.patch() should register PATCH handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.patch("/test", () => {
@@ -98,7 +108,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.head() should register HEAD handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.head("/test", () => {
@@ -112,7 +124,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.options() should register OPTIONS handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.options("/test", () => {
@@ -129,7 +143,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.trace() should register TRACE handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.trace("/test", () => {
@@ -143,7 +159,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.connect() should register CONNECT handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.connect("/test", () => {
@@ -159,7 +177,9 @@ describe("Router Handler Methods", () => {
 
   describe("Generic Handlers", () => {
     it("router.handle() should register handler with method path", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.handle("Get /test", () => {
@@ -173,7 +193,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.handle() should register multiple method paths", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.handle(["Get /test", "Post /test"], () => {
@@ -191,7 +213,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.handle() should support OpenAPI options", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       router.handle("Get /users", () => text("OK"), {
         openApi: {
@@ -209,7 +233,9 @@ describe("Router Handler Methods", () => {
 
   describe("Filter Handlers", () => {
     it("router.filter() should register filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filter("Get /test", () => {
@@ -223,7 +249,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterGet() should register GET filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterGet("/test", () => {
@@ -237,7 +265,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterPost() should register POST filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterPost("/test", () => {
@@ -251,7 +281,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterAll() should register filter for all methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterAll("/test", () => {
@@ -268,7 +300,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterCrud() should register filter for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterCrud("/test", () => {
@@ -285,7 +319,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterHead() should register HEAD filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterHead("/test", () => {
@@ -299,7 +335,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterOptions() should register OPTIONS filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterOptions("/test", () => {
@@ -313,7 +351,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterTrace() should register TRACE filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterTrace("/test", () => {
@@ -327,7 +367,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.filterConnect() should register CONNECT filter", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.filterConnect("/test", () => {
@@ -343,7 +385,9 @@ describe("Router Handler Methods", () => {
 
   describe("Fallback Handlers", () => {
     it("router.fallback() should register fallback", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
       const spy1 = createSpy();
 
@@ -362,7 +406,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.fallbackGet() should register GET fallback", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
       const spy1 = createSpy();
 
@@ -382,7 +428,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.fallbackAll() should register fallback for all methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
       const spy1 = createSpy();
 
@@ -405,7 +453,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.fallbackCrud() should register fallback for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
       const spy1 = createSpy();
 
@@ -430,7 +480,9 @@ describe("Router Handler Methods", () => {
 
   describe("After Handlers", () => {
     it("router.after() should register after handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/test", () => text("OK"));
@@ -446,7 +498,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.afterGet() should register GET after handler", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/test", () => text("OK"));
@@ -462,7 +516,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.afterAll() should register after for all methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.all("/test", () => text("OK"));
@@ -481,7 +537,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.afterCrud() should register after for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.crud("/test", () => text("OK"));
@@ -502,7 +560,9 @@ describe("Router Handler Methods", () => {
 
   describe("Catcher Handlers", () => {
     it("router.catch() should register error catcher", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/error", () => {
@@ -520,7 +580,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.catchGet() should register GET error catcher", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/error", () => {
@@ -538,7 +600,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.catchAll() should register catcher for all methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.all("/error", () => {
@@ -559,7 +623,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.catchCrud() should register catcher for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.crud("/error", () => {
@@ -582,7 +648,9 @@ describe("Router Handler Methods", () => {
 
   describe("Batch Handlers", () => {
     it("router.all() should register handler for all HTTP methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.all("/test", () => {
@@ -607,7 +675,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.crud() should register handler for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.crud("/test", () => {
@@ -624,7 +694,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.handleAll() should register handler for all methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.handleAll("/test", () => {
@@ -641,7 +713,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("router.handleCrud() should register handler for CRUD methods", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.handleCrud("/test", () => {
@@ -660,7 +734,9 @@ describe("Router Handler Methods", () => {
 
   describe("Multiple Paths", () => {
     it("should register handler for multiple paths", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get(["/a", "/b", "/c"], () => {
@@ -679,7 +755,9 @@ describe("Router Handler Methods", () => {
 
   describe("Pipe Handlers", () => {
     it("should execute pipe of handlers in order", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.get("/test", [
@@ -701,7 +779,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should handle mixed handler types in pipe", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.get("/test", [
@@ -722,7 +802,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("returning Break_Pipe should only break from the current pipline", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.filterGet("/**", [
@@ -776,7 +858,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("returning Break_Pipeline should only break from the current pipline", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.filterGet("/**", [
@@ -825,7 +909,9 @@ describe("Router Handler Methods", () => {
 
   describe("Combined Handler Types", () => {
     it("should combine filter, handler, and after", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.filterGet("/test", () => {
@@ -848,7 +934,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should combine filter, fallback, and after", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.filterGet("/test", () => {
@@ -874,7 +962,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should combine catcher with other handlers", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const order: string[] = [];
 
       router.filterGet("/test", () => {
@@ -903,7 +993,9 @@ describe("Router Handler Methods", () => {
 
   describe("Overwrite Options", () => {
     it("should throw when overwriting without option", () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       router.get("/test", () => text("first"));
 
@@ -913,7 +1005,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should allow overwrite with option", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       router.get("/test", () => text("first"));
       router.get("/test", () => text("second"), { overwrite: true });
@@ -923,7 +1017,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should allow overwrite for all handler types", () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       // Filter
       router.filterGet("/test", () => {});
@@ -948,7 +1044,9 @@ describe("Router Handler Methods", () => {
 
   describe("Route Parameter Extraction", () => {
     it("should extract parameters in all handler types", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       // Filter
       router.filterGet("/users/:id", (ctx: Context) => {
@@ -982,7 +1080,9 @@ describe("Router Handler Methods", () => {
 
   describe("Error Handling in Handlers", () => {
     it("should handle errors in all handler types", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       let caught = false;
 
       router.filterGet("/error", () => {
@@ -1003,7 +1103,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should handle HttpError in handlers", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       router.get("/error", () => {
         throw new HttpError(403, "Forbidden");
@@ -1024,7 +1126,9 @@ describe("Router Handler Methods", () => {
 
   describe("Special Path Patterns", () => {
     it("should handle glob patterns in all handler types", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/api/*", () => {
@@ -1038,7 +1142,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should handle named super glob patterns in all handler types", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/files/::filepath", (ctx: Context) => {
@@ -1055,7 +1161,9 @@ describe("Router Handler Methods", () => {
     });
 
     it("should handle named parameters in all handler types", async () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
       const spy = createSpy();
 
       router.get("/|home|about:page", (ctx: Context) => {
@@ -1074,6 +1182,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultFilter", async () => {
       const spy = createSpy();
       const router = new Router({
+        maxPath: 10,
         defaultFilter: () => {
           spy();
         },
@@ -1088,6 +1197,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultFallback", async () => {
       const spy = createSpy();
       const router = new Router({
+        maxPath: 10,
         defaultFallback: () => {
           spy();
           return text("default fallback", { status: 404 });
@@ -1102,6 +1212,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultCatcher", async () => {
       const spy = createSpy();
       const router = new Router({
+        maxPath: 10,
         defaultCatcher: (ctx: Context<CTError>) => {
           spy();
           return text(`Default catch: ${ctx.error?.message}`, { status: 500 });
@@ -1120,6 +1231,7 @@ describe("Router Handler Methods", () => {
     it("should use defaultAfter", async () => {
       const spy = createSpy();
       const router = new Router({
+        maxPath: 10,
         defaultAfter: (ctx: Context<CTResponse>) => {
           spy();
           ctx.response.headers.set("X-Default-After", "true");
@@ -1136,7 +1248,9 @@ describe("Router Handler Methods", () => {
 
   describe("Chaining", () => {
     it("should support method chaining", () => {
-      const router = new Router();
+      const router = new Router({
+        maxPath: 10,
+      });
 
       const result = router
         .get("/a", () => text("a"))
