@@ -149,6 +149,8 @@ export declare const blob: (blob: Blob, init?: ResponseInit) => Response;
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/octet-stream content-type
  * @example
+ * octetStream(Readable.toWeb(createReadStream(filepath)));
+ * @example
  * const blob = new Blob([binaryData]);
  * octetStream(blob);
  */

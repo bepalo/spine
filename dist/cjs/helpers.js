@@ -349,7 +349,7 @@ const blob = (blob, init) => {
     if (!headers.has("content-type")) {
         headers.set("content-type", blob.type || "application/octet-stream");
     }
-    headers.set("content-length", blob.size.toFixed());
+    headers.set("content-length", String(blob.size));
     return new Response(blob, Object.assign(Object.assign({}, init), { status,
         statusText,
         headers }));
@@ -363,6 +363,8 @@ exports.blob = blob;
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/octet-stream content-type
  * @example
+ * octetStream(Readable.toWeb(createReadStream(filepath)));
+ * @example
  * const blob = new Blob([binaryData]);
  * octetStream(blob);
  */
@@ -375,7 +377,7 @@ const octetStream = (octet, init) => {
         headers.set("content-type", "application/octet-stream");
     }
     if (!(octet instanceof ReadableStream)) {
-        headers.set("content-length", (octet instanceof Blob ? octet.size : octet.byteLength).toFixed());
+        headers.set("content-length", String((octet instanceof Blob ? octet.size : octet.byteLength)));
     }
     return new Response(octet, Object.assign(Object.assign({}, init), { status,
         statusText,

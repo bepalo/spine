@@ -533,6 +533,34 @@ export class Router<
   }
 
   /**
+   * Register routes defined in the other router to this router.
+   *
+   * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.
+   * @param {{overwrite:boolean}} options Options to apply to each route definition.
+   * @param {boolean} [options.overwrite] Overwrite each route definition. This overrides the route specific options.
+   */
+  append(
+    router: Router<_ExtendContext, ExtendContext>,
+    options?: {
+      overwrite: boolean;
+    },
+  ) {
+    const overwrite = options?.overwrite;
+    for (const {
+      handlerType,
+      methodPaths,
+      pipe,
+      options: setterOptions,
+    } of router.#setters) {
+      this.register(handlerType, methodPaths, pipe, {
+        ...setterOptions,
+        overwrite: setterOptions?.overwrite || overwrite,
+      });
+    }
+  }
+
+  /**
+   * Register routes defined in the other router to this router under the prefix path.
    *
    * @param {string} prefix Path prefix to prepend to paths.
    * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.

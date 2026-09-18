@@ -278,5 +278,5 @@ export declare enum EvictionReason {
     Expired = 2,
     Replaced = 3
 }
-export type Color = "dim" | "black" | "red" | "green" | "yellow" | "blue" | "magenta" | "cyan" | "white";
+export type Color = "black" | "red" | "green" | "yellow" | "blue" | "magenta" | "cyan" | "white";
 //# sourceMappingURL=types.d.ts.map

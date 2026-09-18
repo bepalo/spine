@@ -18,7 +18,7 @@ import {
   ParsedBody,
   parseBody,
 } from "./parsers.ts";
-import { Status } from "./status.ts";
+import { getHttpStatusText, Status } from "./status.ts";
 import { Break_Pipe, Break_Pipeline, EndHandler, HttpError } from "./types.ts";
 import {
   HttpMethodLower,
@@ -75,14 +75,34 @@ export const COLORS = {
 };
 
 /**
- * Log requests with no color
+ * Log requests with no color.
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ * 
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response. 
  */
 export const logRequests = <
   ExtendContext extends Record<string, unknown> = {},
 >(options?: {
   logger?: (...args: any[]) => void;
+  filter?: (ctx: Context<ExtendContext>) => boolean;
   enable?: {
     requestTime?: boolean;
     duration?: boolean;
@@ -105,6 +125,7 @@ export const logRequests = <
 }): EndHandler<ExtendContext> => {
   const {
     logger = console.log,
+    filter,
     enable,
     enclosure,
     indent,
@@ -114,19 +135,19 @@ export const logRequests = <
     requestTime: enReqTime = true,
     duration: enDur = true,
     status: enStatus = "status",
-    search: enSearch = "multiline",
+    search: enSearch = "singleline",
   } = enable ?? {};
   const {
     requestTime: encReqTime = ["", " "],
-    duration: encDur = ["[", "]"],
-    status: encStatus = ["(", ")"],
+    duration: encDur = ["", " "],
+    status: encStatus = ["[", "]"],
   } = enclosure ?? {};
   const [encReqTime0, encReqTime1] = encReqTime;
   const [encDur0, encDur1] = encDur;
   const [encStatus0, encStatus1] = encStatus;
-  const { search: indSearch = "    " } = indent ?? {};
+  const { search: indSearch = "\t" } = indent ?? {};
   const {
-    duration: padDur = -7,
+    duration: padDur = 7,
     status: padStatus = 0,
     method: padMethod = 0,
   } = pad ?? {};
@@ -148,7 +169,11 @@ export const logRequests = <
   const searchType =
     enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
   ////////////////////////////////////////////////////////////////////////////
-  return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+  return (ctx) => {
+    if(filter && !filter(ctx)) {
+      return;
+    }
+    const { request, response, url, timestamps: { epoch, start, end } } = ctx;
     // Status Str
     let statusStr;
     switch (statusType) {
@@ -156,10 +181,10 @@ export const logRequests = <
         statusStr = response.status.toString();
         break;
       case 2:
-        statusStr = response.statusText;
+        statusStr = response.statusText ?? getHttpStatusText(response.status);
         break;
       case 3:
-        statusStr = `${response.status} ${response.statusText}`;
+        statusStr = `${response.status} ${response.statusText ?? getHttpStatusText(response.status)}`;
         break;
       default:
         statusStr = "";
@@ -205,12 +230,57 @@ export const logRequests = <
 /**
  * Log requests with color
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ * 
+ * @param {object} [options.reqTime] Request-time color options.
+ * @param {Color} [options.reqTime.color] Request-time color option to set color.
+ * @param {boolean} [options.reqTime.bold] Request-time color option to make it bold.
+ * @param {boolean} [options.reqTime.dim] Request-time Color option to make it dim.
+ * @param {object} [options.duration] Duration color options.
+ * @param {Color} [options.duration.color] Duration color option to set color.
+ * @param {boolean} [options.duration.bold] Duration color option to make it bold.
+ * @param {boolean} [options.duration.dim] Duration Color option to make it dim.
+ * @param {object} [options.status] Status color options.
+ * @param {Color|"auto"} [options.status.color] Status color options to set color.
+ * @param {boolean} [options.status.bold] Status color options to make it bold.
+ * @param {boolean} [options.status.dim] Status Color options to make it dim.
+ * @param {object} [options.method] Method color options.
+ * @param {Color|"auto"} [options.method.color] Method color options to set color.
+ * @param {boolean} [options.method.bold] Method color options to make it bold.
+ * @param {boolean} [options.method.dim] Method Color options to make it dim.
+ * @param {object} [options.pathname] Pathname color options.
+ * @param {Color} [options.pathname.color] Pathname color option to set color.
+ * @param {boolean} [options.pathname.bold] Pathname color option to make it bold.
+ * @param {boolean} [options.pathname.dim] Pathname Color option to make it dim.
+ * @param {object} [options.search] Search color options.
+ * @param {Color} [options.search.color] Search color option to set color.
+ * @param {boolean} [options.search.bold] Search color option to make it bold.
+ * @param {boolean} [options.search.dim] Search Color option to make it dim.
+ * 
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response with color. 
  */
 export const logRequestsWithColor = <
   ExtendContext extends Record<string, unknown> = {},
 >(options?: {
   logger?: (...args: any[]) => void;
+  filter?: (ctx: Context<ExtendContext>) => boolean;
   enable?: {
     requestTime?: boolean;
     duration?: boolean;
@@ -263,6 +333,7 @@ export const logRequestsWithColor = <
 }): EndHandler<ExtendContext> => {
   const {
     logger = console.log,
+    filter,
     enable,
     enclosure,
     indent,
@@ -278,30 +349,30 @@ export const logRequestsWithColor = <
     requestTime: enReqTime = true,
     duration: enDur = true,
     status: enStatus = "status",
-    search: enSearch = "multiline",
+    search: enSearch = "singleline",
   } = enable ?? {};
   const {
     requestTime: encReqTime = ["", " "],
-    duration: encDur = ["[", "]"],
-    status: encStatus = ["(", ")"],
+    duration: encDur = ["", " "],
+    status: encStatus = ["[", "]"],
   } = enclosure ?? {};
   const [encReqTime0, encReqTime1] = encReqTime;
   const [encDur0, encDur1] = encDur;
   const [encStatus0, encStatus1] = encStatus;
-  const { search: indSearch = "    " } = indent ?? {};
+  const { search: indSearch = "\t" } = indent ?? {};
   const {
-    duration: padDur = -7,
+    duration: padDur = 7,
     status: padStatus = 0,
     method: padMethod = 0,
   } = pad ?? {};
   const {
     color: reqTimeColor = null,
-    bold: reqTimeBold = false,
-    dim: reqTimeDim = false,
+    bold: reqTimeBold = true,
+    dim: reqTimeDim = true,
   } = reqTime ?? {};
   const {
     color: durColor = null,
-    bold: durBold = false,
+    bold: durBold = true,
     dim: durDim = true,
   } = duration ?? {};
   const {
@@ -372,7 +443,11 @@ export const logRequestsWithColor = <
   const searchType =
     enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
   ////////////////////////////////////////////////////////////////////////////
-  return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+  return (ctx) => {
+    if(filter && !filter(ctx)) {
+      return;
+    }
+    const { request, response, url, timestamps: { epoch, start, end } } = ctx;
     // Status Str
     let statusStr;
     switch (statusType) {
@@ -380,10 +455,10 @@ export const logRequestsWithColor = <
         statusStr = response.status.toString();
         break;
       case 2:
-        statusStr = response.statusText;
+        statusStr = response.statusText ?? getHttpStatusText(response.status);
         break;
       case 3:
-        statusStr = `${response.status} ${response.statusText}`;
+        statusStr = `${response.status} ${response.statusText ?? getHttpStatusText(response.status)}`;
         break;
       default:
         statusStr = "";

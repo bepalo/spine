@@ -856,7 +856,6 @@ export enum EvictionReason {
 }
 
 export type Color =
-  | "dim"
   | "black"
   | "red"
   | "green"

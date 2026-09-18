@@ -28,12 +28,32 @@ export declare const COLORS: {
     status: (status: number) => "\u001B[31m" | "\u001B[32m" | "\u001B[33m" | "\u001B[36m";
 };
 /**
- * Log requests with no color
+ * Log requests with no color.
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response.
  */
 export declare const logRequests: <ExtendContext extends Record<string, unknown> = {}>(options?: {
     logger?: (...args: any[]) => void;
+    filter?: (ctx: Context<ExtendContext>) => boolean;
     enable?: {
         requestTime?: boolean;
         duration?: boolean;
@@ -57,10 +77,55 @@ export declare const logRequests: <ExtendContext extends Record<string, unknown>
 /**
  * Log requests with color
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ *
+ * @param {object} [options.reqTime] Request-time color options.
+ * @param {Color} [options.reqTime.color] Request-time color option to set color.
+ * @param {boolean} [options.reqTime.bold] Request-time color option to make it bold.
+ * @param {boolean} [options.reqTime.dim] Request-time Color option to make it dim.
+ * @param {object} [options.duration] Duration color options.
+ * @param {Color} [options.duration.color] Duration color option to set color.
+ * @param {boolean} [options.duration.bold] Duration color option to make it bold.
+ * @param {boolean} [options.duration.dim] Duration Color option to make it dim.
+ * @param {object} [options.status] Status color options.
+ * @param {Color|"auto"} [options.status.color] Status color options to set color.
+ * @param {boolean} [options.status.bold] Status color options to make it bold.
+ * @param {boolean} [options.status.dim] Status Color options to make it dim.
+ * @param {object} [options.method] Method color options.
+ * @param {Color|"auto"} [options.method.color] Method color options to set color.
+ * @param {boolean} [options.method.bold] Method color options to make it bold.
+ * @param {boolean} [options.method.dim] Method Color options to make it dim.
+ * @param {object} [options.pathname] Pathname color options.
+ * @param {Color} [options.pathname.color] Pathname color option to set color.
+ * @param {boolean} [options.pathname.bold] Pathname color option to make it bold.
+ * @param {boolean} [options.pathname.dim] Pathname Color option to make it dim.
+ * @param {object} [options.search] Search color options.
+ * @param {Color} [options.search.color] Search color option to set color.
+ * @param {boolean} [options.search.bold] Search color option to make it bold.
+ * @param {boolean} [options.search.dim] Search Color option to make it dim.
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response with color.
  */
 export declare const logRequestsWithColor: <ExtendContext extends Record<string, unknown> = {}>(options?: {
     logger?: (...args: any[]) => void;
+    filter?: (ctx: Context<ExtendContext>) => boolean;
     enable?: {
         requestTime?: boolean;
         duration?: boolean;

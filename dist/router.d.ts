@@ -53,6 +53,17 @@ export declare class Router<_ExtendContext extends Record<string, unknown> = Emp
      */
     respond(request: Request, ctxInit?: RespondContext<_ExtendContext>): Promise<Response>;
     /**
+     * Register routes defined in the other router to this router.
+     *
+     * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.
+     * @param {{overwrite:boolean}} options Options to apply to each route definition.
+     * @param {boolean} [options.overwrite] Overwrite each route definition. This overrides the route specific options.
+     */
+    append(router: Router<_ExtendContext, ExtendContext>, options?: {
+        overwrite: boolean;
+    }): void;
+    /**
+     * Register routes defined in the other router to this router under the prefix path.
      *
      * @param {string} prefix Path prefix to prepend to paths.
      * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.

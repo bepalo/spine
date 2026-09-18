@@ -51,19 +51,38 @@ exports.COLORS = {
     },
 };
 /**
- * Log requests with no color
+ * Log requests with no color.
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response.
  */
 const logRequests = (options) => {
-    const { logger = console.log, enable, enclosure, indent, pad, } = options !== null && options !== void 0 ? options : {};
-    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "multiline", } = enable !== null && enable !== void 0 ? enable : {};
-    const { requestTime: encReqTime = ["", " "], duration: encDur = ["[", "]"], status: encStatus = ["(", ")"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
+    const { logger = console.log, filter, enable, enclosure, indent, pad, } = options !== null && options !== void 0 ? options : {};
+    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "singleline", } = enable !== null && enable !== void 0 ? enable : {};
+    const { requestTime: encReqTime = ["", " "], duration: encDur = ["", " "], status: encStatus = ["[", "]"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
     const [encReqTime0, encReqTime1] = encReqTime;
     const [encDur0, encDur1] = encDur;
     const [encStatus0, encStatus1] = encStatus;
-    const { search: indSearch = "    " } = indent !== null && indent !== void 0 ? indent : {};
-    const { duration: padDur = -7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
+    const { search: indSearch = "\t" } = indent !== null && indent !== void 0 ? indent : {};
+    const { duration: padDur = 7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
     let statusType;
     switch (enStatus) {
         case "status":
@@ -81,7 +100,12 @@ const logRequests = (options) => {
     }
     const searchType = enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
     ////////////////////////////////////////////////////////////////////////////
-    return ({ request, response, url, timestamps: { epoch, start, end } }) => {
+    return (ctx) => {
+        var _a, _b;
+        if (filter && !filter(ctx)) {
+            return;
+        }
+        const { request, response, url, timestamps: { epoch, start, end } } = ctx;
         // Status Str
         let statusStr;
         switch (statusType) {
@@ -89,10 +113,10 @@ const logRequests = (options) => {
                 statusStr = response.status.toString();
                 break;
             case 2:
-                statusStr = response.statusText;
+                statusStr = (_a = response.statusText) !== null && _a !== void 0 ? _a : (0, status_ts_1.getHttpStatusText)(response.status);
                 break;
             case 3:
-                statusStr = `${response.status} ${response.statusText}`;
+                statusStr = `${response.status} ${(_b = response.statusText) !== null && _b !== void 0 ? _b : (0, status_ts_1.getHttpStatusText)(response.status)}`;
                 break;
             default:
                 statusStr = "";
@@ -133,19 +157,63 @@ exports.logRequests = logRequests;
 /**
  * Log requests with color
  *
- * @param options Log requests options
+ * @param {object} options Log requests options
+ * @param {(...args: any[])=>void} [options.logger] Logging function. defaults to console.log
+ * @param {(ctx:Context<ExtendContext>)=>boolean} [options.filter] Filtering function used to filter requests before logging.
+ * @param {object} [options.enable] Enable options for log types.
+ * @param {boolean} [options.enable.requestTime=true] Enable requestTime option.
+ * @param {boolean} [options.enable.duration=true] Enable duration option.
+ * @param {false|"status"|"status-text"|"with-status-text"} [options.enable.status="status"] Enable status option.
+ * @param {false|"singleline"|"multiline"} [options.enable.search="singleline"] Enable search option.
+ * @param {object} [options.enclosure] Enclosure options for requestTime, duration, and status.
+ * @param {[string,string]} [options.enclosure.requestTime] Enclosure requestTime option.
+ * @param {[string,string]} [options.enclosure.duration] Enclosure duration option.
+ * @param {[string,string]} [options.enclosure.status] Enclosure status option.
+ * @param {object} [options.indent] Indent options for search only.
+ * @param {string} [options.indent.search="\t"] Indent search option. This is only useful when `enable.search="multiline"`
+ * @param {object} [options.pad] Padding options for duration, status, and method.
+ * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
+ * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
+ * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
+ *
+ * @param {object} [options.reqTime] Request-time color options.
+ * @param {Color} [options.reqTime.color] Request-time color option to set color.
+ * @param {boolean} [options.reqTime.bold] Request-time color option to make it bold.
+ * @param {boolean} [options.reqTime.dim] Request-time Color option to make it dim.
+ * @param {object} [options.duration] Duration color options.
+ * @param {Color} [options.duration.color] Duration color option to set color.
+ * @param {boolean} [options.duration.bold] Duration color option to make it bold.
+ * @param {boolean} [options.duration.dim] Duration Color option to make it dim.
+ * @param {object} [options.status] Status color options.
+ * @param {Color|"auto"} [options.status.color] Status color options to set color.
+ * @param {boolean} [options.status.bold] Status color options to make it bold.
+ * @param {boolean} [options.status.dim] Status Color options to make it dim.
+ * @param {object} [options.method] Method color options.
+ * @param {Color|"auto"} [options.method.color] Method color options to set color.
+ * @param {boolean} [options.method.bold] Method color options to make it bold.
+ * @param {boolean} [options.method.dim] Method Color options to make it dim.
+ * @param {object} [options.pathname] Pathname color options.
+ * @param {Color} [options.pathname.color] Pathname color option to set color.
+ * @param {boolean} [options.pathname.bold] Pathname color option to make it bold.
+ * @param {boolean} [options.pathname.dim] Pathname Color option to make it dim.
+ * @param {object} [options.search] Search color options.
+ * @param {Color} [options.search.color] Search color option to set color.
+ * @param {boolean} [options.search.bold] Search color option to make it bold.
+ * @param {boolean} [options.search.dim] Search Color option to make it dim.
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response with color.
  */
 const logRequestsWithColor = (options) => {
-    const { logger = console.log, enable, enclosure, indent, pad, reqTime, duration, status, method, pathname, search, } = options !== null && options !== void 0 ? options : {};
-    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "multiline", } = enable !== null && enable !== void 0 ? enable : {};
-    const { requestTime: encReqTime = ["", " "], duration: encDur = ["[", "]"], status: encStatus = ["(", ")"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
+    const { logger = console.log, filter, enable, enclosure, indent, pad, reqTime, duration, status, method, pathname, search, } = options !== null && options !== void 0 ? options : {};
+    const { requestTime: enReqTime = true, duration: enDur = true, status: enStatus = "status", search: enSearch = "singleline", } = enable !== null && enable !== void 0 ? enable : {};
+    const { requestTime: encReqTime = ["", " "], duration: encDur = ["", " "], status: encStatus = ["[", "]"], } = enclosure !== null && enclosure !== void 0 ? enclosure : {};
     const [encReqTime0, encReqTime1] = encReqTime;
     const [encDur0, encDur1] = encDur;
     const [encStatus0, encStatus1] = encStatus;
-    const { search: indSearch = "    " } = indent !== null && indent !== void 0 ? indent : {};
-    const { duration: padDur = -7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
-    const { color: reqTimeColor = null, bold: reqTimeBold = false, dim: reqTimeDim = false, } = reqTime !== null && reqTime !== void 0 ? reqTime : {};
-    const { color: durColor = null, bold: durBold = false, dim: durDim = true, } = duration !== null && duration !== void 0 ? duration : {};
+    const { search: indSearch = "\t" } = indent !== null && indent !== void 0 ? indent : {};
+    const { duration: padDur = 7, status: padStatus = 0, method: padMethod = 0, } = pad !== null && pad !== void 0 ? pad : {};
+    const { color: reqTimeColor = null, bold: reqTimeBold = true, dim: reqTimeDim = true, } = reqTime !== null && reqTime !== void 0 ? reqTime : {};
+    const { color: durColor = null, bold: durBold = true, dim: durDim = true, } = duration !== null && duration !== void 0 ? duration : {};
     const { color: statusColor = "auto", bold: statusBold = true, dim: statusDim = false, } = status !== null && status !== void 0 ? status : {};
     const { color: methodColor = "auto", bold: methodBold = false, dim: methodDim = false, } = method !== null && method !== void 0 ? method : {};
     const { color: pathnameColor = null, bold: pathnameBold = false, dim: pathnameDim = false, } = pathname !== null && pathname !== void 0 ? pathname : {};
@@ -191,8 +259,12 @@ const logRequestsWithColor = (options) => {
     }
     const searchType = enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
     ////////////////////////////////////////////////////////////////////////////
-    return ({ request, response, url, timestamps: { epoch, start, end } }) => {
-        var _a;
+    return (ctx) => {
+        var _a, _b, _c;
+        if (filter && !filter(ctx)) {
+            return;
+        }
+        const { request, response, url, timestamps: { epoch, start, end } } = ctx;
         // Status Str
         let statusStr;
         switch (statusType) {
@@ -200,10 +272,10 @@ const logRequestsWithColor = (options) => {
                 statusStr = response.status.toString();
                 break;
             case 2:
-                statusStr = response.statusText;
+                statusStr = (_a = response.statusText) !== null && _a !== void 0 ? _a : (0, status_ts_1.getHttpStatusText)(response.status);
                 break;
             case 3:
-                statusStr = `${response.status} ${response.statusText}`;
+                statusStr = `${response.status} ${(_b = response.statusText) !== null && _b !== void 0 ? _b : (0, status_ts_1.getHttpStatusText)(response.status)}`;
                 break;
             default:
                 statusStr = "";
@@ -237,7 +309,7 @@ const logRequestsWithColor = (options) => {
             ? `${durDimStr}${durColorStr}${durBoldStr}${encDur0}${(0, utils_ts_1.padStr)((0, utils_ts_1.formatDuration)(end - start), padDur)}${encDur1}${durColorReset}`
             : ""}${!enStatus
             ? ""
-            : `${statusDimStr}${statusColor === "auto" ? exports.COLORS.status(response.status) : statusColor ? exports.COLORS[statusColor] : ""}${statusBoldStr}${encStatus0}${(0, utils_ts_1.padStr)(statusStr, padStatus)}${encStatus1}${statusColorReset}`} ${methodDimStr}${methodColor === "auto" ? ((_a = exports.COLORS.method[request.method]) !== null && _a !== void 0 ? _a : "\x1b[37m") : methodColor ? exports.COLORS[methodColor] : ""}${methodBoldStr}${(0, utils_ts_1.padStr)(request.method, padMethod)}${methodColorReset} ${pathnameDimStr}${pathnameColorStr}${pathnameBoldStr}${url.pathname}${pathnameColorReset}${searchDimStr}${searchColorStr}${searchBoldStr}${searchStr}${searchColorReset}`);
+            : `${statusDimStr}${statusColor === "auto" ? exports.COLORS.status(response.status) : statusColor ? exports.COLORS[statusColor] : ""}${statusBoldStr}${encStatus0}${(0, utils_ts_1.padStr)(statusStr, padStatus)}${encStatus1}${statusColorReset}`} ${methodDimStr}${methodColor === "auto" ? ((_c = exports.COLORS.method[request.method]) !== null && _c !== void 0 ? _c : "\x1b[37m") : methodColor ? exports.COLORS[methodColor] : ""}${methodBoldStr}${(0, utils_ts_1.padStr)(request.method, padMethod)}${methodColorReset} ${pathnameDimStr}${pathnameColorStr}${pathnameBoldStr}${url.pathname}${pathnameColorReset}${searchDimStr}${searchColorStr}${searchBoldStr}${searchStr}${searchColorReset}`);
     };
 };
 exports.logRequestsWithColor = logRequestsWithColor;

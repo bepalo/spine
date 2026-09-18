@@ -412,7 +412,7 @@ export const blob = (blob: Blob, init?: ResponseInit): Response => {
   if (!headers.has("content-type")) {
     headers.set("content-type", blob.type || "application/octet-stream");
   }
-  headers.set("content-length", blob.size.toFixed());
+  headers.set("content-length", String(blob.size));
   return new Response(blob, {
     ...init,
     status,
@@ -428,6 +428,8 @@ export const blob = (blob: Blob, init?: ResponseInit): Response => {
  * @param {Blob|ArrayBuffer} octetStream - The blob data to return
  * @param {ResponseInit} [init] - Additional response initialization options
  * @returns {Response} A Response object with application/octet-stream content-type
+ * @example 
+ * octetStream(Readable.toWeb(createReadStream(filepath)));
  * @example
  * const blob = new Blob([binaryData]);
  * octetStream(blob);
@@ -445,7 +447,7 @@ export const octetStream = (
   if (!(octet instanceof ReadableStream)) {
     headers.set(
       "content-length",
-      (octet instanceof Blob ? octet.size : octet.byteLength).toFixed(),
+      String((octet instanceof Blob ? octet.size : octet.byteLength)),
     );
   }
   return new Response(octet, {

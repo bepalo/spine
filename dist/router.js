@@ -431,6 +431,20 @@ class Router {
         });
     }
     /**
+     * Register routes defined in the other router to this router.
+     *
+     * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.
+     * @param {{overwrite:boolean}} options Options to apply to each route definition.
+     * @param {boolean} [options.overwrite] Overwrite each route definition. This overrides the route specific options.
+     */
+    append(router, options) {
+        const overwrite = options === null || options === void 0 ? void 0 : options.overwrite;
+        for (const { handlerType, methodPaths, pipe, options: setterOptions, } of __classPrivateFieldGet(router, _Router_setters, "f")) {
+            this.register(handlerType, methodPaths, pipe, Object.assign(Object.assign({}, setterOptions), { overwrite: (setterOptions === null || setterOptions === void 0 ? void 0 : setterOptions.overwrite) || overwrite }));
+        }
+    }
+    /**
+     * Register routes defined in the other router to this router under the prefix path.
      *
      * @param {string} prefix Path prefix to prepend to paths.
      * @param {Router<_ExtendContext,ExtendContext>} router The router to append routes definitions from.
