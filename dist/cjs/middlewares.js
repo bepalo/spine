@@ -105,7 +105,7 @@ const logRequests = (options) => {
         if (filter && !filter(ctx)) {
             return;
         }
-        const { request, response, url, timestamps: { epoch, start, end } } = ctx;
+        const { request, response, url, timestamps: { epoch, start, end }, } = ctx;
         // Status Str
         let statusStr;
         switch (statusType) {
@@ -264,7 +264,7 @@ const logRequestsWithColor = (options) => {
         if (filter && !filter(ctx)) {
             return;
         }
-        const { request, response, url, timestamps: { epoch, start, end } } = ctx;
+        const { request, response, url, timestamps: { epoch, start, end }, } = ctx;
         // Status Str
         let statusStr;
         switch (statusType) {
@@ -334,7 +334,7 @@ const forceHttps = (config) => {
 exports.forceHttps = forceHttps;
 /**
  * Set security headers.
- *   - "X-Content-Type-Options": always "nosniff"
+ *   - "X-Content-Type-Options": default "nosniff"
  *   - "X-Frame-Options": default "DENY"
  *   - "Referrer-Policy": from parameters
  *   - "Strict-Transport-Security": from parameters
@@ -344,7 +344,7 @@ exports.forceHttps = forceHttps;
  *
  */
 const securityHeaders = (config) => {
-    const { crossOriginOpenerPolicy, crossOriginEmbedderPolicy, crossOriginResourcePolicy, referrerPolicy, xFrameOptions = "DENY", strictTransportSecurity: hsts_, contentSecurityPolicy: csp_, headers, } = config !== null && config !== void 0 ? config : {};
+    const { crossOriginOpenerPolicy, crossOriginEmbedderPolicy, crossOriginResourcePolicy, referrerPolicy, xContentTypeOptions = "nosniff", xFrameOptions = "DENY", strictTransportSecurity: hsts_, contentSecurityPolicy: csp_, headers, } = config !== null && config !== void 0 ? config : {};
     const hsts = hsts_ == null
         ? undefined
         : typeof hsts_ === "string"
@@ -370,7 +370,9 @@ const securityHeaders = (config) => {
         }
     }
     /////////////////////////////////////////////
-    preparedHeaders.push(["X-Content-Type-Options", "nosniff"]);
+    if (xContentTypeOptions != null) {
+        preparedHeaders.push(["X-Content-Type-Options", xContentTypeOptions]);
+    }
     if (xFrameOptions != null) {
         preparedHeaders.push(["X-Frame-Options", xFrameOptions]);
     }

@@ -1,6 +1,6 @@
 import { CTBody, CTCookie, CTQuery, ParseBodyOptions, ParsedBody } from "./parsers.ts";
 import { EndHandler, HttpError } from "./types.ts";
-import { HttpMethodLower, HttpMethodUpper, Context, Handler, HttpMethod, XFrameOptions, ReferrerPolicy, ContentSecurityPolicyParams, StrictTransportSecurityParams, CrossOriginOpenerPolicy, CrossOriginEmbedderPolicy, CrossOriginResourcePolicy, ContentSecurityPolicyArrayParams, StrictTransportSecurity, ContentSecurityPolicySource, ContentSecurityPolicyFetchDirectiveType, HandlerReturn, Color } from "./types.ts";
+import type { HttpMethodLower, HttpMethodUpper, Context, Handler, HttpMethod, XContentTypeOptions, XFrameOptions, ReferrerPolicy, ContentSecurityPolicyParams, StrictTransportSecurityParams, CrossOriginOpenerPolicy, CrossOriginEmbedderPolicy, CrossOriginResourcePolicy, ContentSecurityPolicyArrayParams, StrictTransportSecurity, ContentSecurityPolicySource, ContentSecurityPolicyFetchDirectiveType, HandlerReturn, Color } from "./types.ts";
 export declare const COLORS: {
     reset: string;
     dim: string;
@@ -187,7 +187,7 @@ export declare const forceHttps: <ExtendContext extends Record<string, unknown> 
 }) => Handler<ExtendContext>;
 /**
  * Set security headers.
- *   - "X-Content-Type-Options": always "nosniff"
+ *   - "X-Content-Type-Options": default "nosniff"
  *   - "X-Frame-Options": default "DENY"
  *   - "Referrer-Policy": from parameters
  *   - "Strict-Transport-Security": from parameters
@@ -198,6 +198,7 @@ export declare const forceHttps: <ExtendContext extends Record<string, unknown> 
  */
 export declare const securityHeaders: <ExtendContext extends Record<string, unknown> = {}>(config?: {
     referrerPolicy?: ReferrerPolicy | null;
+    xContentTypeOptions?: XContentTypeOptions | null;
     xFrameOptions?: XFrameOptions | null;
     strictTransportSecurity?: StrictTransportSecurity | StrictTransportSecurityParams | boolean | null;
     /**

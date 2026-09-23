@@ -11,1288 +11,1033 @@
 <!--
 [![Vitest](https://img.shields.io/badge/vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)](test-result.md) -->
 
-**A fast, runtime-agnostic HTTP router for JavaScript and TypeScript.**
+**The Next-Generation Web-Standard HTTP Router & Pipeline Engine for TypeScript & JavaScript.**
 
-Spine is a low-level routing layer built around the Web `Request`/`Response` APIs. It gives you fast, predictable route matching, typed contexts, composable handler pipelines, and the freedom to run it on top of any HTTP server.
-
-```text
-                       ( @Bepalo/spine )
-
-                      ( The Router Pipeline )
-
-                          ┌───────────────────────┐
-                          ▼                       │
-                   ┌──────┴───────┐               │
-         ┌─────────│   Filters    │─────────┐ <request>
-         │         └──────┬───────┘         │     │
-         │      <no match nor response>     │     │
-         │                ▼                 │     │
-         │         ┌──────┴───────┐         │  ┌──┴────────┐
-         ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐
-         │         └──────┬───────┘         │  └──┬─────┬──┘    │
-         │      <no match nor response>     │     ▲     │   <request>
-      <error>             ▼                 │     │ <response>  │
-         │         ┌──────┴───────┐         │     │     ▼       │
-         ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐
-         ▼         └──────┬───────┘         │     │   │   Client  │
-   ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘
-   │  Catchers  │         ▼   ▼                   │
-   └─────┬──────┘  ┌──────┴───┴───┐               │
-         └────────►│   Afters     │───────────────┘
-  <error-response> └──────────────┘  <final-response>
-```
+Spine is built from first principles around Web Standard APIs (`Request`, `Response`, `Headers`, `URL`). It replaces traditional recursive middleware onions with **deterministic flat array pipelines**, introduces **pipeline parameter linking**, features **specialized $O(1)$ routing tables**, and delivers zero server lock-in across Bun, Deno, Node.js, and edge runtimes.
 
 ```text
-Benchmark Bun.serve baseline: @bepalo/spine vs Hono
-Bun runtime · localhost · 20,000 sequential requests per route
+                               ( @bepalo/spine )
 
-              Bun          Spine          Hono     ┌──────────────┐
-───────────────────────────────────────────────    │    Server    │
-/             9.91k         8.64k         8.19k    └──────┬───────┘
-exact        10.33k         8.42k         8.19k        Request
-long exact   10.34k         8.28k         7.99k           ▼
-one param     9.99k         8.16k         7.86k    ┌──────────────┐
-two params   10.17k         8.04k         7.66k    │    Spine     │
-three params  9.99k         7.68k         6.76k    │    Router    │
-six params    9.88k         7.91k         7.51k    └──────┬───────┘
-ten params    9.78k         7.90k         7.12k        Response
-                                                          ▼
-Average       10.05k        8.13k         7.65k    ┌──────────────┐
-                                          ops/s    │    Server    │
-                                                   └──────────────┘
-    ████████████████████████████████████████ Bun
-    █████████████████████████████████ Spine
-    ████████████████████████████████ Hono
+                            The 5-Phase Pipeline Flow
+                            ─────────────────────────
+
+                               Incoming Web Request
+                                        │
+                                        ▼
+                                ┌───────────────┐
+                     ┌──────────│  1. Filters   │──────────┐
+                     │          └───────┬───────┘          │
+                     │                  │ <no response>    │
+                     │                  ▼                  │
+                     │          ┌───────────────┐          │
+                     ├──────────│  2. Handlers  │──────────┤
+                     │          └───────┬───────┘          │
+                     │                  │ <no response>    │
+                     │                  ▼                  │
+                     │          ┌───────────────┐          │
+                  <error>       │ 3. Fallbacks  │──────────┤
+                     │          └───────┬───────┘          │
+                     │                  │                  │
+                     ▼                  ▼                  ▼
+             ┌───────────────┐  ┌───────────────────────────────┐
+             │  4. Catchers  │─►│      Response Assembly        │
+             └───────────────┘  └───────────────┬───────────────┘
+                                                │
+                                                ▼
+                                        ┌───────────────┐
+                                        │   5. Afters   │
+                                        └───────┬───────┘
+                                                │
+                                        <afterCatcher> (on after-error)
+                                                │
+                                                ▼
+                                         Final Response
 ```
 
-## Why Spine?
+_NOTE: All pipes except handlers are optional and can be disabled for performance. Default pipes can be defined used instead. You can basically use handler pipes with or without default pipes if you want._
 
-- ⚡ **Low-overhead routing** — specialized route tables for exact, glob, and super-glob routes
-- 🎯 **Powerful route patterns** — parameters, alternatives, `*`, `*!`, `**`, and `**!`
-- 🔗 **Composable pipelines** — filters, handlers, fallbacks, catchers, and after-hooks
-- 🧠 **TypeScript-first** — extend the request context with your own application data
-- 🌐 **Runtime agnostic** — works with Bun, Deno, Node.js, and other Web API-compatible runtimes
-- 📁 **File-based routing** — optionally load routes directly from a directory structure
-- 📖 OpenAPI 3.0 generation — route metadata, tags, parameters, schemas, security, components, and configurable sorting
-- 🛠️ **Built-in utilities** — request parsing, responses, CORS, rate limiting, and authentication
-- 🪶 **No server lock-in** — Spine only deals with `Request` in and `Response` out
+---
+
+## ⚡ What Makes Spine Different?
+
+| Feature                   | Spine (`@bepalo/spine`)                                                                             | Express / Koa                                           | Hono / Fastify                     |
+| :------------------------ | :-------------------------------------------------------------------------------------------------- | :------------------------------------------------------ | :--------------------------------- |
+| **Pipeline Architecture** | **Flat Array Pipeline** with explicit signals (`Break_Pipe`, `Break_Pipeline`)                      | Recursive `next()` callback onion (call-stack overhead) | Nested async middleware cascade    |
+| **Execution Guarantees**  | Deterministic 5-phase lifecycle: Filters $\to$ Handlers $\to$ Fallbacks $\to$ Catchers $\to$ Afters | Order depends on middleware registration sequence       | Mixed middleware / route execution |
+| **Parameter Linking**     | **Built-in**: Params parsed/mutated in filters automatically link downstream                        | ❌ Manual `req` object mutation                         | ❌ Manual `c.set()` state passing  |
+| **HTTP Standards**        | **Full Support** including **HTTP `QUERY`** (RFC 9535)                                              | ❌ Standard methods only                                | ❌ Standard methods only           |
+| **Routing Tables**        | **Specialized $O(1)$ tables** partitioned by depth, globs (`*`), and super-globs (`**`)             | Linear regex iteration                                  | Radix Tree (RegExp-heavy)          |
+| **Runtime Portability**   | **Native Web Standards**: Pure `Request` in, `Response` out (Bun, Deno, Node, Edge)                 | Node.js `IncomingMessage` / `ServerResponse` tied       | Web Standards / Adapters           |
+| **Type Safety**           | **Automatic compile-time path parameter inference** directly from string literals                   | Manual typing / `any`                                   | Generic context inference          |
+| **Streaming Multipart**   | **Zero-dependency state machine** parsing streams chunk-by-chunk (down to 5 bytes)                  | Requires `multer` / `busboy`                            | Requires external plugins          |
+| **Built-in Caching**      | **Memory-bounded LRU & TTL caches** tracking actual bytes in memory                                 | ❌ None                                                 | ❌ None                            |
+| **OpenAPI Generation**    | **Native OpenAPI 3.0 document generation** with auto-tagging and sorting                            | Requires swagger-jsdoc / plugins                        | Requires `@hono/zod-openapi`       |
+
+---
+
+## 🚀 Spine in 30 Seconds
+
+```ts
+import { Router, json, rjson, text, logRequestsWithColor, HttpError } from "@bepalo/spine";
+import { validate, cors, limitRate, securityHeaders, Status } from "@bepalo/spine";
+import { type, ArkErrors } from "arktype";
+
+
+// Define constants and context types
+const isProduction = process.env.NODE_ENV !== "production";
+export type CTApp = {}; // Router scope context
+
+// Initialize router with maximum path segment depth and defaults
+const spine = new Router<CTApp>({
+  maxPath: 24,
+  disable: {
+    after: true,
+    catcher: true,
+    fallback: true,
+  },
+  defaultHandler: () => {
+    return json({ message: "Not found" }, { status: Status._404_NotFound });
+  },
+  defaultCatcher: ({ error }) => {
+    if (!isProduction) console.error(error);
+    return json(
+      { error: error.message },
+      { status: (error as HttpError).status || Status._500_InternalServerError },
+    );
+  },
+  defaultAfter: logRequestsWithColor({
+    status: { color: "auto", bold: true }, // 2xx green, 3xx cyan, 4xx yellow, 5xx red
+    method: { color: "auto", bold: true },
+    duration: { color: "yellow", dim: true },
+  }),
+  afterCatcher: ({ error }) => {
+    isProduction && console.error(error);
+  },
+});
+
+spine.get("/health", () => json({ status: "healthy" }));
+
+const secRoutes = new Router<CTApp>({ maxPath: 2 });
+
+// Global Filters: Security headers, CORS, and Token-Bucket Rate Limiting
+secRoutes.filterAll("/**", [
+  securityHeaders(),
+  cors({
+    origins: "*",
+    methods: ["Get", "Query", "Post", "Put", "Patch", "Delete"],
+  }),
+  limitRate({
+    key: (ctx) => ctx.request.headers.get("x-forwarded-for") || "anonymous",
+    maxTokens: 100,
+    refillInterval: 60, // 100 tokens per minute
+    setXRateLimitHeaders: true,
+  }),
+]);
+
+const usersApiRoutes = new Router<CTApp>({ maxPath: 2 });
+
+// Parameter Linking & Validation:
+//    Validates & parses parameters in a filter; downstream handlers receive typed numbers!
+usersApiRoutes.filterPost("/:id", [
+  validate({
+    responseType: "json",
+    errors: [ArkErrors],
+    paramsMutation: true,
+    params: type({ id: "string.numeric.parse" }), // parses "123" -> 123
+    // params: { id: (id: string) => parseInt(id) }, // you can use your custom type validator too
+
+
+    bodyParse: true,
+    bodyMutation: true,
+    bodyParseOptions: {
+      accept: [
+        "application/json",
+        "application/rjson",
+        "application/x-www-form-urlencoded"
+      ],
+      maxSize: 1024
+    },
+    body: type({
+      username: "3 <= string <= 20",
+      email: "string.email",
+      role: "'admin' | 'user'",
+    }),
+    strange: false, // strips unexpected fields
+  }),
+]);
+
+// Main Handlers: Type-safe route parameters with zero boilerplate
+usersApiRoutes.post("/:id", ({ params, body }) => {
+  return json({ created: true, id: params.id, user: body }, { status: 201 });
+});
+
+// It is also okay to do validation in handlers.
+usersApiRoutes.get("/:id", [
+  validate({
+    responseType: "json",
+    errors: [ArkErrors],
+    paramsMutation: true,
+    params: type({ id: "string.numeric.parse" }), // parses "123" -> 123
+  }),
+  ({ params }) => {
+    return json({ userId: params.id });
+  }
+]);
+
+// HTTP QUERY Method (RFC 9535 Safe Method with Body)
+usersApiRoutes.query("/search", [
+  validate({ bodyParse: true }),
+  ({ body }) => rjson({ results: [], query: body }),
+]);
+
+// Append the routes to the main router.
+spine.append(secRoutes);
+spine.appendTo("/api/users", usersApiRoutes)
+
+// Introspect route definitions
+console.dir(spine.getRoutesByPathnameThenMethod(), { depth: 0 });
+
+// Serve natively on Bun, Deno, Node.js, or workers!
+export default {
+  fetch: (request: Request) => spine.respond(request),
+};
+```
+
+---
 
 ## 📑 Table of Contents
 
+- [Why Spine?](#-what-makes-spine-different)
+- [Spine in 30 Seconds](#-spine-in-30-seconds)
 - [Quick Start](#quick-start)
-- [Real World Usecase Example](#real-world-usecase-example)
+  - [Bun](#bun)
+  - [Deno](#deno)
+  - [Node.js (v18+)](#nodejs-v18)
+- [The Pipeline Architecture](#the-pipeline-architecture)
+  - [The 5 Phases](#the-5-phases)
+  - [Control Signals (`Break_Pipe`, `Break_Pipeline`)](#control-signals)
 - [Routing](#routing)
-  - [Parameters](#parameters)
-  - [Alternatives](#alternatives)
-  - [Wildcards](#wildcards)
-  - [File-Based Wildcards](#file-based-wildcards)
+  - [HTTP Methods & Shorthands](#http-methods--shorthands)
+  - [Parameters & Compile-Time Inference](#parameters--compile-time-inference)
+  - [Path Alternatives](#path-alternatives)
+  - [Wildcards (`*`, `*!`, `**`, `**!`, `::slug`)](#wildcards)
+  - [File-Based Wildcards Table](#file-based-wildcards-table)
+- [Parameter Linking](#parameter-linking)
+- [Validation Engine (`validate`)](#validation-engine-validate)
+- [Request Logging (`logRequestsWithColor`)](#request-logging-logrequestswithcolor)
+- [Built-In Middlewares & Security](#built-in-middlewares--security)
+  - [CORS](#cors)
+  - [Rate Limiting (`limitRate`)](#rate-limiting-limitrate)
+  - [Security Headers (`securityHeaders`)](#security-headers-securityheaders)
+  - [HTTPS Redirection (`forceHttps`)](#https-redirection-forcehttps)
+  - [Authentication & Authorization](#authentication--authorization)
+- [Request Parsers & Responses](#request-parsers--responses)
+  - [Request Parsers](#request-parsers)
+  - [Responses & Helpers (`rjson`, `json`, etc.)](#responses--helpers)
+- [Streaming Multipart Upload Parser](#streaming-multipart-upload-parser)
+- [Caching & Data Structures (`Cache`, `ExpCache`)](#caching--data-structures-cache-expcache)
+- [OpenAPI 3.0 Document Generation](#openapi-30-document-generation)
+- [Router Composition (`appendTo`) & Introspection](#router-composition-appendto--introspection)
+- [File-Based Routing & Watchers](#file-based-routing--watchers)
+- [Performance & Design Invariants](#performance--design-invariants)
+- [📄 License](#-license)
+- [🕊️ Thanks and Enjoy](#️-thanks-and-enjoy)
+- [💖 Be a Sponsor](#-be-a-sponsor)
 
-- [Handler Pipeline](#handler-pipeline)
-  - [Filter Pipes](#filter-pipes)
-  - [Handler Pipes](#handler-pipes)
-
-- [Type-Safe Context](#type-safe-context)
-- [File-Based Routing](#file-based-routing)
-- [Built for HTTP APIs](#built-for-http-apis)
-  - [Request parsing](#request-parsing)
-  - [Responses](#responses)
-  - [CORS and rate limiting](#cors-and-rate-limiting)
-  - [Authentication](#authentication)
-
-- [OpenAPI](#openapi)
-- [Error Handling](#error-handling)
-- [Performance](#performance)
-- [License](#-license)
-- [Thanks and Enjoy](#️-thanks-and-enjoy)
-- [Be a Sponsor](#-be-a-sponsor)
+---
 
 ## Quick Start
 
-Install
+### Installation
 
 ```sh
-pnpm add @bepalo/spine
-# or
+# npm
 npm install @bepalo/spine
-# or
+
+# pnpm
+pnpm add @bepalo/spine
+
+# bun
 bun add @bepalo/spine
 ```
 
+### Bun
+
 ```ts
-import {
-  Router,
-  json,
-  text,
-  toBase64UUID,
-  parseBody,
-  parseMultipart,
-} from "@bepalo/spine";
+import Router, { text, json } from "@bepalo/spine";
 
-// A user defined custom context shared accross the router
-type CTSpineApp = { clientId: string; requestId: string };
+const spine = new Router({ maxPath: 24 });
+spine.get("/", () => text("Hello from Bun!"));
+spine.get("/users/:id", ({ params }) => json({ id: params.id }));
 
-const spine = new Router<CTSpineApp>();
-
-spine.get("/", () => text("Hello, Spine!"));
-
-// pipe specific context extension using CT* context extension types.
-spine.get<CTQuery<"q" | "page">>("/search", [
-  parseQuery(),
-  ({ query: { q, page } }) => json({ q, page }),
-]);
-
-spine.get("/users/:id", ({ params: { id } }) => json({ id }));
-
-spine.post<CTBody<object>>("/users", [
-  parseBody({ accept: ["application/json"], maxSize: 1024 }),
-  () => json({ created: true }, { status: 201 }),
-]);
-
-// Serve with Bun
 Bun.serve({
   port: 3000,
-  fetch: async (request, server) =>
-    await spine.respond(request, {
-      headers: new Header({ "X-Powered-By": "@bepalo/spine" }),
-      requestId: toBase64UUID(crypto.randomUUID()), // compress UUID to base64url 'I6qNV82UTmulXhEhxHpZxw'
-      clientId: server.requestIP(req).address ?? "anonymous",
-    }),
-});
-
-// Serve with Deno
-Deno.serve(
-  {
-    port: 3000,
-  },
-  (request) => async (request, server) =>
-    await spine.respond(request, {
-      headers: new Header({ "X-Powered-By": "@bepalo/spine" }),
-      requestId: toBase64UUID(crypto.randomUUID()),
-      clientId: remoteAddr.hostname ?? "anonymous",
-    }),
-);
-```
-
-That's the core API.
-
-Spine does not create or manage your server. Your runtime gives Spine a standard `Request`, and Spine returns a standard `Response`.
-
-```ts
-const response = await spine.respond(request);
-```
-
-This makes the spine easy to embed into servers, frameworks, workers, and custom runtimes.
-
-## Sneek peek of what is possible
-
-### `src/utils/generate.ts`
-
-<details open>
-
-<summary> Generator utilities to watch for changes and generate static-routes-imports and static-assets-manifest.</summary>
-
-```ts
-// src/utils/generate.ts
-import {
-  generateStaticAssetsManifestWatcher,
-  generateStaticRoutesWatcher,
-} from "@bepalo/spine";
-import { writeFile } from "node:fs/promises";
-import { readFile } from "node:fs/promises";
-
-const abortController = new AbortController();
-
-// setTimeout(() => abortController.abort(), 10000);
-
-generateStaticRoutesWatcher({
-  routesPath: "./routes",
-  importRoot: "./routes/",
-  output: "./routes.ts",
-  read: (filepath) => readFile(filepath, { encoding: "utf-8" }),
-  write: (filepath, content) =>
-    writeFile(filepath, content, { encoding: "utf-8" }),
-  abortSignal: abortController.signal,
-  // generateDelay: 1000,
-});
-
-generateStaticAssetsManifestWatcher({
-  assetsPath: "./public",
-  output: "./static-assets.json",
-  abortSignal: abortController.signal,
-  sortOrder: 1,
-  // exclude: ({ name, ext }) => !name || ext === ".env",
-  read: (filepath) => readFile(filepath, { encoding: "utf-8" }),
-  write: (filepath, content) =>
-    writeFile(filepath, content, { encoding: "utf-8" }),
-  // generateDelay: 1000,
+  fetch: (req) => spine.respond(req),
 });
 ```
 
-</details>
-
-### Static assets
-
-#### `404.html`
-
-<details>
-<summary>404.html</summary>
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-
-  <body>
-    <h1>404 Page not found!</h1>
-    <p>We couldn't locate the page you were looking for</p>
-  </body>
-</html>
-```
-
-</details>
-
-#### `500.html`
-
-</details>
-
-<details>
-<summary>500.html</summary>
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-
-  <body>
-    <h1>{{STATUS}} {{STATUS_TEXT}}</h1>
-    <p><strong>{{ERROR}}!</strong></p>
-  </body>
-</html>
-```
-
-</details>
-
-#### `Swagger`
-
-<details>
-<summary> public/openapi/index.html</summary>
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="SwaggerUI" />
-    <title>SwaggerUI</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css"
-    />
-  </head>
-
-  <body>
-    <div id="swagger-ui"></div>
-    <script
-      src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"
-      crossorigin
-    ></script>
-    <script>
-      window.onload = () => {
-        window.ui = SwaggerUIBundle({
-          url: "/openapi/doc.json",
-          dom_id: "#swagger-ui",
-        });
-      };
-    </script>
-  </body>
-</html>
-```
-
-</details>
-
-### Source Codes
-
-### `/user/:id Route`
-
-<details>
-<summary>src/routes/users/[id].ts</summary>
+### Deno
 
 ```ts
-// src/routes/user/[id].ts
+import Router, { text, json } from "jsr:@bepalo/spine";
+// or import Router from "@bepalo/spine";
 
-import {
-  json,
-  parseBody,
-  type CTBody,
-  type CTParams,
-  type HandlerDef,
-  type PipeDef,
-} from "@bepalo/spine";
-import { ArkErrors, type } from "arktype";
+const spine = new Router({ maxPath: 24 });
+spine.get("/", () => text("Hello from Deno!"));
+spine.get("/users/:id", ({ params }) => json({ id: params.id }));
 
-export const get_filter: HandlerDef = [
-  ({ params }) => {
-    // valdate params
-    const r = type({
-      id: "3 <= string.numeric <= 5",
-    }).assert(params);
-    if (r instanceof ArkErrors) {
-      return json({ error: r.toJSON() }, { status: 400 });
+Deno.serve({ port: 3000 }, (req) => spine.respond(req));
+```
+
+### Node.js (v18+)
+
+```ts
+import { createServer } from "node:http";
+import { Readable } from "node:stream";
+import Router, { text, json } from "@bepalo/spine";
+
+const spine = new Router({ maxPath: 24 });
+spine.get("/", () => text("Hello from Node.js!"));
+spine.get("/users/:id", ({ params }) => json({ id: params.id }));
+
+const server = createServer(async (req, res) => {
+  const url = `http://${req.headers.host || "localhost"}${req.url}`;
+  const isBodyAllowed = !["GET", "HEAD"].includes(req.method!);
+
+  const webReq = new Request(url, {
+    method: req.method,
+    headers: req.headers as any,
+    body: isBodyAllowed ? (Readable.toWeb(req) as any) : undefined,
+    duplex: isBodyAllowed ? "half" : undefined,
+  } as any);
+
+  const webRes = await spine.respond(webReq);
+
+  res.statusCode = webRes.status;
+  res.statusMessage = webRes.statusText;
+  webRes.headers.forEach((val, key) => res.setHeader(key, val));
+
+  if (webRes.body) {
+    const reader = webRes.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
     }
-  },
-];
+  }
+  res.end();
+});
 
-export const get: PipeDef<CTParams<"id">> = {
-  pipe: ({ params: { id } }) => {
-    return parseInt(id) < 0
-      ? json({ error: "User not found" })
-      : json({ user: { name: `user-${id}` } });
-  },
-
-  openApi: {
-    summary: "Get user by ID",
-    responses: {
-      "200": {
-        description: "Successfull response",
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                user: {
-                  type: "object",
-                  properties: {
-                    name: {
-                      type: "string",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      "404": {
-        description: "User not found",
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                error: {
-                  type: "string",
-                },
-              },
-            },
-          },
-        },
-      },
-      "400": {
-        description: "Bad request",
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              properties: {
-                error: {
-                  type: "string",
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-};
-
-export const post_filter: HandlerDef<CTBody> = [parseBody({ maxSize: 1024 })];
-
-export const post: HandlerDef<CTBody> = ({
-  url: { pathname },
-  params,
-  body,
-}) => {
-  return json({ pathname, params, body });
-};
+server.listen(3000);
 ```
 
-</details>
+---
 
-#### `Main`
+## The Pipeline Architecture
 
-<details>
-<summary>src/index.ts</summary>
+In Spine, middleware is not an "onion". You do not call `next()` or manage nested promise stacks.
+
+Handlers are structured as **flat, sequential array pipelines**:
 
 ```ts
-import type { Path, StaticAssetsManifestFile } from "@bepalo/spine";
-import {
-  Router,
-  ExpCache,
-  HttpError,
-  Status,
-  json,
-  cors,
-  limitRate,
-  getHttpStatusText,
-  status,
-  securityHeaders,
-  Break_Pipeline,
-} from "@bepalo/spine";
-import { readFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-// Import generated static routes imports
-import setRoutes from "./routes";
-// Import generated static assets manifest
-import staticAssetsManifest from "./static-assets.json";
-
-const {
-  "/404": notFoundAsset,
-  "/500": serverErrorAsset,
-  ...staticAssets
-} = staticAssetsManifest.files;
-
-// lru-exp cache for static assets
-const assetsCache: ExpCache<string, Buffer<ArrayBuffer>> = new ExpCache({
-  maxMemory: 32 * 1024 * 1024, // 32Mb
-  onMiss(key, entry, reason, cache) {
-    if (!(key in staticAssetsManifest.files)) return;
-    const asset = (staticAssetsManifest.files as any)[key];
-    // Read from file into cache because it is missing.
-    // You only have to call `assetsCache.get` elsewhere
-    //   as this will automatically load it on cache-miss.
-    cache.set(
-      key,
-      readFileSync(asset.path, { encoding: undefined }),
-      asset.size,
-      {
-        ttl: 3_600_000, // 1 hour
-      },
-    );
-    return true;
-  },
-});
-
-// Static assets cache cleanup timer.
-// You could also setup a cron api.
-setInterval(() => {
-  console.log("Cleared ", assetsCache.evictExpired());
-}, 3_600_000);
-
-export type CTMain = { clientIP: string };
-
-// Create router instance
-export const spine = new Router<CTMain>({
-  maxPath: 10,
-});
-
-// Serve
-const server = Bun.serve({
-  port: 3000,
-  fetch: (request, server) =>
-    spine.respond(request, {
-      clientIP: server.requestIP(request)?.address || "anonymous",
-    }),
-});
-console.log(`Listening on ${server.url}`);
-
-//////////////////////////////////////////////
-
-// Set generated dynamic-routes' static-imports
-setRoutes(spine);
-
-// Security Headers, CORS, Rate Limiting, ... for /**
-spine.filterAll("/**", [
-  // forceHttps({ toPort: server.port }),
-  limitRate<CTMain>({
-    key: ({ clientIP }) => clientIP,
-    maxTokens: 100,
-    refillInterval: 60 * 1000, // every minute
-    // refillRate:
-    setXRateLimitHeaders: process.env.NODE_ENV !== "production",
-  }),
-  securityHeaders({
-    headers: {
-      "Reporting-Endpoints": `coep-endpoint="${server.url.origin + "/coep"}"`,
-    },
-    crossOriginEmbedderPolicy: 'credentialless; report-to="coep-endpoint"',
-    crossOriginResourcePolicy: "same-site",
-    crossOriginOpenerPolicy: "same-origin-allow-popups",
-    referrerPolicy: "strict-origin-when-cross-origin",
-    xFrameOptions: "DENY",
-    contentSecurityPolicy: [
-      ["default-src", "'self'"],
-      ["object-src", "'none'"],
-      ["frame-ancestors", "'none'"],
-      [
-        "script-src style-src font-src",
-        "'self'",
-        "https://unpkg.com",
-        "'unsafe-inline'",
-      ],
-      ["script-src", "'self'", "'strict-dynamic'", "'unsafe-inline'"],
-      ["img-src", "'self'", "data:", "'unsafe-inline'"],
-      ["upgrade-insecure-requests"],
-    ],
-  }),
-  cors({
-    origins: ["https://example.com", server.url.origin],
-    methods: ["Get", "Head", "Options"],
-    allowedHeaders: ["Authorization", "X-API-Key"],
-    credentials: true,
-    maxAge: 60 * 60,
-  }),
-]);
-
-// Security Headers, CORS, Rate Limiting, ... for /api/**
-spine.filterAll("/api/**", [
-  // forceHttps({ toPort: server.port }),
-  limitRate<CTMain>({
-    key: ({ clientIP }) => clientIP,
-    maxTokens: 300,
-    refillInterval: 60 * 1000, // every minute
-    refillRate: 100, // 100 tokens every minute
-    setXRateLimitHeaders: process.env.NODE_ENV !== "production",
-  }),
-  securityHeaders({
-    // crossOriginResourcePolicy: "same-site",
-    // referrerPolicy: "strict-origin-when-cross-origin",
-    xFrameOptions: "DENY",
-    contentSecurityPolicy: [["upgrade-insecure-requests"]],
-  }),
-  cors({
-    origins: ["https://example.com", server.url.origin],
-    methods: ["Get", "Post", "Put", "Patch", "Delete", "Head", "Options"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-    credentials: true,
-    maxAge: 60 * 60,
-  }),
-  // do not bubble to other matching filters such as /**
-  () => Break_Pipeline,
-]);
-
-// Handle Options for all /** to return no content
-spine.handleOptions("/**", () => status(204, null));
-
-// Handler get and head of static assets using generated manifest
-spine.handle(
-  [["Head", "Get"], ...(Object.keys(staticAssets) as Path[])],
-  ({ url, request, headers }) => {
-    const asset: StaticAssetsManifestFile = (staticAssets as any)[url.pathname];
-    headers.set("Content-Type", asset.contentType);
-    headers.set("Content-Length", asset.size.toFixed());
-    const fileContent = assetsCache.get(asset.pathname);
-    if (request.method === "HEAD") {
-      return status(200, null);
-    }
-    return new Response(fileContent);
-  },
-);
-
-// Handle fallbacks of get /** using 404.html static page
-spine.fallback([["Head", "Get"], "/**"], ({ url, request, headers }) => {
-  const asset: StaticAssetsManifestFile = notFoundAsset;
-  headers.set("Content-Type", asset.contentType);
-  headers.set("Content-Length", asset.size.toFixed());
-  if (request.method === "HEAD") {
-    return status(200, null);
-  }
-  const fileContent = assetsCache.get(notFoundAsset.pathname);
-  return new Response(fileContent, { status: 404 });
-});
-
-// Set error handler of All /**
-// Note: The string replacement is just for demonstration.
-//       You are probably going to use a framework like
-//       pug, react, Nextjs or others.
-spine.catchAll("/**", ({ error, request, headers }) => {
-  // process.env.NODE_ENV !== "production" && console.error(error);
-  const statusCode = (error as HttpError).status || 500;
-  const asset: StaticAssetsManifestFile = serverErrorAsset;
-  headers.set("Content-Type", asset.contentType);
-  headers.set("Content-Length", asset.size.toFixed());
-  if (request.method === "HEAD") {
-    return status(200, null);
-  }
-  const fileContent = assetsCache.get(asset.pathname);
-  const vars = {
-    STATUS: String(statusCode),
-    STATUS_TEXT: getHttpStatusText(statusCode),
-    ERROR: error.message,
-  };
-  return new Response(
-    fileContent!
-      .toString()
-      .replace(/(\\)?\{\{(.+?)\}\}/g, (match, escape, id) =>
-        escape ? match : ((vars as any)[id] ?? match),
-      ),
-    { status: statusCode },
-  );
-});
-
-// Set error handler of All /api/**
-// Takes precedence over /**
-spine.catchAll("/api/**", ({ error }) => {
-  process.env.NODE_ENV !== "production" && console.error(error);
-  const status = (error as HttpError).status || 500;
-  return json({ error: error.message }, { status });
-});
-
-// Set fallback handler of (Get,Post,Put,Patch,Delete) /api/**
-spine.fallbackCrud("/api/**", () =>
-  json({ error: "Not found" }, { status: 404 }),
-);
-
-// Error test
-spine.get(["/error", "/api/error"], () => {
-  throw new HttpError(Status._503_ServiceUnavailable, "Come back tomorrow");
-});
-
-// Stats
-spine.get("/api/stats", () => json({ staticAssetsCache: assetsCache.stats }));
-
-spine.afterAll(
-  "/**",
-  ({
-    request: { method },
-    response: { status, statusText, headers, body },
-    url,
-    timestamps,
-  }) => {
-    const { request, start, end } = timestamps;
-    const size = ["OPTIONS", "HEAD"].includes(method)
-      ? 0
-      : Number(headers.get("Content-Length") || "0");
-    const kbSize = ((size ?? 0) / 1024).toFixed(2).padStart(5);
-    const time = (end - start).toFixed(3).padStart(6);
-    let logstr = `[${new Date(request).toISOString()}]`;
-    logstr += `[${status}]`;
-    logstr += ` ${time}ms ${kbSize}KB`;
-    logstr += ` -- ${method} ${url.pathname} ${url.search}`;
-    logstr += ` -- ${statusText}`;
-    console.log(logstr);
-  },
-);
-
-//////////////////////////////////////////
-
-// generate public/openapi/doc.json
-spine
-  .generateOpenAPI(
-    {
-      title: "@bepalo/spine Demo",
-      version: "1.0.0",
-      // ...
-    },
-    {
-      pick: ({ path }) => path.startsWith("/api"),
-      // autoTag: false,
-      // autoSummary: false,
-      includeOperationId: true,
-      sortTagsOrder: 1,
-      sortPathnameOrder: 1,
-      sortMethodOrder: 1,
-    },
-  )
-  .then(async (openapi) => {
-    const output = "./public/openapi/doc.json";
-    const content = JSON.stringify(openapi, null, 2);
-    await writeFile(output, content, { encoding: "utf-8" });
-  });
+type Handler<ExtendContext> = (
+  ctx: Context<ExtendContext>,
+) => Promise<HandlerReturn> | HandlerReturn;
+type Pipe<ExtendContext> = Array<Handler<ExtendContext>>;
 ```
 
-</details>
+### The 5 Phases
+
+When `spine.respond(request)` is executed, requests travel in strict order through 5 phases:
+
+1. **Filters** (`filterGet`, `filterPost`, `filterAll`, etc.): Run before handlers. Used for authentication, CORS, rate limiting, and request parsing. Filters bubble across all matching route entries (Exact $\to$ Glob $\to$ SuperGlob $\to$ `defaultFilter`). If any filter returns a `Response`, execution jumps directly to Response Assembly and Afters.
+2. **Handlers** (`get`, `query`, `post`, `handle`, etc.): Main business logic. **Only the single most specific match runs (`noBubble: true`)**. If no response is returned, runs `defaultHandler` (if defined) before moving to Fallbacks.
+3. **Fallbacks** (`fallbackGet`, `fallbackAll`, etc.): Evaluated if no handler responded. Runs matching fallback routes and `defaultFallback`.
+4. **Catchers** (`catchGet`, `catchAll`, etc.): Evaluated when an uncaught error is thrown during Filters, Handlers, or Fallbacks.
+5. **Afters** (`afterGet`, `afterAll`, `defaultAfter`): Always executes on the final `Response` object for logging, auditing, and header injection. Errors thrown here are captured by `afterCatcher` without breaking the outgoing response.
+
+### Control Signals
+
+Handlers communicate with the pipeline using explicit return values:
+
+```ts
+import { Break_Pipe, Break_Pipeline } from "@bepalo/spine";
+```
+
+- **`void` / `undefined`**: Continues execution to the next handler in the current pipe.
+- **`Response` instance**: **Short-circuits immediately**. Sets the active response and proceeds directly to Response Assembly and Afters.
+- **`Break_Pipe`**: Breaks out of the **current** route pipe without returning a response, allowing parent wildcard pipes in the same phase to continue.
+- **`Break_Pipeline`**: Breaks out of the **entire stage** (e.g. stops filter bubbling to `/**`), without returning a response.
 
 ---
 
 ## Routing
 
-Use the convenient HTTP method helpers:
+### HTTP Methods & Shorthands
+
+Spine provides direct shorthands for all HTTP methods:
 
 ```ts
-spine.get("/users", handler);
-spine.post("/users", handler);
-spine.put("/users/:id", handler);
-spine.patch("/users/:id", handler);
-spine.delete("/users/:id", handler);
+spine.get("/items", handler);
+spine.query("/items", handler); // RFC 9535 HTTP QUERY method
+spine.post("/items", handler);
+spine.put("/items/:id", handler);
+spine.patch("/items/:id", handler);
+spine.delete("/items/:id", handler);
+spine.head("/items", handler);
+spine.options("/items", handler);
+spine.trace("/items", handler);
+spine.connect("/items", handler);
+
+// Multi-method shorthands
+spine.all("/health", handler); // Matches ALL HTTP methods
+spine.crud("/users/:id", handler); // Matches GET, QUERY, POST, PUT, PATCH, DELETE
 ```
 
-Or register several methods at once:
+Batch registration via method strings or matrix arrays:
 
 ```ts
-spine.all("/health", handler);
-spine.crud("/users/:id", handler);
+spine.handle("Get /users", handler);
+spine.handle(["Get /users", "Post /users"], handler);
+spine.handle([["Get", "Query", "Post"], "/users", "/accounts"], handler);
 ```
 
-All standard HTTP methods are supported:
+### Parameters & Compile-Time Inference
 
-```text
-HEAD  GET  POST  PUT  PATCH
-DELETE  OPTIONS  TRACE  CONNECT
-```
-
-### Parameters
-
-Parameters are detected from pathname using typescript. So, you have typesafety and autocomplete for that. Cool!
+Route parameters are automatically parsed from string literals with zero manual generic typing:
 
 ```ts
+// 'userId' and 'postId' are strongly-typed string parameters on ctx.params!
 spine.get("/users/:userId/posts/:postId", ({ params }) => {
-  return json({
-    userId: params.userId,
-    postId: params.postId,
-  });
+  return json({ user: params.userId, post: params.postId });
 });
 ```
 
-### Alternatives
+### Path Alternatives
 
-A route segment can contain alternatives:
-
-```ts
-spine.get("/|about|contact", handler);
-```
-
-This matches:
-
-```text
-/
-/about
-/contact
-```
-
-Alternatives can also be combined with parameters:
+Declare branching route segments inline using pipe syntax `|`:
 
 ```ts
-spine.get("/api/|users|accounts/:id", handler);
+spine.get("/|about|contact", (ctx) => text(`Matched: ${ctx.pathname}`));
+// Matches: "/", "/about", and "/contact"
+```
+
+Combine alternatives with named parameters:
+
+```ts
+spine.get("/api/users|accounts/:type", ({ params }) => {
+  return json({ type: params.type }); // "users" or "accounts"
+});
+
+spine.get("/status/active|pending:state", ({ params }) => {
+  return json({ state: params.state }); // "active" or "pending"
+});
 ```
 
 ### Wildcards
 
-Spine supports single-segment and multi-segment wildcards:
-
-```text
-\*    one path segment
-\*\!   optional single-segment suffix
-\*\*   multiple path segments
-\*\*\!  optional multi-segment suffix
-```
-
-For example:
+- `*` — Matches exactly one path segment (e.g. `/files/*`).
+- `*!` — Optional single-segment wildcard at the end (e.g. `/api/*!` matches `/api` and `/api/users`).
+- `**` — Multi-segment wildcard matching any depth (e.g. `/static/**`).
+- `**!` — Optional multi-segment wildcard (e.g. `/assets/**!` matches `/assets`, `/assets/`, and `/assets/a/b/c`).
+- `::slug` — Named super-glob capturing the remaining path into `ctx.params.slug`.
+- `::slug!` — Optional named super-glob.
 
 ```ts
-spine.get("/files/*", handler);
-
-spine.get("/api/**", ({ params }) => {
-  console.log(params.$);
-  console.log(params.$$);
-
-  return json({ ok: true });
+spine.get("/files/::filepath", ({ params }) => {
+  return json({ file: params.filepath }); // e.g. "docs/2026/report.pdf"
 });
 ```
 
-Use `*!` and `**!` when the wildcard portion is optional. `/abc/def/*!` will
-match `/abc/def` while `/abc/def/*` will not.
+### File-Based Wildcards Table
 
-### File-Based Wildcards
+| ROUTER PATH            | FILE PATH                     | MATCHES                                       |
+| :--------------------- | :---------------------------- | :-------------------------------------------- |
+| `/exact/path`          | `/exact/path.ts`              | `/exact/path`                                 |
+| `/wild/glob/*`         | `/wild/glob/[#].ts`           | `/wild/glob/abc`                              |
+| `/wild/glob/match/*!`  | `/wild/glob/match/[[#]].ts`   | `/wild/glob/match`, `/wild/glob/match/abc`    |
+| `/named/:id/view`      | `/named/[id]/view.ts`         | `/named/123/view`                             |
+| `/super/globs/**`      | `/super/globs/[##].ts`        | `/super/globs/a/b/c`                          |
+| `/super/globs/**!`     | `/super/globs/[[##]].ts`      | `/super/globs`, `/super/globs/a/b`            |
+| `/named/super/::slug`  | `/named/super/[## slug].ts`   | `/named/super/path/to/file.png`               |
+| `/named/super/::slug!` | `/named/super/[[## slug]].ts` | `/named/super`, `/named/super/path/to/file`   |
+| `/docs/a\|b\|c:page`   | `/docs/[[a,b,c] page].ts`     | `/docs/a`, `/docs/b`, `/docs/c`               |
+| `#filename`            | `/#index.ts`                  | Escapes filename (prevents collapsing to `/`) |
 
-Filesystem-safe route names are provided for wildcard patterns:
+---
 
-```text
-[#]     → *
-[[#]]   → *!
+## Parameter Linking
 
-[##]    → **
-[[##]]  → **!
+Spine features **Pipeline Parameter Linking**. When a filter validates or transforms a route parameter (e.g. converting a string ID into a number using `validate({ paramsMutation: true })`), that mutated value automatically forwards to downstream handlers matching that parameter name and index.
+
+```ts
+import { validate } from "@bepalo/spine";
+import { type, ArkErrors } from "arktype";
+
+// 1. Filter mutates params.id into a number
+spine.filterGet("/api/users/:id", [
+  validate({
+    errors: [ArkErrors],
+    paramsMutation: true,
+    params: type({ id: "string.numeric.parse" }), // "123" -> 123
+  }),
+]);
+
+// 2. Main handler receives the parsed number directly in params!
+spine.get("/api/users/:id", ({ params }) => {
+  // typeof params.id is number!
+  return json({ id: params.id });
+});
 ```
 
-For example:
+> [!NOTE]
+> Single-glob parameters (`:id`) and super-glob parameters (`::id`) use isolated namespaces (`id#1` vs `id##1`), preventing variable collision.
 
-```text
-routes/
-└── api/
-    └── [##].ts
-```
+---
 
-maps to:
+## Validation Engine (`validate`)
 
-```text
-/api/**
-```
+The built-in `validate` middleware validates `params`, `query`, `cookie`, and `body` using Regex, custom functions, or schema libraries (such as ArkType or Zod):
 
-while:
+```ts
+import { validate } from "@bepalo/spine";
+import { type, ArkErrors } from "arktype";
 
-```text
-routes/
-└── api/
-    └── [[##]].ts
-```
+spine.filterPost("/api/users/:id", [
+  validate({
+    // Response format on error: "json" | "text" | "status"
+    responseType: "json",
 
-maps to:
+    // Catch custom schema error classes
+    errors: [ArkErrors],
 
-```text
-/api/**!
+    // Validate and parse route parameters
+    paramsMutation: true,
+    params: type({
+      id: "string.numeric.parse",
+    }),
+
+    // Automatically parse query before validation
+    queryParse: true,
+    queryMutation: true,
+    query: {
+      tab: (val) =>
+        ["profile", "billing"].includes(val) || new Error("Invalid tab"),
+    },
+
+    // Automatically parse body before validation
+    bodyParse: true,
+    bodyParseOptions: { accept: "application/json", maxSize: 1024 * 1024 },
+    bodyMutation: true,
+    body: type({
+      username: "3 <= string <= 20",
+      role: "'admin' | 'user'",
+      password: "string >= 8",
+    }),
+
+    // Strip unexpected properties from mutated objects
+    strange: false,
+  }),
+]);
 ```
 
 ---
 
-| ROUTER PATH                       | FILE PATH                         | MATCHES `highlighted`                                                                      |
-| --------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
-| `/exact/path`                     | `/exact/path`                     | "/exact/path"                                                                              |
-| `/slash/matters/`                 | `/slash/matters/`                 | "/slash/matters/"                                                                          |
-| `/wild/glob/*`                    | `/wild/glob/[#]`                  | "/wild/glob/` `" "/wild/glob/`y`" "/wild/glob/`n`"                                         |
-| `/wild/glob/match/base/*!`        | `/wild/glob/match/base/[[#]]`     | "/wild/glob/match/base" "/wild/glob/match/base/` `" "/wild/glob/match/base/`y`"            |
-| `/globs/*/cool/*`                 | `/globs/[#]/cool/[#]`             | "/globs/` `/cool/" "/globs/`are`/cool/" "/globs/`are`/cool/`breath`"                       |
-| `/globs/*/cool/*!`                | `/globs/[#]/cool/[[#]]`           | "/globs/` `/cool" "/globs/`are`/cool/` `" "/globs/` `/cool/breath" "/globs/`are`/cool/`y`" |
-| `/named/:glob/here`               | `/named/[glob]/here`              | "/named/` `/here" "/named/`pet`/here/"                                                     |
-| `/named/optional/:glob!`          | `/named/optional/[[glob]]`        | "/named/optional" "/named/optional/` `" "/named/optional/`pet`"                            |
-| `/super/globs/**`                 | `/super/globs/[##]`               | "/super/globs/` `" "/super/globs/`here`" "/super/globs/`here/and/there`"                   |
-| `/super/globs/**!`                | `/super/globs/[[##]]`             | "/super/globs" "/super/globs/` `" "/super/globs/`here`" "/super/globs/`1/2/3/4`"           |
-| `/named/super/::slug`             | `/named/super/[## slug]`          | "/named/super/` `" "/named/super/`pet`" "/named/super/`man/town`"                          |
-| `/named/super/::slug!`            | `/named/super/[[## slug]]`        | "/named/super" "/named/super/` `" "/named/super/`pet`" "/named/super/`man/town`"           |
-| `/certain/a\|b\|c\|:options/y\|n` | `/certain/[[,a,b,c] options ]/y`  | "/certain/`a`/n" "/certain/`b`/y" "/certain/`c`/n" "/certain/` `/y"                        |
-| `/certain/a\|b\|c:options!/y\|n`  | `/certain/[[a,b,c] [options] ]/n` | "/certain/`a`/y" "/certain/`b`/n" "/certain/`c`/y"                                         |
+## Request Logging (`logRequestsWithColor`)
 
-## Handler Pipeline
-
-Spine separates request processing into explicit phases:
-
-```text
-                  ( @Bepalo/spine )
-                   router pipe
-                         ┌───────────────────────┐
-                         ▼                       │
-                  ┌──────┴───────┐               │
-        ┌─────────│   Filters    │─────────┐ <request>
-        │         └──────┬───────┘         │     │
-        │      <no match nor response>     │     │
-        │                ▼                 │     │
-        │         ┌──────┴───────┐         │  ┌──┴────────┐
-        ├─────────│   Handlers   │─────────┤  │   Server  │◄───┐
-        │         └──────┬───────┘         │  └──┬─────┬──┘    │
-        │      <no match nor response>     │     ▲     │   <request>
-     <error>             ▼                 │     │ <response>  │
-        │         ┌──────┴───────┐         │     │     ▼       │
-        ├─────────│  Fallbacks   │─────────┤     │   ┌─┴───────┴─┐
-        ▼         └──────┬───────┘         │     │   │   Client  │
-  ┌─────┴──────┐         │   ┌──<response>─┘     │   └───────────┘
-  │  Catchers  │         ▼   ▼                   │
-  └─────┬──────┘  ┌──────┴───┴───┐               │
-        └────────►│   Afters     │───────────────┘
- <error-response> └──────────────┘  <final-response>
-```
-
-### Filter Pipes
-
-The first handling stage of a request is done through the filter stage.
-Use this stage to parse and validate the request.
+High-performance After-hook middlewares for request logging:
 
 ```ts
-spine.filterCrud<CTAuth>("/user/**!", [
-  parseQuery(),
-  parseCookie(),
-  authenticate(),
-  authorize(),
-]);
-spine.filterPost("/user", [
-  parseCookie(),
-  authenticate(),
-  authorize(),
-  parseBody(),
-]);
-```
+import { logRequestsWithColor } from "@bepalo/spine";
 
-### Handler Pipes
-
-This is main handling stage of a request.
-
-```ts
-spine.get("/user/:id", []);
-spine.filterPost("/user", [
-  parseCookie(),
-  authenticate(),
-  authorize(),
-  parseBody(),
-]);
-```
-
-This lets cross-cutting behavior remain separate from your actual route handlers.
-
-```ts
-spine.filterGet("/api/**", [limitRate(), cors(), authenticate()]);
-
-spine.get("/api/users", listUsers());
-
-spine.fallbackGet("/api/**", () =>
-  json({ error: "Not Found" }, { status: 404 }),
-);
-
-spine.catchGet("/api/**", ({ error }) =>
-  json({ error: error?.message }, { status: 500 }),
-);
-
-spine.afterGet("/api/**", ({ response }) => {
-  console.log(response.status);
-  // even the response after a caught error will pass through the after-pipe
-  // error thrown here is not caught.
-  // afters are best used for logging or modifying the final response
-});
-```
-
-Handlers can also be composed into pipelines:
-
-```ts
-spine.post("/users", [parseBody(), validateUser(), createUser()]);
-```
-
-A pipe can stop normally by returning a `Response`, or use Spine's explicit control symbols:
-
-```ts
-import { Break_Pipe, Break_Pipeline } from "@bepalo/spine";
-
-spine.filterGet("/**", cors({ maxTokens: 60 }));
-spine.filterGet("/api/**", [cors({ maxTokens: 200 }), () => Break_Pipeline]);. /* '/**' cors wont be called */
-
-// Break_Pipeline breaks from the overall handlers pipe while
-// Break_Pipe breaks from the current handler pipe without returning a Response.
-
-```
-
-## Type-Safe Context
-
-Every handler receives a context containing the request, URL, pathname, headers, route parameters, and spine.
-
-You can extend it with your own application state:
-
-```ts
-type AppContext = {
-  requestId: string;
-  user?: {
-    id: string;
-    role: string;
-  };
-};
-
-const spine = new Router<AppContext>();
-
-type CTMore = { counter: { count: 0 } };
-
-// context can be passed to the handler method for more specificity and need.
-// Eg. cookie parsing, query parsing, body parsing, ... per pipe
-spine.get<CTMore>("/profile", ({ requestId, user, counter }) =>
-  json({
-    requestId,
-    user,
-    counter,
+spine.afterAll("/**", [
+  logRequestsWithColor({
+    enable: {
+      requestTime: true,
+      duration: true,
+      status: "status",
+      search: "singleline",
+    },
+    status: { color: "auto", bold: true }, // Auto-colored: 2xx green, 3xx cyan, 4xx yellow, 5xx red
+    method: { color: "auto", bold: true }, // Per-method coloring
+    duration: { color: "yellow", dim: true },
   }),
-);
+]);
 ```
 
-Context values can be supplied when processing a request:
+---
+
+## Built-In Middlewares & Security
+
+### CORS
 
 ```ts
-spine.respond(request, {
-  requestId: crypto.randomUUID(),
-});
-```
+import { cors } from "@bepalo/spine";
 
-This keeps runtime-specific concerns outside the spine itself.
-
-## File-Based Routing
-
-If you prefer filesystem-based routing, Spine can load routes from a directory:
-
-```ts
-const spine = new Router();
-
-await spine.load({
-  routesPath: "routes",
-  // pattern: /\.route\.(.ts|.js)$/,
-  // dirPattern: /.*/,
-  // processName: (name) => name.substring(0, name.lastIndexOf(".")),
-});
-```
-
-For example:
-
-```text
-routes/
-├── index.ts
-├── users.ts
-├── [[products,pricing,contact] page]
-├── users/
-│   └── [id].ts
-└── api/
-    └── [##].ts
-```
-
-A route file exports its HTTP method handlers: in the format \<method\>\_\<handler-type\> or
-a shortcut for handler \<method\>. eg. `Get`, `Get_Filter`.
-
-**NOTE:** both \<handler-type\> and \<method\> are case-insensitive and you can decide how to name them as long as you adhere to the format \<method\>\_\<handler-type\> or \<method\>.
-
-```ts
-// routes/users.ts
-import { json } from "@bepalo/spine";
-
-const auth = [parseCookie(), authenticate()];
-
-export const Get_Filter = [...auth, parseQuery()];
-
-export const Post_Filter = [...auth, parseQuery(), parseBody(), vallidate()];
-
-export const Get = () => json({ users: [] });
-
-export const Post = () => json({ created: true }, { status: 201 });
-```
-
-A parameterized file:
-
-```text
-users/[id].ts
-```
-
-maps to:
-
-```text
-/users/:id
-```
-
-Special filesystem-safe patterns are available for wildcard routes:
-
-```text
-[#]     → *
-[[#]]   → *!
-
-[##]    → **
-[[##]]  → **!
-```
-
-File routing is completely optional. The normal programmatic API remains the core of Spine.
-
-## Built for HTTP APIs
-
-Spine includes the common building blocks you usually end up adding around a spine.
-
-### Request parsing
-
-```ts
-spine.post("/users", [parseBody(), ({ body }) => json(body)]);
-```
-
-Available parsers include:
-
-- `parseBody`
-- `parseQuery`
-- `parseCookie`
-- `parseHeaders`
-- `parseMultipart`
-
-Multipart parsing is streaming-oriented, making it suitable for large uploads.
-
-### Responses
-
-Common response helpers are included:
-
-```ts
-json(data);
-text("Hello");
-html("<h1>Hello</h1>");
-status(204);
-redirect("/login");
-blob(file);
-octetStream(data);
-formData(data);
-usp(params);
-send(data);
-```
-
-Cookie helpers are also provided:
-
-```ts
-setCookie(name, value, options);
-clearCookie(name, options);
-```
-
-### CORS and rate limiting
-
-```ts
 spine.filterAll("/api/**", [
   cors({
-    origins: "*",
+    origins: ["https://example.com"], // or "*"
+    methods: [ "Get", "Query", "Post", "Put", "Patch", "Delete", "Head", "Options" ],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // Note: credentials cannot be used with origins: "*"
+    maxAge: 86400,
+    responseType: "json",
   }),
+]);
+```
 
+### Rate Limiting (`limitRate`)
+
+High-performance token-bucket rate limiter supporting interval or continuous refill rates:
+
+```ts
+import { limitRate } from "@bepalo/spine";
+
+spine.filterAll("/api/**", [
   limitRate({
-    key: ({ request }) => request.headers.get("x-forwarded-for") ?? "unknown",
+    key: (ctx) => ctx.request.headers.get("x-forwarded-for") || "anonymous",
     maxTokens: 100,
+    refillInterval: 60, // 100 tokens per 60s
     refillRate: 10,
+    setXRateLimitHeaders: true, // Sets X-RateLimit-Limit & X-RateLimit-Remaining
+    responseType: "json",
   }),
 ]);
 ```
 
-### Authentication
-
-Authentication is intentionally application-defined:
+### Security Headers (`securityHeaders`)
 
 ```ts
-spine.filterGet("/private/**", [
-  authenticate({
-    parseAuth: async ({ request }) => {
-      const token = request.headers.get("authorization");
+import { securityHeaders } from "@bepalo/spine";
 
-      if (!token) return undefined;
+spine.filterAll("/**", [
+  securityHeaders({
+    xFrameOptions: "DENY", // or null to unset default
+    xContentTypeOptions: "nosniff", // or null to unset default
+    referrerPolicy: "strict-origin-when-cross-origin",
+    strictTransportSecurity: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    contentSecurityPolicy: {
+      "default-src": "'self'",
+      "script-src": ["'self'", "https://cdn.example.com"],
+      "object-src": "'none'",
+      "upgrade-insecure-requests": true,
+    },
+    crossOriginOpenerPolicy: "same-origin",
+    crossOriginEmbedderPolicy: "credentialless",
+    crossOriginResourcePolicy: "same-site",
+  }),
+]);
+```
 
-      return {
-        role: "user",
-      };
+### HTTPS Redirection (`forceHttps`)
+
+```ts
+import { forceHttps } from "@bepalo/spine";
+
+spine.filterAll("/**", [
+  forceHttps({ toPort: 443 }), // 308 Permanent Redirect preserving method and body
+]);
+```
+
+### Authentication & Authorization
+
+```ts
+import {
+  Router,
+  Status,
+  authenticate,
+  authorize,
+  json,
+  type CTAuth,
+} from "@bepalo/spine";
+import { JWT } from "@bepalo/jwt";
+
+type UserRole = "admin" | "user";
+type AuthData = { userId: string; role: UserRole };
+// console.log(JWT.genHmac("HS256"));
+const adminJWT = JWT.createSymmetric<AuthData>("<secret>", "HS256");
+
+const spine = new Router<CTAuth<AuthData>>({ maxPath: 5 });
+
+spine.filterAll("/admin/**", [
+  authenticate<AuthData>({
+    responseType: "json",
+    parseAuth: async (ctx) => {
+      const token = ctx.request.headers
+        .get("authorization")
+        ?.replace("Bearer ", "");
+      if (!token) return null; // Returns 401 Unauthorized
+      const { valid, error, payload } = adminJWT.verifySync(token);
+      if (error) {
+        return json(
+          { error: error.message },
+          { status: Status._401_Unauthorized },
+        );
+      }
+      const { userId, role } = payload!;
+      return { userId, role };
     },
   }),
 
-  authorize({
-    allowRole: (role) => role === "user",
+  authorize<AuthData>({
+    responseType: "json",
+    allowRole: (role) => role === "admin", // Returns 403 Forbidden on failure
+  }),
+]);
+
+spine.get("/admin/users", ({ auth }) => {
+  const { role, userId } = auth!;
+  // ...
+});
+```
+
+---
+
+## Request Parsers & Responses
+
+### Request Parsers
+
+```ts
+import { parseQuery, parseCookie, parseBody } from "@bepalo/spine";
+
+// Parse URL search parameters into ctx.query
+spine.filterGet("/search", [parseQuery({ responseType: "json" })]);
+
+// Parse request cookies into ctx.cookie
+spine.filterAll("/**", [parseCookie({ responseType: "json" })]);
+
+// Parse JSON, RJSON, URL-encoded, or plain text bodies into ctx.body
+spine.filterPost("/data", [
+  parseBody({
+    accept: "application/json",
+    maxSize: 1024 * 1024, // 1MB limit
+    responseType: "json",
   }),
 ]);
 ```
 
-Basic Authentication is also supported through `basicAuthParser()`.
-
-## OpenAPI
-
-Add OpenAPI metadata directly to a handler:
+### Responses & Helpers
 
 ```ts
-spine.get(
-  "/users/:id",
-  ({ params }) =>
-    json({
-      id: params.id,
-    }),
+import {
+  json,
+  rjson,
+  text,
+  html,
+  status,
+  redirect,
+  redirectPermanentPreserve,
+  blob,
+  octetStream,
+  setCookie,
+  clearCookie,
+} from "@bepalo/spine";
+
+// Standard JSON response
+json({ message: "Success" });
+
+// RJSON response using @bepalo/rjson
+rjson({ message: "RJSON Success" });
+
+// Plain text and HTML
+text("Hello, world!");
+html("<h1>Hello, world!</h1>");
+
+// Status response
+status(204);
+
+// Redirects
+redirectPermanentPreserve("/new-url"); // 308 Permanent Redirect
+
+// Cookie helpers
+ctx.headers.append(
+  ...setCookie("token", "secret", {
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    maxAge: 3600,
+  }),
+);
+```
+
+---
+
+## Streaming Multipart Upload Parser
+
+Spine features a zero-dependency chunked streaming multipart parser capable of handling boundaries split across chunk fragments down to 5 bytes:
+
+_NOTE: `parseUpload` is an abstraction of `parseMultipart`_
+
+```ts
+import { parseUpload } from "@bepalo/spine";
+import { openSync, closeSync, writeSync } from "node:fs";
+
+type UploadData = { fd: number; offset: number };
+
+const mimeExtension = (mime: string) => {
+  switch (mime) {
+    case "image/jpeg":
+      return ".jpeg";
+    case "image/png":
+      return ".png";
+    default:
+      "";
+  }
+};
+
+spine.post("/upload", [
+  parseUpload<UploadData>({
+    responseType: "json",
+    dontCatch: true,
+
+    fileHandle: (path) => ({ fd: openSync(path, "w"), offset: 0 }),
+
+    // idGenerator: () => toBase64UUID(crypto.randomUUID()),
+
+    // path: "./uploads"
+    path: (id, file) => `.uploads/${id}${mimeExtension(file.type)}`,
+
+    write: async ({ handle }, chunk) => {
+      const { fd, offset } = handle;
+      let written = writeSync(fd, chunk, 0, chunk.length, offset);
+      while (written < chunk.length) {
+        written += writeSync(
+          fd,
+          chunk,
+          written,
+          chunk.length,
+          offset + written,
+        );
+      }
+      handle.offset += written;
+      return written;
+    },
+
+    end: async ({ handle: { fd }, ...file }) => closeSync(fd),
+
+    maxTotalSize: 100 * 1024 * 1024, // 100MB total
+    maxFileSize: 50 * 1024 * 1024, // 50MB max file
+    maxFiles: 10,
+    maxFields: 1,
+    maxFieldSize: 20,
+    // progress only works if Content-Length is specified
+    progressIncrement: 10, // progress report every 10% but actual callback depends on chunk size
+
+    onFileHeader: (ctx, { headers }) => {
+      const contentType = headers.get("content-type");
+      if (
+        !["image/jpeg", "image/png"].some((type) =>
+          contentType?.startsWith(type),
+        )
+      ) {
+        return json(
+          { error: "Unsupported Content-Type", contentType },
+          { status: Status._400_BadRequest },
+        );
+      }
+    },
+
+    onFileProgress: (ctx, { file, filename, headers, id, name }) => {
+      console.log(`[${name}:${file.fullpath}] ${file.progress.toFixed(2)}%`);
+    },
+  }),
+  ({ fields, files }) => {
+    return json({
+      success: true,
+      fields,
+      files: Object.fromEntries(files),
+      totalSize: Object.values(files).reduce((sum, f) => sum + f.size, 0),
+    });
+  },
+]);
+```
+
+---
+
+## Caching & Data Structures (`Cache`, `ExpCache`)
+
+Spine includes memory-bounded LRU caches that track capacity in **bytes** rather than entry counts:
+
+```ts
+import { ExpCache } from "@bepalo/spine";
+
+const cache = new ExpCache<string, string>({
+  maxMemory: 32 * 1024 * 1024, // 32MB maximum byte capacity
+  defaultTTL: 3600 * 1000, // 1 hour TTL
+  onMiss: (key, entry, reason, cache) => {
+    // Automatically called on cache miss or expiration
+  },
+});
+
+const data = "user-data";
+cache.set("session-1", data, data.length, { ttl: 60 * 1000 });
+const value = cache.get("session-1");
+
+setInterval(() => {
+  cache.evictExpired(); // Purges expired keys
+}, 300_000);
+```
+
+---
+
+## OpenAPI 3.0 Document Generation
+
+Generate full OpenAPI 3.0.0 specifications directly from your routes and metadata:
+
+```ts
+spine.get("/users/:id", ({ params }) => json({ id: params.id }), {
+  openApi: {
+    summary: "Get user by ID",
+    tags: ["Users"],
+    responses: {
+      "200": { description: "User found" },
+      "404": { description: "User not found" },
+    },
+  },
+});
+
+const openapi = await spine.generateOpenAPI(
   {
-    openApi: {
-      summary: "Get a user",
-      tags: ["Users"],
-      responses: {
-        "200": {
-          description: "User",
-        },
-      },
-    },
+    title: "Application API",
+    version: "1.0.0",
+    servers: [{ url: "https://api.example.com/v1" }],
+  },
+  {
+    pick: ({ path }) => path.startsWith("/api"),
+    autoTag: true,
+    autoSummary: true,
+    includeOperationId: true,
+    sortPathnameOrder: 1,
+    sortMethodOrder: 1,
   },
 );
 ```
 
-Then generate an OpenAPI 3.0 document:
+---
+
+## Router Composition (`append`,`appendTo`) & Introspection
+
+Mount sub-routers with path prefixes:
 
 ```ts
-const document = await spine.generateOpenAPI({
-  title: "My API",
-  version: "1.0.0",
+const apiRoutes = new Router({ maxPath: 16 });
+apiRoutes.get("/users", () => json({ users: [] }));
+apiRoutes.get("/posts", () => json({ posts: [] }));
+
+const mainRouter = new Router({ maxPath: 24 });
+mainRouter.appendTo("/v1", apiRoutes);
+
+// mainRouter now handles: GET /v1/users, GET /v1/posts
+```
+
+```ts
+const secRoutes = new Router({ maxPath: 16 });
+secRoutes.filterAll("/**", [cors(), securityHeaders()]);
+secRoutes.filterAll("/api/**", [cors(), securityHeaders()]);
+
+const mainRouter = new Router({ maxPath: 24 });
+mainRouter.append(secRoutes);
+
+// mainRouter now filters: All /**, All /api/**
+```
+
+Inspect active route registrations across dimensions:
+
+```ts
+console.dir(spine.getRoutesByPathnameThenMethod(), { depth: 5 });
+console.dir(spine.getRoutesByPathnameThenHandlerType(), { depth: 5 });
+console.dir(spine.getRoutesByHandlerTypeThenMethod(), { depth: 5 });
+console.dir(spine.getRoutesByHandlerTypeThenPathname(), { depth: 5 });
+console.dir(spine.getRoutesByMethodThenHandlerType(), { depth: 5 });
+console.dir(spine.getRoutesByMethodThenPathname(), { depth: 5 });
+```
+
+---
+
+## File-Based Routing & Watchers
+
+### Loading Routes Dynamically
+
+_NOTE: It is best to use generated static imports for production. see [static-route-watchers](#static-route-watchers-for-zero-reflection-production)_
+
+```ts
+const spine = new Router({ maxPath: 24 });
+
+await spine.load({
+  routesPath: "./routes",
+  // pattern: /\.(ts|js)$/,
 });
 ```
 
-Route parameters are automatically represented using OpenAPI's `{parameter}` syntax.
+A route file exports handlers matching `<method>` or `<method>_<handlerType>`:
 
-## Error Handling
-
-Throw an `HttpError` when you need an HTTP-specific failure:
+_NOTE: method and handlerType are both case insensitive so you are free to use any casing you want._
 
 ```ts
-import { HttpError } from "@bepalo/spine";
+// routes/users/[id].ts
+import { json, type HandlerPipe, type CTBody } from "@bepalo/spine";
 
-spine.get("/users/:id", ({ params }) => {
-  const user = findUser(params.id);
+export const get: HandlerPipe = {
+  pipe: ({ params }) => json({ user: params.id }),
+  openApi: {
+    summary: "Get user by ID",
+  },
+};
 
-  if (!user) {
-    throw new HttpError(404, "User not found");
-  }
+export const get: HandlerPipe = {
+  pipe: ({ params }) => json({ user: params.id }),
+  openApi: {
+    summary: "Get user by ID",
+  },
+};
 
-  return json(user);
+export const post: HandlerPipe<CTBody> = ({ body }) => json({ created: body });
+```
+
+### Static Route Watchers for Zero-Reflection Production
+
+Generate static import files during development that register routes directly in production:
+
+```ts
+// scripts/watch-routes.ts
+import { generateStaticRoutesWatcher } from "@bepalo/spine";
+import { readFile, writeFile } from "node:fs/promises";
+
+generateStaticRoutesWatcher({
+  routesPath: "./routes",
+  importRoot: "./routes/",
+  output: "./routes.gen.ts",
+  read: (f) => readFile(f, "utf-8"),
+  write: (f, c) => writeFile(f, c, "utf-8"),
 });
 ```
 
-Handle errors with a catcher:
-
 ```ts
-spine.catchGet("/users/**", ({ error }) =>
-  json({ error: error?.message }, { status: 500 }),
-);
+// server.ts
+import Router from "@bepalo/spine";
+import setRoutes from "./routes.gen.ts";
+
+const spine = new Router({ maxPath: 24 });
+setRoutes(spine); // Zero filesystem latency on startup!
 ```
 
-## Multipart Parser Demo
+---
 
-This is a well tested multipart-form-data parser that parses by streaming chunks.
-It can even handle edge cases like boundary across multiple chunks and very small chunks (down to 5 bytes of chunk). Thank God!
+## Performance & Design Invariants
 
-```ts
-router.post("/upload", [
-  parseUpload<{}, { writer: Bun.FileSink; hash: Hash | string }>({
-    // maxFields: 2,
-    // maxFiles: 1,
-    // maxFieldSize: 203,
-    // maxFileSize: 200 * 1024 * 1024,
+- **Specialized Routing Tables**: Exact routes use direct $O(1)$ Map lookups. Globs and super-globs are stored in separate index arrays by path segment count.
+- **No String Regex at Matching Time**: Path segments are split once per request and compared by segment.
+- **Flat Execution Pipelines**: Array iteration avoids recursive function call stack overhead.
+- **Strict Depth Boundaries**: `maxPath` enforces a hard limit on segment count, guarding against URI exhaustion attacks.
+- **Zero Cross-Request State Leakage**: Each incoming request receives a fresh `Context` object that can be customized.
+- **Protected After-Hooks**: Errors in After-hooks are caught by `afterCatcher` and never corrupt the outgoing Response.
+- **Optional pipes**: Optional pipes to disable for performance optimization.
 
-    path: process.cwd() + "/uploads",
-
-    fileHandle: (fullpath: string) => ({
-      writer: Bun.file(fullpath).writer(),
-      hash: createHash("sha256"),
-    }),
-
-    write: ({ handle }, chunk) => {
-      handle.writer.write(chunk);
-      (handle.hash as Hash).update(chunk);
-    },
-
-    end: ({ handle, fullpath, name }, success) => {
-      handle.writer.end();
-      handle.hash = (handle.hash as Hash).digest().toString("hex");
-      if (!success) {
-        Bun.file(fullpath).delete();
-        console.log(`[FileUpload](${name}) failed`);
-      }
-    },
-
-    onEnd: ({ files, fields }) => {
-      console.dir(
-        {
-          files: Object.fromEntries(files.entries()),
-          fields: Object.fromEntries(fields.entries()),
-        },
-        { depth: 3 },
-      );
-    },
-
-    onFileProgress: (ctx, { file }) => {
-      console.log(
-        `[FileUpload](${file.name}) progress`,
-        file.progress.toFixed(2),
-        "%",
-      );
-    },
-  }),
-]);
-```
-
-## Performance
-
-Spine keeps routing deliberately simple and specialized:
-
-- Exact routes use direct route tables.
-- Glob routes are stored separately from exact routes.
-- Super-glob routes are handled independently.
-- Routes are organized by HTTP method.
-- Pathnames are split once and reused during matching.
-- Parameter extraction happens only for the selected route candidates.
-
-The result is a spine focused on **fast matching, low overhead, and predictable behavior** without tying the routing layer to a particular server.
+---
 
 ## 📄 License
 

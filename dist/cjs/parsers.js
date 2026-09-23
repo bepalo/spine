@@ -1150,22 +1150,31 @@ const parseMultipart = ({ responseType = "text", dontCatch, maxFields, maxFiles,
             }
         }
         // handle complete and return a response
+        const returnResponse = response instanceof Response ||
+            response === types_ts_1.Break_Pipe ||
+            response === types_ts_1.Break_Pipeline;
         if (onEnd != null) {
             const status = response instanceof Response ? response.status : status_ts_1.Status._200_OK;
-            response = yield onEnd(ctx, {
+            const info = {
                 success: status >= 200 && status < 400,
-            });
+            };
+            if (returnResponse) {
+                info.response = response;
+            }
+            const endResponse = yield onEnd(ctx, info);
+            const returnEndResponse = endResponse instanceof Response ||
+                endResponse === types_ts_1.Break_Pipe ||
+                endResponse === types_ts_1.Break_Pipeline;
+            if (returnEndResponse) {
+                return endResponse;
+            }
         }
-        if (response instanceof Response) {
-            return response;
+        else {
+            if (returnResponse) {
+                return response;
+            }
+            return respond(status_ts_1.Status._200_OK, "success", "message", "multipart-parser");
         }
-        else if (response === types_ts_1.Break_Pipe) {
-            return types_ts_1.Break_Pipe;
-        }
-        else if (response === types_ts_1.Break_Pipeline) {
-            return types_ts_1.Break_Pipeline;
-        }
-        return respond(status_ts_1.Status._200_OK, "success", "message", "multipart-parser");
     });
 };
 exports.parseMultipart = parseMultipart;
@@ -1199,22 +1208,34 @@ const parseUpload = ({ responseType = "text", path, fileHandle, write, end, pars
         onHeader: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
             let response = undefined;
             if (info.file) {
+                if (onFileHeader != null) {
+                    response = yield onFileHeader(ctx, info);
+                    const returnResponse = response instanceof Response ||
+                        response === types_ts_1.Break_Pipe ||
+                        response === types_ts_1.Break_Pipeline;
+                    if (returnResponse) {
+                        return response;
+                    }
+                }
                 const { id, file } = info;
                 const uploadPath = yield getUploadPath(id, file);
                 file.fullpath = uploadPath;
-                file.handle = yield fileHandle(uploadPath);
                 file.totalChunks = 0;
                 file._prevProgress = 0;
                 file.progress = 0;
-                if (onFileHeader != null) {
-                    response = yield onFileHeader(ctx, info);
-                }
+                file.handle = yield fileHandle(uploadPath);
             }
             else {
                 const { name } = info;
                 ctx.fields.set(name, "");
                 if (onFieldHeader != null) {
                     response = yield onFieldHeader(ctx, info);
+                    const returnResponse = response instanceof Response ||
+                        response === types_ts_1.Break_Pipe ||
+                        response === types_ts_1.Break_Pipeline;
+                    if (returnResponse) {
+                        return response;
+                    }
                 }
             }
             if (onHeader != null) {
@@ -1256,7 +1277,10 @@ const parseUpload = ({ responseType = "text", path, fileHandle, write, end, pars
                 const { name } = info;
                 if (onFieldDataSpy != null) {
                     const response = yield onFieldDataSpy(ctx, chunk, info);
-                    if (response != null) {
+                    const returnResponse = response instanceof Response ||
+                        response === types_ts_1.Break_Pipe ||
+                        response === types_ts_1.Break_Pipeline;
+                    if (returnResponse) {
                         return response;
                     }
                 }
@@ -1295,6 +1319,12 @@ const parseUpload = ({ responseType = "text", path, fileHandle, write, end, pars
                     response = yield onFieldComplete(ctx, Object.assign(Object.assign({}, info), { field }));
                 }
             }
+            const returnResponse = response instanceof Response ||
+                response === types_ts_1.Break_Pipe ||
+                response === types_ts_1.Break_Pipeline;
+            if (returnResponse) {
+                return response;
+            }
             if (onComplete != null) {
                 response = yield onComplete(ctx, info);
             }
@@ -1310,10 +1340,12 @@ const parseUpload = ({ responseType = "text", path, fileHandle, write, end, pars
             if (onEnd != null) {
                 return yield onEnd(ctx, info);
             }
-            if (!info.success) {
+            else if (!info.success) {
                 return respond(status_ts_1.Status._500_InternalServerError, ((_a = info.error) === null || _a === void 0 ? void 0 : _a.message) || "Error while parsing upload", "error", "upload-parser");
             }
-            return respond(status_ts_1.Status._200_OK, "success", "message", "upload-parser");
+            else {
+                return respond(status_ts_1.Status._200_OK, "success", "message", "upload-parser");
+            }
         }),
         onFileSizeLimit: (ctx, info) => __awaiter(void 0, void 0, void 0, function* () {
             if (end != null) {

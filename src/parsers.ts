@@ -777,6 +777,7 @@ export const parseMultipart = <
     info: {
       success: boolean;
       error?: Error | HttpError;
+      response?: Response | typeof Break_Pipe | typeof Break_Pipeline;
     },
   ) => ParseMultipartCallbacksReturnType;
 
@@ -1587,23 +1588,39 @@ export const parseMultipart = <
       }
     }
     // handle complete and return a response
+    const returnResponse =
+      response instanceof Response ||
+      response === Break_Pipe ||
+      response === Break_Pipeline;
     if (onEnd != null) {
       const status =
         response instanceof Response ? response.status : Status._200_OK;
-      response = await onEnd(ctx, {
+      const info: any = {
         success: status >= 200 && status < 400,
-      });
+      };
+      if (returnResponse) {
+        info.response = response;
+      }
+      const endResponse = await onEnd(ctx, info);
+      const returnEndResponse =
+        endResponse instanceof Response ||
+        endResponse === Break_Pipe ||
+        endResponse === Break_Pipeline;
+      if (returnEndResponse) {
+        return endResponse;
+      }
+    } else {
+      if (returnResponse) {
+        return response;
+      }
+      return respond(Status._200_OK, "success", "message", "multipart-parser");
     }
-    if (response instanceof Response) {
-      return response;
-    } else if (response === Break_Pipe) {
-      return Break_Pipe;
-    } else if (response === Break_Pipeline) {
-      return Break_Pipeline;
-    }
-    return respond(Status._200_OK, "success", "message", "multipart-parser");
   };
 };
+
+export type CTUpload<
+  ExtendParsedFormDataFile extends Record<string, unknown> = EmptyRecord,
+> = CTFormData<ExtendParsedFormDataFile>;
 
 export type ParseUploadFileExtension<FileHandle = unknown> = {
   totalChunks: number;
@@ -1621,8 +1638,8 @@ export type ParseUploadFileExtension<FileHandle = unknown> = {
  * @returns {Response} Returns a 400 response if form-data is malformed
  */
 export const parseUpload = <
-  ExtendContext extends Record<string, unknown> = {},
   FileHandle = unknown,
+  ExtendContext extends Record<string, unknown> = EmptyRecord,
   ExtendParsedFormDataFile extends Record<string, unknown> &
     ParseUploadFileExtension<FileHandle> = ParseUploadFileExtension<FileHandle>,
   Info extends ParseMultipartInfo<ExtendParsedFormDataFile> =
@@ -1720,6 +1737,7 @@ export const parseUpload = <
     info: {
       success: boolean;
       error?: Error | HttpError;
+      response?: Response | typeof Break_Pipe | typeof Break_Pipeline;
     },
   ) => ParseMultipartCallbacksReturnType;
 
@@ -1860,19 +1878,26 @@ export const parseUpload = <
     onHeader: async (ctx, info) => {
       let response = undefined;
       if (info.file) {
-        const { id, file } = info;
-        const uploadPath = await getUploadPath(id, file);
-        file.fullpath = uploadPath;
-        file.handle = await fileHandle(uploadPath);
-        file.totalChunks = 0;
-        file._prevProgress = 0;
-        file.progress = 0;
         if (onFileHeader != null) {
           response = await onFileHeader(
             ctx as CTParseUpload,
             info as unknown as FileInfo,
           );
+          const returnResponse =
+            response instanceof Response ||
+            response === Break_Pipe ||
+            response === Break_Pipeline;
+          if (returnResponse) {
+            return response;
+          }
         }
+        const { id, file } = info;
+        const uploadPath = await getUploadPath(id, file);
+        file.fullpath = uploadPath;
+        file.totalChunks = 0;
+        file._prevProgress = 0;
+        file.progress = 0;
+        file.handle = await fileHandle(uploadPath);
       } else {
         const { name } = info;
         ctx.fields.set(name, "");
@@ -1881,6 +1906,13 @@ export const parseUpload = <
             ctx as CTParseUpload,
             info as unknown as FieldInfo,
           );
+          const returnResponse =
+            response instanceof Response ||
+            response === Break_Pipe ||
+            response === Break_Pipeline;
+          if (returnResponse) {
+            return response;
+          }
         }
       }
       if (onHeader != null) {
@@ -1938,7 +1970,11 @@ export const parseUpload = <
             chunk,
             info as unknown as FieldInfo,
           );
-          if (response != null) {
+          const returnResponse =
+            response instanceof Response ||
+            response === Break_Pipe ||
+            response === Break_Pipeline;
+          if (returnResponse) {
             return response;
           }
         }
@@ -1991,6 +2027,13 @@ export const parseUpload = <
           );
         }
       }
+      const returnResponse =
+        response instanceof Response ||
+        response === Break_Pipe ||
+        response === Break_Pipeline;
+      if (returnResponse) {
+        return response;
+      }
       if (onComplete != null) {
         response = await onComplete(ctx as CTParseUpload, info);
       }
@@ -2006,16 +2049,16 @@ export const parseUpload = <
     onEnd: async (ctx, info) => {
       if (onEnd != null) {
         return await onEnd(ctx as CTParseUpload, info);
-      }
-      if (!info.success) {
+      } else if (!info.success) {
         return respond(
           Status._500_InternalServerError,
           info.error?.message || "Error while parsing upload",
           "error",
           "upload-parser",
         );
+      } else {
+        return respond(Status._200_OK, "success", "message", "upload-parser");
       }
-      return respond(Status._200_OK, "success", "message", "upload-parser");
     },
 
     onFileSizeLimit: async (ctx, info) => {

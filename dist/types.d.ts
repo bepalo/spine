@@ -13,6 +13,7 @@ export type CrossOriginEmbedderPolicy = CrossOriginEmbedderPolicyToken | `${Cros
 export type CrossOriginResourcePolicy = "same-site" | "same-origin" | "cross-origin";
 export type ReferrerPolicy = "no-referrer" | "no-referrer-when-downgrade" | "origin" | "origin-when-cross-origin" | "same-origin" | "strict-origin" | "strict-origin-when-cross-origin" | "unsafe-url";
 export type XFrameOptions = "DENY" | "SAMEORIGIN";
+export type XContentTypeOptions = "nosniff";
 type ContentSecurityPolicyCommonSource = "'self'" | "'none'" | "https:" | "http:" | "data:" | "blob:" | "*" | `${string}://${string}` | `${string}://*.${string}`;
 type ContentSecurityPolicyScriptStyleSource = ContentSecurityPolicyCommonSource | "'unsafe-inline'" | "'unsafe-eval'" | "'strict-dynamic'" | "'report-sample'" | "'wasm-unsafe-eval'" | "'inline-speculation-rules'" | `'nonce-${string}'` | `'sha256-${string}'` | `'sha384-${string}'` | `'sha512-${string}'`;
 type ContentSecurityPolicyScriptSource = ContentSecurityPolicyScriptStyleSource;

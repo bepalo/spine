@@ -95,6 +95,7 @@ export type ReferrerPolicy =
   | "unsafe-url";
 
 export type XFrameOptions = "DENY" | "SAMEORIGIN";
+export type XContentTypeOptions = "nosniff";
 
 type ContentSecurityPolicyCommonSource =
   | "'self'"

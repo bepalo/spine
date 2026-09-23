@@ -760,7 +760,7 @@ describe("Router", () => {
 
       router.get("/test", () => text("OK"));
 
-      router.afterGet("/test", (ctx<CTResponse>) => {
+      router.afterGet("/test", (ctx) => {
         afterCalled = true;
         ctx.response.headers.set("X-Custom", "after");
       });
@@ -2164,7 +2164,7 @@ describe("Router - Additional Tests", () => {
 
     it("should handle routes with many path segments", async () => {
       const router = new Router({ 
-        maxPath:5, maxPath: 100 });
+        maxPath: 50 });
 
       router.get("/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z", () => {
         return text("deep");

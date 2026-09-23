@@ -20,12 +20,13 @@ import {
 } from "./parsers.ts";
 import { getHttpStatusText, Status } from "./status.ts";
 import { Break_Pipe, Break_Pipeline, EndHandler, HttpError } from "./types.ts";
-import {
+import type {
   HttpMethodLower,
   HttpMethodUpper,
   Context,
   Handler,
   HttpMethod,
+  XContentTypeOptions,
   XFrameOptions,
   ReferrerPolicy,
   ContentSecurityPolicyParams,
@@ -95,8 +96,8 @@ export const COLORS = {
  * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
  * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
  * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
- * 
- * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response. 
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response.
  */
 export const logRequests = <
   ExtendContext extends Record<string, unknown> = {},
@@ -170,10 +171,15 @@ export const logRequests = <
     enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
   ////////////////////////////////////////////////////////////////////////////
   return (ctx) => {
-    if(filter && !filter(ctx)) {
+    if (filter && !filter(ctx)) {
       return;
     }
-    const { request, response, url, timestamps: { epoch, start, end } } = ctx;
+    const {
+      request,
+      response,
+      url,
+      timestamps: { epoch, start, end },
+    } = ctx;
     // Status Str
     let statusStr;
     switch (statusType) {
@@ -248,7 +254,7 @@ export const logRequests = <
  * @param {number} [options.pad.duration=7] duration padding option. Negative padding means right padding.
  * @param {number} [options.pad.status] status padding option. Negative padding means right padding.
  * @param {number} [options.pad.method] method padding option. Negative padding means right padding.
- * 
+ *
  * @param {object} [options.reqTime] Request-time color options.
  * @param {Color} [options.reqTime.color] Request-time color option to set color.
  * @param {boolean} [options.reqTime.bold] Request-time color option to make it bold.
@@ -273,8 +279,8 @@ export const logRequests = <
  * @param {Color} [options.search.color] Search color option to set color.
  * @param {boolean} [options.search.bold] Search color option to make it bold.
  * @param {boolean} [options.search.dim] Search Color option to make it dim.
- * 
- * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response with color. 
+ *
+ * @returns {EndHandler<ExtendContext>} An end handler function that logs the request and response with color.
  */
 export const logRequestsWithColor = <
   ExtendContext extends Record<string, unknown> = {},
@@ -444,10 +450,15 @@ export const logRequestsWithColor = <
     enSearch === "multiline" ? 2 : enSearch === "singleline" ? 1 : 0;
   ////////////////////////////////////////////////////////////////////////////
   return (ctx) => {
-    if(filter && !filter(ctx)) {
+    if (filter && !filter(ctx)) {
       return;
     }
-    const { request, response, url, timestamps: { epoch, start, end } } = ctx;
+    const {
+      request,
+      response,
+      url,
+      timestamps: { epoch, start, end },
+    } = ctx;
     // Status Str
     let statusStr;
     switch (statusType) {
@@ -525,7 +536,7 @@ export const forceHttps = <
 
 /**
  * Set security headers.
- *   - "X-Content-Type-Options": always "nosniff"
+ *   - "X-Content-Type-Options": default "nosniff"
  *   - "X-Frame-Options": default "DENY"
  *   - "Referrer-Policy": from parameters
  *   - "Strict-Transport-Security": from parameters
@@ -538,6 +549,7 @@ export const securityHeaders = <
   ExtendContext extends Record<string, unknown> = {},
 >(config?: {
   referrerPolicy?: ReferrerPolicy | null;
+  xContentTypeOptions?: XContentTypeOptions | null;
   xFrameOptions?: XFrameOptions | null;
   strictTransportSecurity?:
     | StrictTransportSecurity
@@ -624,6 +636,7 @@ export const securityHeaders = <
     crossOriginEmbedderPolicy,
     crossOriginResourcePolicy,
     referrerPolicy,
+    xContentTypeOptions = "nosniff",
     xFrameOptions = "DENY",
     strictTransportSecurity: hsts_,
     contentSecurityPolicy: csp_,
@@ -655,7 +668,9 @@ export const securityHeaders = <
     }
   }
   /////////////////////////////////////////////
-  preparedHeaders.push(["X-Content-Type-Options", "nosniff"]);
+  if (xContentTypeOptions != null) {
+    preparedHeaders.push(["X-Content-Type-Options", xContentTypeOptions]);
+  }
   if (xFrameOptions != null) {
     preparedHeaders.push(["X-Frame-Options", xFrameOptions]);
   }

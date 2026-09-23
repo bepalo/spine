@@ -4,6 +4,7 @@ import { json, status, text } from "./helpers.ts";
 import { Status } from "./status.ts";
 import {
   Break_Pipeline,
+  EmptyRecord,
   RouterError,
   type Context,
   type Handler,
@@ -15,7 +16,7 @@ import {
  * @template {Record<string, unknown>} ExtendAuth - Extend Auth Context
  */
 export type Auth<
-  ExtendAuth extends Record<string, unknown> = Record<string, never>,
+  ExtendAuth extends Record<string, unknown> = EmptyRecord,
 > = {
   /** Role assigned to the user (e.g., "admin", "user") */
   role: string;
@@ -27,7 +28,7 @@ export type Auth<
  * @template {Record<string, unknown>} ExtendAuth - Extend Auth Context
  */
 export type CTAuth<
-  ExtendAuth extends Record<string, unknown> = Record<string, never>,
+  ExtendAuth extends Record<string, unknown> = EmptyRecord,
 > = {
   /** Authenticated user details */
   auth?: Auth<ExtendAuth>;
@@ -40,8 +41,8 @@ export type CTAuth<
  * @template {Record<string, unknown>} ExtendContext - Extend Router Context
  */
 export type ParseAuthFn<
-  ExtendAuth extends Record<string, unknown> = Record<string, never>,
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendAuth extends Record<string, unknown> = EmptyRecord,
+  ExtendContext extends Record<string, unknown> = EmptyRecord,
 > = (
   ctx: Context<CTAuth<ExtendAuth> & ExtendContext>,
 ) =>
@@ -67,8 +68,8 @@ export type ParseAuthFn<
  *   otherwise returns a `401 Unauthorized` or with error message if available response (unless `checkOnly` is true).
  */
 export const authenticate = <
-  ExtendAuth extends Record<string, unknown> = Record<string, never>,
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendAuth extends Record<string, unknown> = EmptyRecord,
+  ExtendContext extends Record<string, unknown> = EmptyRecord,
 >({
   parseAuth,
   breakPipeline = false,
@@ -150,8 +151,8 @@ export const authenticate = <
  *
  */
 export const authorize = <
-  ExtendAuth extends Record<string, unknown> = Record<string, never>,
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendAuth extends Record<string, unknown> = EmptyRecord,
+  ExtendContext extends Record<string, unknown> = EmptyRecord,
 >({
   allowRole,
   forbidRole,
@@ -281,7 +282,7 @@ export const basicAuthParser = <
   ExtendAuth extends { username: string } & Record<string, unknown> = {
     username: string;
   },
-  ExtendContext extends Record<string, unknown> = Record<string, never>,
+  ExtendContext extends Record<string, unknown> = EmptyRecord,
 >({
   validateCredentials,
   type = "base64",
