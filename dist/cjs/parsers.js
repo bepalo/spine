@@ -50,29 +50,132 @@ exports.parseQuery = parseQuery;
 /**
  * Parses cookies from a Request object's Cookie header.
  * @template {Record<string, string>} Expected
- * @param {Request} req - The request object containing cookies
+ * @param {Request} request - The request object containing cookies
  * @returns {Expected|undefined} An object with cookie name-value pairs, or undefined if no cookies
  * @example
  * const cookies = parseCookieFromRequest(req);
  * // Returns: { session: "abc123", theme: "dark" }
  */
-const parseCookieFromRequest = (req, cookies) => {
-    const cookieHeader = req.headers.get("cookie");
+const parseCookieFromRequest = (request, cookieOut) => {
+    const cookieHeader = request.headers.get("cookie");
     if (cookieHeader != null) {
-        const _cookies = cookies !== null && cookies !== void 0 ? cookies : {};
-        for (const pair of cookieHeader.split(";")) {
-            const [rawName, rawValue, extra] = pair
-                .trim()
-                .split("=", 3)
-                .map((token) => token.trim());
-            if (rawName &&
-                rawValue !== undefined &&
-                rawValue !== "" &&
-                extra === undefined) {
-                _cookies[rawName] = decodeURIComponent(rawValue);
+        const cookie = cookieOut !== null && cookieOut !== void 0 ? cookieOut : {};
+        // 1: cookie-name
+        // 2: cookie-value
+        let mode = 1;
+        let key;
+        let dQuoteI = -1;
+        let lastI = 0;
+        let i = 0;
+        const len_1 = cookieHeader.length - 1;
+        for (; i <= len_1; i++) {
+            const cc = cookieHeader.charCodeAt(i);
+            if (cc < 33 || cc > 126) {
+                // console.log(cc, `'${String.fromCharCode(cc)}'`)
+                if (mode === 1) {
+                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                }
+                else if (mode === 2) {
+                    throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-value token");
+                }
+            }
+            switch (cc) {
+                case 59: // ";"
+                    if (mode === 2) {
+                        const value = cookieHeader.slice(lastI, i);
+                        if (dQuoteI > -1) {
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid double-quoted cookie-value token");
+                        }
+                        else if (cookieHeader.charCodeAt(++i) !== 32) /* SP */ {
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-separator token");
+                        }
+                        cookie[key] = value;
+                        mode = 1;
+                        lastI = i + 1;
+                    }
+                    else {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                    }
+                    continue;
+                case 61: // "="
+                    if (mode === 1) {
+                        if (lastI === i) {
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                        }
+                        key = cookieHeader.slice(lastI, i);
+                        lastI = i + 1;
+                        mode = 2;
+                    }
+                    continue;
+                // Start and End DQuotes
+                case 34: // "
+                    if (mode === 2) {
+                        if (lastI === i) {
+                            dQuoteI = i;
+                        }
+                        else if (dQuoteI > 0) {
+                            const next_i = i + 1;
+                            if (next_i < len_1 &&
+                                cookieHeader.charCodeAt(next_i) !== 59 /* ";" */) {
+                                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-value token");
+                            }
+                            dQuoteI = -1;
+                        }
+                        else {
+                            throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-value token");
+                        }
+                    }
+                    else {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                    }
+                    continue;
+                // case 59: // ;
+                case 44: // ,
+                case 92: // \
+                    if (mode === 1) {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                    }
+                    else if (dQuoteI > -1) {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid double-quoted cookie-value token");
+                    }
+                    else {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-value token");
+                    }
+                // Invalid Token Chars: Separators
+                case 40: // (
+                case 41: // )
+                case 60: // <
+                case 62: // >
+                case 64: // @
+                case 58: // :
+                case 47: // /
+                case 91: // [
+                case 93: // ]
+                case 63: // ?
+                // case 61: // =
+                case 123: // {
+                case 125: // }
+                    // case 32: // " "
+                    // case 9: // \t
+                    if (mode === 1) {
+                        throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie-name token");
+                    }
+                    continue;
             }
         }
-        return _cookies;
+        if (lastI <= i) {
+            if (mode === 2 && dQuoteI < 0) {
+                const value = cookieHeader.slice(lastI, i);
+                cookie[key] = value;
+            }
+            else if (dQuoteI > -1) {
+                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid double-quoted cookie-value token");
+            }
+            else {
+                throw new types_ts_1.HttpError(status_ts_1.Status._400_BadRequest, "Invalid cookie");
+            }
+        }
+        return cookie;
     }
     return undefined;
 };

@@ -45,13 +45,13 @@ export declare const parseQuery: <Keys extends string = string, ExtendQuery exte
 /**
  * Parses cookies from a Request object's Cookie header.
  * @template {Record<string, string>} Expected
- * @param {Request} req - The request object containing cookies
+ * @param {Request} request - The request object containing cookies
  * @returns {Expected|undefined} An object with cookie name-value pairs, or undefined if no cookies
  * @example
  * const cookies = parseCookieFromRequest(req);
  * // Returns: { session: "abc123", theme: "dark" }
  */
-export declare const parseCookieFromRequest: <Expected extends Record<string, string>>(req: Request, cookies?: Expected) => Expected | undefined;
+export declare const parseCookieFromRequest: <Expected extends Record<string, string>>(request: Request, cookieOut?: Expected) => Expected | undefined;
 /**
  * Parsed cookie.
  *

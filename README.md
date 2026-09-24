@@ -11,7 +11,7 @@
 <!--
 [![Vitest](https://img.shields.io/badge/vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)](test-result.md) -->
 
-**The Next-Generation Web-Standard HTTP Router & Pipeline Engine for TypeScript & JavaScript.**
+**A Next-Generation Web-Standard HTTP Pipeline-based Router for TypeScript & JavaScript.**
 
 Spine is built from first principles around Web Standard APIs (`Request`, `Response`, `Headers`, `URL`). It replaces traditional recursive middleware onions with **deterministic flat array pipelines**, introduces **pipeline parameter linking**, features **specialized $O(1)$ routing tables**, and delivers zero server lock-in across Bun, Deno, Node.js, and edge runtimes.
 

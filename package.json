@@ -1,7 +1,7 @@
 {
   "name": "@bepalo/spine",
-  "version": "3.15.30",
-  "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
+  "version": "3.16.31",
+  "description": "A Next-Generation Web-Standard HTTP Pipeline-based Router for TypeScript & JavaScript.",
   "author": "Natnael Eshetu",
   "license": "MIT",
   "repository": {

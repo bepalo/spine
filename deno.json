@@ -1,11 +1,11 @@
 {
   "name": "@bepalo/spine",
-  "version": "3.15.30",
+  "version": "3.16.31",
   "exports": {
     ".": "./mod.ts",
     "./mod.ts": "./mod.ts"
   },
-  "description": "A fast and feature-rich javascript-runtime-agnostic HTTP request router.",
+  "description": "A Next-Generation Web-Standard HTTP Pipeline-based Router for TypeScript & JavaScript.",
   "license": "MIT",
   "homepage": "https://github.com/bepalo/spine",
   "repository": {
